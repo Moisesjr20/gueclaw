@@ -5,6 +5,7 @@ import { AgentLoop } from '../engine/AgentLoop';
 import { ToolRegistry } from '../engine/ToolRegistry';
 import { SkillRouter } from '../skills/SkillRouter';
 import { PythonExecutorTool } from '../tools/PythonExecutorTool';
+import { SshExecutorTool } from '../tools/SshExecutorTool';
 
 export class AgentController {
   private outputHandler: TelegramOutputHandler;
@@ -19,8 +20,13 @@ export class AgentController {
     this.skillRouter = new SkillRouter();
     
     this.defaultRegistry = new ToolRegistry();
-    // Injeção Fixa da Tool Base ("execute_python") - DOE Rules (Execution in Python)
+    // DOE Layer 3: Python execution
     this.defaultRegistry.register(new PythonExecutorTool());
+    // SSH Tool: acesso remoto à VPS (ativa apenas se VPS_HOST estiver configurado)
+    if (process.env.VPS_HOST) {
+      this.defaultRegistry.register(SshExecutorTool);
+      console.log(`[AgentController] SSH Tool ativa -> ${process.env.VPS_USER}@${process.env.VPS_HOST}`);
+    }
     
     this.agentLoop = new AgentLoop(this.defaultRegistry);
   }
