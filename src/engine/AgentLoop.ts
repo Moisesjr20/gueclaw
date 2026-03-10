@@ -1,5 +1,6 @@
 import { ProviderFactory } from './ProviderFactory';
 import { ToolRegistry } from './ToolRegistry';
+import { processAndExecuteCodeBlocks } from './CodeBlockExecutor';
 
 interface LoopContext {
    role: 'user' | 'assistant' | 'system' | 'tool';
@@ -77,7 +78,16 @@ export class AgentLoop {
 
         // Final Answer — LLM quer apenas responder
         if (!response.toolCalls || response.toolCalls.length === 0) {
-           return response.content; 
+          // Para modelos sem tool calls (ex: deepseek-reasoner),
+          // tenta detectar e executar blocos shell no texto
+          const model = process.env.DEEPSEEK_MODEL || '';
+          const isReasoner = model === 'deepseek-reasoner';
+          if (isReasoner && response.content) {
+            console.log('[AgentLoop] Modo Reasoner: processando blocos de código...');
+            const enriched = await processAndExecuteCodeBlocks(response.content);
+            return enriched;
+          }
+          return response.content;
         }
 
         // Action — LLM quer chamar uma Tool
