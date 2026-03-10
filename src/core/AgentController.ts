@@ -6,6 +6,7 @@ import { ToolRegistry } from '../engine/ToolRegistry';
 import { SkillRouter } from '../skills/SkillRouter';
 import { PythonExecutorTool } from '../tools/PythonExecutorTool';
 import { SshExecutorTool } from '../tools/SshExecutorTool';
+import { LocalShellTool } from '../tools/LocalShellTool';
 
 export class AgentController {
   private outputHandler: TelegramOutputHandler;
@@ -22,6 +23,8 @@ export class AgentController {
     this.defaultRegistry = new ToolRegistry();
     // DOE Layer 3: Python execution
     this.defaultRegistry.register(new PythonExecutorTool());
+    // Shell Tool: executa comandos diretamente no servidor (sempre ativa)
+    this.defaultRegistry.register(LocalShellTool);
     // SSH Tool: acesso remoto à VPS (ativa apenas se VPS_HOST estiver configurado)
     if (process.env.VPS_HOST) {
       this.defaultRegistry.register(SshExecutorTool);
