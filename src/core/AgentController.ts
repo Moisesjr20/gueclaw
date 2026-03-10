@@ -7,6 +7,7 @@ import { SkillRouter } from '../skills/SkillRouter';
 import { PythonExecutorTool } from '../tools/PythonExecutorTool';
 import { SshExecutorTool } from '../tools/SshExecutorTool';
 import { LocalShellTool } from '../tools/LocalShellTool';
+import { DOELoader } from './DOELoader';
 
 export class AgentController {
   private outputHandler: TelegramOutputHandler;
@@ -79,7 +80,8 @@ export class AgentController {
       const history = this.sanitizeHistory(rawHistory.map(m => ({ role: m.role, content: m.content })));
 
       const selectedSkill = await this.skillRouter.determineSkill(message);
-      let systemPrompt = "Você é GueClaw, assistente do usuário. Responda em Português-BR. Quando solicitado a executar ações no servidor, use a tool execute_shell_command.";
+      // System Prompt base vem do DOELoader (lê os arquivos DOE/ em runtime)
+      let systemPrompt = DOELoader.buildSystemPrompt();
       
       if (selectedSkill) {
         console.log(`[Router] Skill: ${selectedSkill.name}`);
