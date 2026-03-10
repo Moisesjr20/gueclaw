@@ -1,0 +1,12 @@
+# Credenciais - NUNCA enviar pro Git!
+.env
+data/
+tmp/
+
+# Node
+node_modules/
+dist/
+
+# Logs e arquivos temporários
+*.log
+npm-debug.log*
