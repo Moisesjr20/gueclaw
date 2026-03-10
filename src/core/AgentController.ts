@@ -13,7 +13,7 @@ export class AgentController {
   private memoryManager: MemoryManager;
   private skillRouter: SkillRouter;
   private agentLoop: AgentLoop;
-  private defaultRegistry: ToolRegistry; // Futuramente podemos registrar Tools (Python executions) aqui
+  private defaultRegistry: ToolRegistry;
 
   constructor() {
     this.outputHandler = new TelegramOutputHandler();
@@ -21,17 +21,45 @@ export class AgentController {
     this.skillRouter = new SkillRouter();
     
     this.defaultRegistry = new ToolRegistry();
-    // DOE Layer 3: Python execution
     this.defaultRegistry.register(new PythonExecutorTool());
-    // Shell Tool: executa comandos diretamente no servidor (sempre ativa)
     this.defaultRegistry.register(LocalShellTool);
-    // SSH Tool: acesso remoto à VPS (ativa apenas se VPS_HOST estiver configurado)
     if (process.env.VPS_HOST) {
       this.defaultRegistry.register(SshExecutorTool);
       console.log(`[AgentController] SSH Tool ativa -> ${process.env.VPS_USER}@${process.env.VPS_HOST}`);
     }
     
     this.agentLoop = new AgentLoop(this.defaultRegistry);
+  }
+
+  /**
+   * Sanitiza histórico do SQLite garantindo alternância user/assistant.
+   * Protege contra dados corrompidos de sessões anteriores.
+   */
+  private sanitizeHistory(raw: { role: string; content: string }[]): { role: string; content: string }[] {
+    // Normaliza roles: 'tool' e 'system' tornam-se 'user'
+    const normalized = raw
+      .filter(m => m.content?.trim())
+      .map(m => ({
+        role: (m.role === 'tool' || m.role === 'system') ? 'user' : m.role,
+        content: m.content
+      }));
+
+    // Remove consecutivos do mesmo role (colapsa em um)
+    const result: { role: string; content: string }[] = [];
+    for (const msg of normalized) {
+      if (result.length > 0 && result[result.length - 1].role === msg.role) {
+        result[result.length - 1].content += '\n' + msg.content;
+      } else {
+        result.push({ ...msg });
+      }
+    }
+
+    // Garante que termina com 'user' (mensagem atual do usuário)
+    while (result.length > 0 && result[result.length - 1].role === 'assistant') {
+      result.pop();
+    }
+
+    return result;
   }
 
   /**
@@ -42,36 +70,30 @@ export class AgentController {
     await ctx.replyWithChatAction('typing');
 
     try {
-        // 1. Histórico e contexto
-        const providerName = process.env.DEFAULT_LLM_PROVIDER || 'gemini';
-        const conversation = this.memoryManager.getOrCreateConversation(userId, providerName);
-        this.memoryManager.saveMessage(conversation.id, 'user', message);
-        const history = this.memoryManager.getMessages(conversation.id, 20); // Janela do SQLite
+      const providerName = process.env.DEFAULT_LLM_PROVIDER || 'gemini';
+      const conversation = this.memoryManager.getOrCreateConversation(userId, providerName);
+      this.memoryManager.saveMessage(conversation.id, 'user', message);
+      
+      // Janela de 12 mensagens + sanitização contra dados corrompidos
+      const rawHistory = this.memoryManager.getMessages(conversation.id, 12);
+      const history = this.sanitizeHistory(rawHistory.map(m => ({ role: m.role, content: m.content })));
 
-        // 2. Tentar invocar Skill
-        const selectedSkill = await this.skillRouter.determineSkill(message);
-        let systemPrompt = "Você é GueClaw, o assistente local restrito do usuário (Sandeco). Fale estritamente em Português-BR.";
-        
-        if (selectedSkill) {
-            console.log(`[Router] Skill identificada: ${selectedSkill.name}`);
-            systemPrompt += `\n\nATENÇÃO: Você está sob influência do modo Skill: ${selectedSkill.name}.\nDIRETIVAS ADICIONAIS:\n${selectedSkill.content}`;
-        }
+      const selectedSkill = await this.skillRouter.determineSkill(message);
+      let systemPrompt = "Você é GueClaw, assistente do usuário. Responda em Português-BR. Quando solicitado a executar ações no servidor, use a tool execute_shell_command.";
+      
+      if (selectedSkill) {
+        console.log(`[Router] Skill: ${selectedSkill.name}`);
+        systemPrompt += `\n\nATENÇÃO — Skill ativa: ${selectedSkill.name}\n${selectedSkill.content}`;
+      }
 
-        // 3. Submeter ao motor ReAct
-        const finalAnswer = await this.agentLoop.run(
-           history.map(m => ({ role: m.role, content: m.content })),
-           systemPrompt
-        );
+      const finalAnswer = await this.agentLoop.run(history, systemPrompt);
 
-        // 4. Salvar resposta
-        this.memoryManager.saveMessage(conversation.id, 'assistant', finalAnswer);
-
-        // 5. Responder
-        await this.outputHandler.sendResponse(ctx, finalAnswer);
+      this.memoryManager.saveMessage(conversation.id, 'assistant', finalAnswer);
+      await this.outputHandler.sendResponse(ctx, finalAnswer);
 
     } catch (err: any) {
-        console.error('[AgentController] Error Handler:', err);
-        await this.outputHandler.sendResponse(ctx, "Desculpe, ocorreu uma exceção no Motor Core: " + err.message);
+      console.error('[AgentController] Error:', err);
+      await this.outputHandler.sendResponse(ctx, "Desculpe, ocorreu uma exceção: " + err.message);
     }
   }
 }
