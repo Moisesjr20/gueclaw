@@ -10,11 +10,13 @@ interface LoopContext {
 export class AgentLoop {
   private maxIterations: number;
   private providerName: string;
+  private modelOverride?: string;
   private registry: ToolRegistry;
 
-  constructor(registry: ToolRegistry) {
+  constructor(registry: ToolRegistry, options?: { providerName?: string; modelOverride?: string }) {
     this.maxIterations = parseInt(process.env.MAX_ITERATIONS || '5');
-    this.providerName = process.env.DEFAULT_LLM_PROVIDER || 'gemini';
+    this.providerName = options?.providerName || process.env.DEFAULT_LLM_PROVIDER || 'gemini';
+    this.modelOverride = options?.modelOverride;
     this.registry = registry;
   }
 
@@ -57,7 +59,7 @@ export class AgentLoop {
   ): Promise<string> {
     
     let iterations = 0;
-    const provider = ProviderFactory.create(this.providerName);
+    const provider = ProviderFactory.create(this.providerName, this.modelOverride);
     
     // Thread efêmero — não salvo no SQLite, só vive durante esta execução
     const thread: LoopContext[] = history.map(h => ({ role: h.role as any, content: h.content }));

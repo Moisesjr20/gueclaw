@@ -51,7 +51,14 @@ export class SubAgentManager {
 
     try {
       const registry = this._buildRegistry();
-      const loop = new AgentLoop(registry);
+      
+      const cheapProvider = process.env.CHEAP_LLM_PROVIDER || process.env.DEFAULT_LLM_PROVIDER;
+      const cheapModel = process.env.CHEAP_LLM_MODEL || 'google/gemini-2.5-flash';
+      
+      const loop = new AgentLoop(registry, { 
+        providerName: cheapProvider, 
+        modelOverride: cheapModel 
+      });
 
       // System prompt: usa override ou o DOE padrão
       const systemPrompt = config.systemPromptOverride

@@ -10,9 +10,9 @@ export class OpenRouterProvider implements ILLMProvider {
   private model: string;
   private baseUrl: string;
 
-  constructor() {
+  constructor(modelOverride?: string) {
     this.apiKey = process.env.OPENROUTER_API_KEY || '';
-    this.model = process.env.OPENROUTER_MODEL || 'anthropic/claude-3.5-sonnet';
+    this.model = modelOverride || process.env.OPENROUTER_MODEL || 'anthropic/claude-3.5-sonnet:beta';
     this.baseUrl = 'https://openrouter.ai/api/v1/chat/completions';
 
     if (!this.apiKey) {
@@ -362,10 +362,10 @@ export class DeepSeekProvider implements ILLMProvider {
 // Factory
 // ================================================================
 export class ProviderFactory {
-  static create(providerName: string): ILLMProvider {
+  static create(providerName: string, modelOverride?: string): ILLMProvider {
     switch (providerName.toLowerCase()) {
       case 'openrouter':
-        return new OpenRouterProvider();
+        return new OpenRouterProvider(modelOverride);
       case 'moonshot':
       case 'kimi':
         return new MoonshotProvider();
