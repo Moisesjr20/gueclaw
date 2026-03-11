@@ -17,7 +17,7 @@ Use quando o usuário pedir para:
 - Gerenciar serviços e processos
 - Qualquer operação de shell no servidor
 
-IMPORTANT: Prefira comandos não-interativos. Para outputs longos adicione | head -50 para limitar.`,
+IMPORTANT: Prefira comandos não-interativos. Mantenha os outputs curtos. Todos os comandos DESTE shell são executados com base na RAIZ absoluta do projeto (/opt/gueclaw na VPS). Evite dar 'cd' desnecessário para interagir com a pasta .agents.`,
   parameters: {
     type: 'object' as const,
     properties: {
@@ -47,7 +47,7 @@ IMPORTANT: Prefira comandos não-interativos. Para outputs longos adicione | hea
     console.log(`[Shell Tool] Executando: ${command.substring(0, 80)}${command.length > 80 ? '...' : ''}`);
 
     return new Promise((resolve) => {
-      exec(command, { timeout: timeout * 1000, shell: '/bin/bash' }, (error, stdout, stderr) => {
+      exec(command, { timeout: timeout * 1000, shell: '/bin/bash', cwd: process.cwd() }, (error, stdout, stderr) => {
         let output = '';
 
         if (stdout) output += stdout.trim();
