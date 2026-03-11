@@ -8,6 +8,10 @@ import { PythonExecutorTool } from '../tools/PythonExecutorTool';
 import { SshExecutorTool } from '../tools/SshExecutorTool';
 import { LocalShellTool } from '../tools/LocalShellTool';
 import { DOELoader } from './DOELoader';
+import { SubAgentManager } from '../subagents/SubAgentManager';
+import { createSpawnSubAgentTool } from '../tools/SpawnSubAgentTool';
+import { createSubAgentStatusTool } from '../tools/SubAgentStatusTool';
+import { createSubAgentReportTool } from '../tools/SubAgentReportTool';
 
 export class AgentController {
   private outputHandler: TelegramOutputHandler;
@@ -15,11 +19,13 @@ export class AgentController {
   private skillRouter: SkillRouter;
   private agentLoop: AgentLoop;
   private defaultRegistry: ToolRegistry;
+  private subAgentManager: SubAgentManager;
 
   constructor() {
     this.outputHandler = new TelegramOutputHandler();
     this.memoryManager = new MemoryManager();
     this.skillRouter = new SkillRouter();
+    this.subAgentManager = new SubAgentManager(this.memoryManager);
     
     this.defaultRegistry = new ToolRegistry();
     this.defaultRegistry.register(new PythonExecutorTool());
@@ -28,6 +34,13 @@ export class AgentController {
       this.defaultRegistry.register(SshExecutorTool);
       console.log(`[AgentController] SSH Tool ativa -> ${process.env.VPS_USER}@${process.env.VPS_HOST}`);
     }
+
+    // ─── Sub-Agent Tools (DOE Layer 3) ───
+    // createdBy placeholder: substituído dinamicamente no handleInput
+    this.defaultRegistry.register(createSpawnSubAgentTool(this.subAgentManager, 'system'));
+    this.defaultRegistry.register(createSubAgentStatusTool(this.subAgentManager));
+    this.defaultRegistry.register(createSubAgentReportTool(this.subAgentManager));
+    console.log('[AgentController] Sub-Agent tools registradas: spawn_sub_agent, get_sub_agent_status, generate_sub_agent_report');
     
     this.agentLoop = new AgentLoop(this.defaultRegistry);
   }
