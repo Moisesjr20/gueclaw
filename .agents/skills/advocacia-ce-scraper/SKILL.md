@@ -17,7 +17,9 @@ Buscar emails de contato de escritórios de advocacia no Ceará usando:
 ## 🛠️ Requisitos
 
 ```bash
-pip install apify-client requests beautifulsoup4 playwright
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
 playwright install
 ```
 
@@ -34,7 +36,7 @@ export SUPABASE_SERVICE_KEY="eyJ..."
 ### 1. Buscar no Google Maps (Fase 1)
 
 ```bash
-python scripts/busca_apify.py \
+./venv/bin/python scripts/busca_apify.py \
   --cidade "Fortaleza" \
   --quantidade 100 \
   --output resultados_fase1.json
@@ -43,7 +45,7 @@ python scripts/busca_apify.py \
 ### 2. Extrair Emails dos Websites (Fase 2)
 
 ```bash
-python scripts/scrape_websites.py \
+./venv/bin/python scripts/scrape_websites.py \
   --input resultados_fase1.json \
   --output resultados_fase2.json
 ```
@@ -51,7 +53,7 @@ python scripts/scrape_websites.py \
 ### 3. Validar e Limpar (Fase 3)
 
 ```bash
-python scripts/valida_emails.py \
+./venv/bin/python scripts/valida_emails.py \
   --input resultados_fase2.json \
   --output escritorios_ce_final.csv
 ```
@@ -59,7 +61,7 @@ python scripts/valida_emails.py \
 ### 4. Pipeline Completo
 
 ```bash
-python scripts/pipeline_completo.py \
+./venv/bin/python scripts/pipeline_completo.py \
   --cidade "Fortaleza" \
   --quantidade 100 \
   --output final
@@ -124,13 +126,13 @@ Ver `database/schema.sql` para criar tabelas no Supabase.
 export APIFY_API_KEY="sua_chave"
 
 # 2. Buscar 100 escritórios em Fortaleza
-python scripts/busca_apify.py -c "Fortaleza" -q 100
+./venv/bin/python scripts/busca_apify.py -c "Fortaleza" -q 100
 
 # 3. Extrair emails
-python scripts/scrape_websites.py
+./venv/bin/python scripts/scrape_websites.py
 
 # 4. Exportar CSV
-python scripts/valida_emails.py --export-csv
+./venv/bin/python scripts/valida_emails.py --export-csv
 ```
 
 ## 📝 Notas
