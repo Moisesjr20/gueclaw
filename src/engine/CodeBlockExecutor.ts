@@ -12,7 +12,7 @@ export interface ExecutionResult {
 }
 
 // Linguagens que serão executadas como shell
-const SHELL_LANGS = new Set(['bash', 'sh', 'shell', 'zsh', '']);
+const SHELL_LANGS = new Set(['bash', 'sh', 'shell', 'zsh']);
 
 /**
  * Extrai todos os blocos de código fenced (``` ... ```) de um texto markdown.
