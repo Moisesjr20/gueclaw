@@ -60,10 +60,13 @@ export class SubAgentManager {
         modelOverride: cheapModel 
       });
 
-      // System prompt: usa override ou o DOE padrão
+      // System prompt: usa override ou o DOE padrão + Hard Rules
+      const baseSystem = DOELoader.buildSystemPrompt();
+      const enforceRules = `\n\n[REGRAS RÍGIDAS DO SUB-AGENTE]\nVocê está operando em background. Ao usar ferramentas que precisam de arquivos (como execute_python ou execute_shell_command):\n1. NUNCA invente caminhos como '/opt/gueclaw/execution/...'.\n2. Se pedirem para executar código de uma skill, você DEVE acessar o caminho exato relativo a ela: '.agents/skills/<nome-da-skill>/...'. Ex: '.agents/skills/advocacia-ce-scraper/scripts/pipeline_completo.py'.\n3. Jamais bloqueie numa Task; se falhar, retorne um aviso e dê por concluído.`;
+      
       const systemPrompt = config.systemPromptOverride
-        ? `${DOELoader.buildSystemPrompt()}\n\n## Sub-Agente Override\n${config.systemPromptOverride}`
-        : DOELoader.buildSystemPrompt();
+        ? `${baseSystem}\n\n## Sub-Agente Override\n${config.systemPromptOverride}${enforceRules}`
+        : `${baseSystem}${enforceRules}`;
 
       // Thread inicial: apenas a tarefa como "user"
       const history = [{ role: 'user', content: config.task }];
