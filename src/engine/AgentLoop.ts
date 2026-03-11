@@ -80,19 +80,26 @@ export class AgentLoop {
 
         // Final Answer — LLM quer apenas responder
         if (!response.toolCalls || response.toolCalls.length === 0) {
-          // Para modelos sem tool calls (ex: deepseek-reasoner),
-          // tenta detectar e executar blocos shell no texto
+          
+          // Tratamento para modelos baseados em bloco de código shell no output (ex: R1)
           const model = process.env.DEEPSEEK_MODEL || '';
           const isReasoner = model === 'deepseek-reasoner';
+          
           if (isReasoner && response.content) {
             console.log('[AgentLoop] Modo Reasoner: processando blocos de código...');
-            // Tenta pegar a última mensagem do usuário para saber se ele quer logs
             const lastUserMsgRaw = history.filter(m => m.role === 'user').map(m => m.content).pop();
             const lastUserMsg = typeof lastUserMsgRaw === 'string' ? lastUserMsgRaw : JSON.stringify(lastUserMsgRaw || '');
             const enriched = await processAndExecuteCodeBlocks(response.content, lastUserMsg);
             return enriched;
           }
-          return response.content;
+          
+          // Se for uma resposta limpa normal do Claude/DeepSeek Chat/Flash: 
+          if (response.content) {
+            return response.content;
+          } else {
+             // Caso raríssimo onde o modelo não gera nada nem chama tools. Empurra erro ao invés de loopar eternamente.
+             return "Desculpe, o motor de IA retornou uma resposta em branco.";
+          }
         }
 
         // Action — LLM quer chamar uma Tool
