@@ -25,6 +25,29 @@ export class TelegramOutputHandler {
   }
 
   /**
+   * Envia um arquivo (documento, CSV, JSON, TXT, etc.)
+   */
+  public async sendDocument(ctx: Context, filePath: string, caption?: string) {
+    try {
+      if (!require('fs').existsSync(filePath)) {
+        await ctx.reply(`[Erro]: Arquivo não encontrado: ${filePath}`);
+        return;
+      }
+      
+      const { InputFile } = require('grammy');
+      console.log(`[OutputHandler] Enviando arquivo: ${filePath}`);
+      await ctx.replyWithDocument(new InputFile(filePath), { 
+        caption: caption,
+        parse_mode: 'Markdown' 
+      });
+    } catch (err: any) {
+      console.error(`[OutputHandler] Erro ao enviar documento ${filePath}:`, err);
+      await ctx.reply(`[Erro ao enviar arquivo]: ${err.message}`);
+    }
+  }
+
+
+  /**
    * Envia um único chunk: tenta Markdown primeiro, fallback para texto puro.
    */
   private async sendChunk(ctx: Context, text: string) {

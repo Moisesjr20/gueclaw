@@ -7,6 +7,7 @@ import { SkillRouter } from '../skills/SkillRouter';
 import { PythonExecutorTool } from '../tools/PythonExecutorTool';
 import { SshExecutorTool } from '../tools/SshExecutorTool';
 import { LocalShellTool } from '../tools/LocalShellTool';
+import { SendFileTool } from '../tools/SendFileTool';
 import { DOELoader } from './DOELoader';
 import { SubAgentManager } from '../subagents/SubAgentManager';
 import { createSpawnSubAgentTool } from '../tools/SpawnSubAgentTool';
@@ -27,9 +28,11 @@ export class AgentController {
     this.skillRouter = new SkillRouter();
     this.subAgentManager = new SubAgentManager(this.memoryManager);
     
+    
     this.defaultRegistry = new ToolRegistry();
     this.defaultRegistry.register(new PythonExecutorTool());
     this.defaultRegistry.register(LocalShellTool);
+    this.defaultRegistry.register(SendFileTool);
     if (process.env.VPS_HOST) {
       this.defaultRegistry.register(SshExecutorTool);
       console.log(`[AgentController] SSH Tool ativa -> ${process.env.VPS_USER}@${process.env.VPS_HOST}`);
@@ -104,6 +107,27 @@ export class AgentController {
       const finalAnswer = await this.agentLoop.run(history, systemPrompt);
 
       this.memoryManager.saveMessage(conversation.id, 'assistant', finalAnswer);
+      
+      // Interceptação nativa de envio de documentos
+      if (finalAnswer.includes('[INTERNAL_ACTION:SEND_DOCUMENT]')) {
+        const matches = finalAnswer.match(/\[INTERNAL_ACTION:SEND_DOCUMENT\]\s*(\{.*\})/);
+        if (matches && matches[1]) {
+          try {
+            const data = JSON.parse(matches[1]);
+            // Remove a tag interna da resposta pro usuário
+            const cleanText = finalAnswer.replace(matches[0], '').trim();
+            if (cleanText) {
+              await this.outputHandler.sendResponse(ctx, cleanText);
+            }
+            // Envia o arquivo de fato
+            await this.outputHandler.sendDocument(ctx, data.file_path, data.caption);
+            return;
+          } catch (e) {
+            console.error('[AgentController] Erro no parsing de documento enviado pelo Agent:', e);
+          }
+        }
+      }
+
       await this.outputHandler.sendResponse(ctx, finalAnswer);
 
     } catch (err: any) {
