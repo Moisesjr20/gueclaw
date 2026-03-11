@@ -3,6 +3,103 @@ import { Tool } from './ToolRegistry';
 import { GoogleGenAI } from '@google/genai';
 
 // ================================================================
+// OpenRouter Provider - Hub universal (Claude, DeepSeek, Llama...)
+// ================================================================
+export class OpenRouterProvider implements ILLMProvider {
+  private apiKey: string;
+  private model: string;
+  private baseUrl: string;
+
+  constructor() {
+    this.apiKey = process.env.OPENROUTER_API_KEY || '';
+    this.model = process.env.OPENROUTER_MODEL || 'anthropic/claude-3.5-sonnet';
+    this.baseUrl = 'https://openrouter.ai/api/v1/chat/completions';
+
+    if (!this.apiKey) {
+      console.warn('[OpenRouterProvider] Alerta: OPENROUTER_API_KEY não configurada!');
+    }
+    console.log(`[OpenRouterProvider] Modelo: ${this.model}`);
+  }
+
+  async generateResponse(
+    messages: { role: string; content: string }[],
+    tools: Tool[],
+    systemInstruction?: string
+  ): Promise<ProviderResponse> {
+
+    const formattedMessages: { role: string; content: string }[] = [];
+
+    if (systemInstruction) {
+      formattedMessages.push({ role: 'system', content: systemInstruction });
+    }
+
+    for (const msg of messages) {
+      if (msg.role === 'tool') {
+        formattedMessages.push({ role: 'user', content: `[Observation]: \n\n${msg.content}` });
+      } else if (msg.role === 'system') {
+        continue;
+      } else {
+        formattedMessages.push({ role: msg.role, content: msg.content });
+      }
+    }
+
+    const body: Record<string, any> = {
+      model: this.model,
+      messages: formattedMessages,
+      // OpenRouter repassa temperature aos provedores nativos
+      temperature: 0.3,
+    };
+
+    if (tools.length > 0) {
+      body.tools = tools.map(t => ({
+        type: 'function',
+        function: { name: t.name, description: t.description, parameters: t.parameters }
+      }));
+      body.tool_choice = 'auto'; // Suportado por Sonnet, Deepseek V3, GPTs, etc.
+    }
+
+    try {
+      const res = await fetch(this.baseUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'https://gueclaw.com', // Obrigatório no OpenRouter
+          'X-Title': 'GueClaw Agent' // Obrigatório no OpenRouter
+        },
+        body: JSON.stringify(body)
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(`OpenRouter ${res.status}: ${errText}`);
+      }
+
+      const data = await res.json() as any;
+      const choice = data.choices?.[0];
+      const msg = choice?.message;
+
+      // Tool call support via OpenAI Standard
+      if (msg?.tool_calls?.length > 0) {
+        const tc = msg.tool_calls[0];
+        let parsedArgs: Record<string, any> = {};
+        try { parsedArgs = JSON.parse(tc.function.arguments); } catch { parsedArgs = {}; }
+        return {
+          content: '',
+          toolCalls: [{ name: tc.function.name, arguments: parsedArgs }]
+        };
+      }
+
+      return { content: msg?.content || 'Sem resposta gerada.' };
+
+    } catch (err: any) {
+      console.error('[OpenRouterProvider] Erro:', err.message);
+      return { content: `[OpenRouter Error: ${err.message}]` };
+    }
+  }
+}
+
+// ================================================================
 // Moonshot (Kimi) Provider - fetch nativo (OpenAI-compatible)
 // ================================================================
 export class MoonshotProvider implements ILLMProvider {
@@ -267,6 +364,8 @@ export class DeepSeekProvider implements ILLMProvider {
 export class ProviderFactory {
   static create(providerName: string): ILLMProvider {
     switch (providerName.toLowerCase()) {
+      case 'openrouter':
+        return new OpenRouterProvider();
       case 'moonshot':
       case 'kimi':
         return new MoonshotProvider();
