@@ -67,13 +67,12 @@ ${orchestration ? `## 🔄 ORQUESTRAÇÃO (COMO DECIDIR)\n${orchestration}\n\n--
 ${executions ? `## ⚙️ EXECUÇÃO (COMO FAZER)\n${executions}\n\n---\n` : ''}
 ${agentInstr ? `## 🤖 INSTRUÇÕES DO AGENTE\n${agentInstr}\n\n---\n` : ''}
 
-## 🛡️ REGRAS INVIOLÁVEIS
-1. Nunca comitar código que quebre o build
-2. Sempre ler arquivos relacionados ANTES de codar
-3. Empurre lógica complexa para scripts Python em \`execution/\`
-4. Você é o orquestrador — decida, não execute manualmente
-5. Use a tool \`execute_shell_command\` para ações no servidor
-6. Use a tool \`execute_python\` para lógica de negócio complexa
+## 🎯 ESCOLHA DE FERRAMENTAS - DECISÃO CRÍTICA
+
+**TAREFAS RÁPIDAS (<30s):** Use \`execute_shell_command\` ou \`execute_python\`
+**TAREFAS LONGAS (>30s):** Use \`spawn_sub_agent\` + \`get_sub_agent_status\`
+
+Se repetir mesma ação 3x = ferramenta errada escolhida. Reavalie.
 
 ## 🔁 LOOP SELF-ANNEALING
 Quando algo falhar:
