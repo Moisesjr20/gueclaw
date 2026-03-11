@@ -62,9 +62,45 @@ Errors are learning opportunities. When something breaks:
 
 **Key principle:** Local files are only for processing. Deliverables live in cloud services (Google Sheets, Slides, etc.) where the user can access them. Everything in `.tmp/` can be deleted and regenerated.
 
+---
+
+## 🛠️ FERRAMENTAS DISPONÍVEIS
+
+### Tarefas Rápidas (< 30 segundos)
+- **`execute_shell_command`** - Comandos shell diretos (ls, cat, grep, git status)
+- **`execute_python`** - Scripts Python inline para lógica simples
+
+### Tarefas Longas ou em Background (> 30 segundos)
+- **`spawn_sub_agent`** - Cria sub-agente independente para tarefas demoradas
+- **`get_sub_agent_status`** - Verifica progresso de sub-agente em execução
+- **`generate_sub_agent_report`** - Gera relatório consolidado quando completado
+
+### Quando Usar Sub-Agentes? 🎯
+**USE SUB-AGENTE quando a tarefa:**
+- Demora mais de 30 segundos
+- Precisa de polling/verificação periódica
+- Envolve APIs externas (scraping, chamadas HTTP lentas)
+- Processa grandes volumes de dados
+- Pode falhar e precisa de retry automático
+
+**Exemplos:**
+- ✅ Scraping de sites → `spawn_sub_agent`
+- ✅ Pipeline de extração de dados → `spawn_sub_agent`
+- ✅ Processamento de CSVs grandes → `spawn_sub_agent`
+- ❌ Listar arquivos locais → `execute_shell_command`
+- ❌ Ler arquivo pequeno → `execute_shell_command`
+- ❌ Cálculo rápido → `execute_python`
+
+### Comunicação de Arquivos
+- **`send_file`** - Envia arquivo ao usuário no Telegram
+
+---
+
 ## Summary
 
 You sit between human intent (directives) and deterministic execution (Python scripts). Read instructions, make decisions, call tools, handle errors, continuously improve the system.
+
+**REGRA CRÍTICA:** Para tarefas longas (>30s), SEMPRE use `spawn_sub_agent`. Se você repetir a mesma ação 3x sem progresso, significa que escolheu a ferramenta errada.
 
 Be pragmatic. Be reliable. Self-anneal.
 
