@@ -90,7 +90,39 @@ export class OpenRouterProvider implements ILLMProvider {
         };
       }
 
-      return { content: msg?.content || 'Sem resposta gerada.' };
+      // FALLBACK: Parser de emergência para alucinações textuais de ReAct
+      const textContent = msg?.content || '';
+      if (textContent) {
+         // Tenta capturar formatos como: 
+         // Action: tool_name
+         // Parameters: {"arg": "val"} OU Command: ls -la
+         const actionMatch = textContent.match(/(?:Action|\[Action\]):\s*([a-zA-Z0-9_]+)/i);
+         if (actionMatch) {
+            const toolName = actionMatch[1].trim();
+            let parsedArgs: Record<string, any> = {};
+            
+            // Tenta achar JSON Parameters
+            const paramsMatch = textContent.match(/(?:Parameters|\[Parameters\]):\s*(\{.*?\})/is);
+            if (paramsMatch) {
+               try { parsedArgs = JSON.parse(paramsMatch[1]); } catch { /* ignora erro */ }
+            } else {
+               // Tenta achar Command direto (muito comum em execute_shell_command)
+               const cmdMatch = textContent.match(/(?:Command|\[Command\]):\s*(.+)/i);
+               if (cmdMatch) {
+                  if (toolName === 'execute_shell_command') parsedArgs = { command: cmdMatch[1].trim() };
+                  if (toolName === 'execute_python') parsedArgs = { scriptName: cmdMatch[1].trim() };
+               }
+            }
+
+            console.warn(`[OpenRouterProvider] Fallback Parser ativado para converter texto isolado em ToolCall: ${toolName}`);
+            return {
+               content: '',
+               toolCalls: [{ name: toolName, arguments: parsedArgs }]
+            };
+         }
+      }
+
+      return { content: textContent || 'Sem resposta gerada.' };
 
     } catch (err: any) {
       console.error('[OpenRouterProvider] Erro:', err.message);
@@ -184,7 +216,37 @@ export class MoonshotProvider implements ILLMProvider {
         };
       }
 
-      return { content: msg?.content || 'Sem resposta gerada.' };
+      // FALLBACK: Parser de emergência para alucinações textuais de ReAct
+      const textContent = msg?.content || '';
+      if (textContent) {
+         // Tenta capturar formatos como: Action: tool_name
+         const actionMatch = textContent.match(/(?:Action|\[Action\]):\s*([a-zA-Z0-9_]+)/i);
+         if (actionMatch) {
+            const toolName = actionMatch[1].trim();
+            let parsedArgs: Record<string, any> = {};
+            
+            // Tenta achar JSON Parameters
+            const paramsMatch = textContent.match(/(?:Parameters|\[Parameters\]):\s*(\{.*?\})/is);
+            if (paramsMatch) {
+               try { parsedArgs = JSON.parse(paramsMatch[1]); } catch { /* ignora erro */ }
+            } else {
+               // Tenta achar Command direto
+               const cmdMatch = textContent.match(/(?:Command|\[Command\]):\s*(.+)/i);
+               if (cmdMatch) {
+                  if (toolName === 'execute_shell_command') parsedArgs = { command: cmdMatch[1].trim() };
+                  if (toolName === 'execute_python') parsedArgs = { scriptName: cmdMatch[1].trim() };
+               }
+            }
+
+            console.warn(`[MoonshotProvider] Fallback Parser ativado para converter texto isolado em ToolCall: ${toolName}`);
+            return {
+               content: '',
+               toolCalls: [{ name: toolName, arguments: parsedArgs }]
+            };
+         }
+      }
+
+      return { content: textContent || 'Sem resposta gerada.' };
 
     } catch (err: any) {
       console.error('[MoonshotProvider] Erro:', err.message);
@@ -349,7 +411,37 @@ export class DeepSeekProvider implements ILLMProvider {
         };
       }
 
-      return { content: msg?.content || 'Sem resposta gerada.' };
+      // FALLBACK: Parser de emergência para alucinações textuais de ReAct
+      const textContent = msg?.content || '';
+      if (!this.isReasoner && textContent) {
+         // Tenta capturar formatos como: Action: tool_name
+         const actionMatch = textContent.match(/(?:Action|\[Action\]):\s*([a-zA-Z0-9_]+)/i);
+         if (actionMatch) {
+            const toolName = actionMatch[1].trim();
+            let parsedArgs: Record<string, any> = {};
+            
+            // Tenta achar JSON Parameters
+            const paramsMatch = textContent.match(/(?:Parameters|\[Parameters\]):\s*(\{.*?\})/is);
+            if (paramsMatch) {
+               try { parsedArgs = JSON.parse(paramsMatch[1]); } catch { /* ignora erro */ }
+            } else {
+               // Tenta achar Command direto
+               const cmdMatch = textContent.match(/(?:Command|\[Command\]):\s*(.+)/i);
+               if (cmdMatch) {
+                  if (toolName === 'execute_shell_command') parsedArgs = { command: cmdMatch[1].trim() };
+                  if (toolName === 'execute_python') parsedArgs = { scriptName: cmdMatch[1].trim() };
+               }
+            }
+
+            console.warn(`[DeepSeekProvider] Fallback Parser ativado para converter texto isolado em ToolCall: ${toolName}`);
+            return {
+               content: '',
+               toolCalls: [{ name: toolName, arguments: parsedArgs }]
+            };
+         }
+      }
+
+      return { content: textContent || 'Sem resposta gerada.' };
 
     } catch (err: any) {
       console.error('[DeepSeekProvider] Erro:', err.message);
