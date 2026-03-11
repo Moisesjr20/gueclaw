@@ -14,7 +14,7 @@ export class AgentLoop {
   private registry: ToolRegistry;
 
   constructor(registry: ToolRegistry, options?: { providerName?: string; modelOverride?: string }) {
-    this.maxIterations = parseInt(process.env.MAX_ITERATIONS || '5');
+    this.maxIterations = parseInt(process.env.MAX_ITERATIONS || '25');
     this.providerName = options?.providerName || process.env.DEFAULT_LLM_PROVIDER || 'gemini';
     this.modelOverride = options?.modelOverride;
     this.registry = registry;
@@ -64,6 +64,10 @@ export class AgentLoop {
     // Thread efêmero — não salvo no SQLite, só vive durante esta execução
     const thread: LoopContext[] = history.map(h => ({ role: h.role as any, content: h.content }));
 
+    // Loop detection: rastreia últimas ações para detectar repetições
+    const recentToolCalls: string[] = [];
+    const MAX_IDENTICAL_REPEATS = 3;
+
     while (iterations < this.maxIterations) {
       iterations++;
       console.log(`[ReAct] Iteração ${iterations} de ${this.maxIterations}...`);
@@ -103,6 +107,18 @@ export class AgentLoop {
         }
 
         // Action — LLM quer chamar uma Tool
+        const toolCallSignature = response.toolCalls.map(c => c.name).sort().join(',');
+        recentToolCalls.push(toolCallSignature);
+        if (recentToolCalls.length > 10) recentToolCalls.shift();
+
+        // Detectar loop: mesma ação repetida múltiplas vezes consecutivas
+        const lastThreeCalls = recentToolCalls.slice(-MAX_IDENTICAL_REPEATS);
+        if (lastThreeCalls.length === MAX_IDENTICAL_REPEATS && 
+            lastThreeCalls.every(sig => sig === toolCallSignature)) {
+          console.warn(`[ReAct] Loop detectado: ação "${toolCallSignature}" repetida ${MAX_IDENTICAL_REPEATS}x consecutivamente`);
+          return `Detectei um loop na execução (ação repetida: ${toolCallSignature}). Por favor, reformule sua solicitação com mais contexto ou detalhes.`;
+        }
+
         for (const call of response.toolCalls) {
            console.log(`[ReAct Action] Tool: ${call.name}`);
            // Registra a intenção do assistant
@@ -132,6 +148,7 @@ export class AgentLoop {
       }
     }
 
-    return `Atingi o limite de ${this.maxIterations} iterações sem chegar a uma resposta final.`;
+    const lastAction = recentToolCalls.length > 0 ? recentToolCalls[recentToolCalls.length - 1] : 'nenhuma';
+    return `Atingi o limite de ${this.maxIterations} iterações sem chegar a uma resposta final. Última ação: ${lastAction}. Tente reformular ou dividir a tarefa em partes menores.`;
   }
 }
