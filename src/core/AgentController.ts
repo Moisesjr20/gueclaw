@@ -86,6 +86,9 @@ export class AgentController {
     console.log(`[AgentController] Processando input: ${userId}`);
     await ctx.replyWithChatAction('typing');
 
+    // CRÍTICO: Invalida cache do DOE para garantir que mudanças sejam carregadas
+    DOELoader.invalidateCache();
+
     try {
       const providerName = process.env.DEFAULT_LLM_PROVIDER || 'gemini';
       const conversation = this.memoryManager.getOrCreateConversation(userId, providerName);
