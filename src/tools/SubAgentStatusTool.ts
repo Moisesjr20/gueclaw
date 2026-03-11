@@ -12,40 +12,24 @@ export function createSubAgentStatusTool(manager: SubAgentManager): Tool {
   return {
     name: 'get_sub_agent_status',
     description:
-      'Consulta o status de um sub-agente específico (por agent_id) ou lista todos os sub-agentes ' +
-      'com seus respectivos status. Use após spawn_sub_agent para monitorar a execução.',
+      'Consulta o status de um sub-agente específico (por agent_id gerado no instante anterior). Use EXATAMENTE O MESMO ID providenciado pela tool spawn_sub_agent para monitorar a execução correspondente.',
     parameters: {
       type: 'object',
       properties: {
         agent_id: {
           type: 'string',
           description:
-            '(Opcional) ID do sub-agente retornado por spawn_sub_agent. ' +
-            'Se omitido, retorna a lista de todos os sub-agentes.',
+            'OBRIGATÓRIO: ID do sub-agente retornado pela ferramenta spawn_sub_agent.',
         },
       },
-      required: [],
+      required: ['agent_id'],
     },
 
-    async execute(args: { agent_id?: string }): Promise<string> {
-      const result = manager.getStatus(args.agent_id);
-
-      // Lista todos
+    async execute(args: { agent_id: string }): Promise<string> {
       if (!args.agent_id) {
-        const agents = result as SubAgent[];
-        if (agents.length === 0) {
-          return '[SubAgentStatus] Nenhum sub-agente registrado ainda.';
-        }
-
-        const summary = agents.map(a => ({
-          id: a.id,
-          name: a.name,
-          status: a.status,
-          created_at: new Date(a.created_at).toLocaleString('pt-BR'),
-        }));
-
-        return JSON.stringify({ total: agents.length, agents: summary }, null, 2);
+         return '[SubAgentStatus] Erro: Você DEVE passar o agent_id do sub-agente que criou.';
       }
+      const result = manager.getStatus(args.agent_id);
 
       // Agente específico
       const { agent, runs } = result as { agent: SubAgent | null; runs: SubAgentRun[] };
