@@ -78,8 +78,9 @@ export async function executeShellBlocks(blocks: CodeBlock[]): Promise<Execution
 /**
  * Ponto de entrada principal: analisa o texto, executa blocos shell e
  * retorna o texto enriquecido com os resultados da execução.
+ * Agora aceita a mensagem do usuário para decidir se anexa os logs no Telegram.
  */
-export async function processAndExecuteCodeBlocks(text: string): Promise<string> {
+export async function processAndExecuteCodeBlocks(text: string, userMessage: string = ''): Promise<string> {
   const blocks = filterShellBlocks(extractCodeBlocks(text));
 
   if (blocks.length === 0) {
@@ -93,13 +94,26 @@ export async function processAndExecuteCodeBlocks(text: string): Promise<string>
     return text; // Blocos eram apenas exemplos/placeholders
   }
 
-  // Monta o output final: resposta original + resultados de execução
+  // Monta o output final
   let enriched = text;
-  enriched += '\n\n---\n## 📊 Resultados da Execução\n';
 
-  for (const r of results) {
-    enriched += `\n**Comando:** \`${r.command.substring(0, 120)}\`\n`;
-    enriched += `\`\`\`\n${r.output.substring(0, 2000)}\n\`\`\`\n`;
+  // Decide se mostra os logs baseado no que o usuário digitou
+  const msgLower = userMessage.toLowerCase();
+  const wantsLogs = msgLower.includes('log') || 
+                    msgLower.includes('resultado') || 
+                    msgLower.includes('saída') || 
+                    msgLower.includes('saida') || 
+                    msgLower.includes('detalhe') ||
+                    msgLower.includes('liste');
+
+  if (wantsLogs) {
+    enriched += '\n\n---\n## 📊 Resultados da Execução\n';
+    for (const r of results) {
+      enriched += `\n**Comando:** \`${r.command.substring(0, 120)}\`\n`;
+      enriched += `\`\`\`\n${r.output.substring(0, 2000)}\n\`\`\`\n`;
+    }
+  } else {
+    enriched += '\n\n_⚙️ Comandos despachados no servidor em background. (Peça "mostre os logs" se precisar ver a saída)._';
   }
 
   return enriched;

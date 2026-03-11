@@ -84,7 +84,9 @@ export class AgentLoop {
           const isReasoner = model === 'deepseek-reasoner';
           if (isReasoner && response.content) {
             console.log('[AgentLoop] Modo Reasoner: processando blocos de código...');
-            const enriched = await processAndExecuteCodeBlocks(response.content);
+            // Tenta pegar a última mensagem do usuário para saber se ele quer logs
+            const lastUserMsg = history.filter(m => m.role === 'user').map(m => m.content).pop() || '';
+            const enriched = await processAndExecuteCodeBlocks(response.content, lastUserMsg);
             return enriched;
           }
           return response.content;
