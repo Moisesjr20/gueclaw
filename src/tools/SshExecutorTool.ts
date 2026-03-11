@@ -38,7 +38,7 @@ IMPORTANTE: Prefira comandos não-interativos. Para comandos longos, adicione 'h
     const { command, timeout = 30 } = args;
 
     // Sanitiza: bloqueia comandos destrutivos irreversíveis para evitar acidentes
-    const BLOCKED = ['rm -rf /', 'mkfs', ':(){:|:&};:', 'dd if=/dev/zero'];
+    const BLOCKED = ['rm -rf /', 'mkfs', ':(){:|:&};:', 'dd if=/dev/zero', '> .env', 'nano .env', 'vim .env'];
     for (const blocked of BLOCKED) {
       if (command.includes(blocked)) {
         return `[BLOQUEADO] Comando bloqueado por segurança: "${blocked}"`;

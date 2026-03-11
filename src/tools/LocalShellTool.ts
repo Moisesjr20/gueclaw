@@ -36,8 +36,8 @@ IMPORTANT: Prefira comandos não-interativos. Para outputs longos adicione | hea
   async execute(args: { command: string; timeout?: number }): Promise<string> {
     const { command, timeout = 30 } = args;
 
-    // Proteção contra comandos destrutivos irreversíveis
-    const BLOCKED = ['rm -rf /', 'mkfs', ':(){:|:&};:', 'dd if=/dev/zero of=/dev/'];
+    // Proteção contra comandos destrutivos irreversíveis e bloqueio de edição de .env
+    const BLOCKED = ['rm -rf /', 'mkfs', ':(){:|:&};:', 'dd if=/dev/zero', '> .env', 'nano .env', 'vim .env'];
     for (const blocked of BLOCKED) {
       if (command.includes(blocked)) {
         return `[BLOQUEADO] Comando bloqueado por segurança: "${blocked}"`;

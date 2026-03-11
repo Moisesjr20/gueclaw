@@ -85,7 +85,8 @@ export class AgentLoop {
           if (isReasoner && response.content) {
             console.log('[AgentLoop] Modo Reasoner: processando blocos de código...');
             // Tenta pegar a última mensagem do usuário para saber se ele quer logs
-            const lastUserMsg = history.filter(m => m.role === 'user').map(m => m.content).pop() || '';
+            const lastUserMsgRaw = history.filter(m => m.role === 'user').map(m => m.content).pop();
+            const lastUserMsg = typeof lastUserMsgRaw === 'string' ? lastUserMsgRaw : JSON.stringify(lastUserMsgRaw || '');
             const enriched = await processAndExecuteCodeBlocks(response.content, lastUserMsg);
             return enriched;
           }
