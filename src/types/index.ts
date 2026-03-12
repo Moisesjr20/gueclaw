@@ -1,0 +1,95 @@
+/**
+ * Core Type Definitions for GueClaw Agent
+ */
+
+export interface Message {
+  id?: string;
+  conversationId: string;
+  role: 'user' | 'assistant' | 'system' | 'tool';
+  content: string;
+  timestamp?: number;
+  metadata?: Record<string, any>;
+}
+
+export interface Conversation {
+  id: string;
+  userId: string;
+  provider: string;
+  createdAt?: number;
+  updatedAt?: number;
+}
+
+export interface ToolCall {
+  id: string;
+  name: string;
+  arguments: Record<string, any>;
+}
+
+export interface ToolResult {
+  success: boolean;
+  output: string;
+  error?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface LLMResponse {
+  content: string;
+  toolCalls?: ToolCall[];
+  finishReason: 'stop' | 'tool_calls' | 'length' | 'error';
+  usage?: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
+}
+
+export interface SkillMetadata {
+  name: string;
+  description: string;
+  version?: string;
+  author?: string;
+  category?: string;
+  tools?: string[];
+}
+
+export interface AgentConfig {
+  maxIterations: number;
+  memoryWindowSize: number;
+  defaultProvider: string;
+  temperature?: number;
+  enableLogging?: boolean;
+}
+
+export interface VPSConfig {
+  host: string;
+  port: number;
+  user: string;
+  password?: string;
+  sshKeyPath?: string;
+  sudoPassword?: string;
+}
+
+export interface FileAttachment {
+  type: 'image' | 'audio' | 'document' | 'video';
+  fileId: string;
+  filePath?: string;
+  mimeType?: string;
+  fileName?: string;
+  fileSize?: number;
+}
+
+export interface TelegramInput {
+  userId: string;
+  messageId: number;
+  chatId: number;
+  text?: string;
+  attachments?: FileAttachment[];
+  metadata?: Record<string, any>;
+}
+
+export interface AgentAction {
+  thought: string;
+  action?: string;
+  actionInput?: Record<string, any>;
+  observation?: string;
+}

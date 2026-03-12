@@ -1,0 +1,2 @@
+# Keep this file to preserve the tmp directory in git
+# Temporary files will be ignored by .gitignore
