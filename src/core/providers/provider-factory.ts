@@ -80,7 +80,20 @@ export class ProviderFactory {
   /**
    * Get a provider by name
    */
-  public static getProvider(name: string = 'deepseek'): ILLMProvider {
+  public static getProvider(name?: string): ILLMProvider {
+    // If no name specified, use intelligent default
+    if (!name) {
+      // Prioritize GitHub Copilot if configured
+      if (this.hasProvider('github-copilot')) {
+        name = 'github-copilot';
+      } else if (this.hasProvider('deepseek-fast')) {
+        name = 'deepseek-fast';
+      } else {
+        // Use first available provider
+        name = Array.from(this.providers.keys())[0];
+      }
+    }
+
     const provider = this.providers.get(name);
 
     if (!provider) {
@@ -97,6 +110,10 @@ export class ProviderFactory {
    * Get the reasoning provider (for complex programming tasks)
    */
   public static getReasoningProvider(): ILLMProvider {
+    // Prioritize GitHub Copilot if configured, otherwise use DeepSeek Reasoner
+    if (this.hasProvider('github-copilot')) {
+      return this.getProvider('github-copilot');
+    }
     return this.getProvider('deepseek-reasoner');
   }
 
@@ -104,6 +121,10 @@ export class ProviderFactory {
    * Get the fast provider (for quick responses and tool calls)
    */
   public static getFastProvider(): ILLMProvider {
+    // Prioritize GitHub Copilot if configured, otherwise use DeepSeek Fast
+    if (this.hasProvider('github-copilot')) {
+      return this.getProvider('github-copilot');
+    }
     return this.getProvider('deepseek-fast');
   }
 
