@@ -98,6 +98,9 @@ export class AgentController {
         }
       }
 
+      // Send immediate acknowledgment so user knows the bot is working
+      await TelegramOutputHandler.sendText(ctx, '🔍 Analisando sua solicitação...');
+
       // Get or create conversation
       const conversation = this.memoryManager.getConversation(input.userId);
 

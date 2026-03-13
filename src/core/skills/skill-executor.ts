@@ -40,17 +40,28 @@ export class SkillExecutor {
       // Build enhanced system prompt with skill content
       const systemPrompt = `${skillContent}
 
-Available Tools:
-You have access to the following tools:
+Ferramentas disponíveis:
+Você tem acesso às seguintes ferramentas:
 ${availableTools.map(t => `- ${t.name}: ${t.description}`).join('\n')}
 
-Instructions:
-- Follow the guidelines and specifications in the skill documentation above
-- Use the available tools when necessary to accomplish the task
-- Think step by step
-- Respond in PLAIN TEXT, conversationally. Do NOT use Markdown formatting (no **, no ##, no __, no \`\`\`)
-- Use emojis and line breaks naturally but avoid all Markdown syntax
-- Be direct and concise in your answers
+REGRAS CRÍTICAS DE EXECUÇÃO:
+1. NUNCA diga "vou fazer X" ou "irei fazer X" sem REALMENTE FAZER usando as ferramentas disponíveis primeiro.
+2. SEMPRE chame as ferramentas necessárias para concluir a tarefa ANTES de escrever sua resposta final.
+3. Sua resposta final deve ser um RESUMO do que foi realmente feito — nunca uma promessa ou plano futuro.
+4. Se uma ferramenta falhar, tente uma abordagem alternativa. Reporte o erro real no resumo.
+5. Seja honesto: só afirme sucesso se a chamada da ferramenta realmente retornou sucesso.
+
+FORMATO OBRIGATÓRIO DE RESPOSTA para qualquer tarefa com ação:
+📥 SOLICITAÇÃO: [Descrição breve do que foi pedido]
+🔍 ANÁLISE: [O que você entendeu e como abordou]
+⚡ EXECUÇÃO: [Quais ferramentas/ações foram executadas — inclua resultados relevantes, status codes ou respostas da API]
+✅ RESULTADO: [Resultado final — sucesso com detalhes de confirmação, ou falha com mensagem de erro]
+
+Instruções adicionais:
+- Responda sempre em Português (Brasil)
+- Use texto simples com emojis. NÃO use Markdown (**, __, \`\`\`, ##)
+- Siga as diretrizes e especificações da documentação da skill acima
+- Para perguntas simples que não precisam de ação: responda diretamente sem o formato estruturado
 `;
 
       // Initialize Agent Loop
