@@ -5,11 +5,25 @@ import sys
 import time
 import datetime
 from zoneinfo import ZoneInfo
+
+# Carrega .env do projeto (dois níveis acima de scripts/)
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+SKILL_DIR = os.path.dirname(SCRIPT_DIR)
+PROJECT_ROOT = os.path.dirname(os.path.dirname(SKILL_DIR))  # /opt/gueclaw-agent
+ENV_FILE = os.path.join(PROJECT_ROOT, ".env")
+
+if os.path.exists(ENV_FILE):
+    with open(ENV_FILE) as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith('#') and '=' in line:
+                key, _, val = line.partition('=')
+                os.environ.setdefault(key.strip(), val.strip())
+
+sys.path.insert(0, SCRIPT_DIR)
 from uazapi_sender import send_message
 
 # Path relativo ao script
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-SKILL_DIR = os.path.dirname(SCRIPT_DIR)
 DATA_FILE = os.path.join(SKILL_DIR, "data", "queue.json")
 
 # Criar pasta data se não existir

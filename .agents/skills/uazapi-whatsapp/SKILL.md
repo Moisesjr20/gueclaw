@@ -1,7 +1,120 @@
 ---
 name: uazapi-whatsapp
-description: Integração completa com a API UazAPI para WhatsApp. Use para criar instâncias do WhatsApp, enviar mensagens (texto, mídia, botões), gerenciar conexões e automatizar comunicação via WhatsApp em workflows do FluxoHub. Requer UAIZAPI_TOKEN e UAIZAPI_BASE_URL.
+description: Integração com a API UazAPI para WhatsApp. Use para enviar mensagens (texto, mídia), verificar status e gerenciar a instância WhatsApp do GueClaw. Requer UAIZAPI_TOKEN e UAIZAPI_BASE_URL.
 ---
+
+# UazAPI WhatsApp Integration
+
+Skill para envio de mensagens e gerenciamento da instância WhatsApp via UazAPI.
+
+## 🔑 Configuração desta Instância
+
+```
+Base URL: https://kyrius.uazapi.com   (variável UAIZAPI_BASE_URL)
+Token:    ef81eb52-692d-4e31-b98e-c2c0d045013a  (variável UAIZAPI_TOKEN)
+```
+
+Leia os valores do ambiente — não hardcode. Use `api_request` com header `token: $UAIZAPI_TOKEN`.
+
+## ⚠️ REGRAS ABSOLUTAS
+
+1. **SEMPRE use a ferramenta `api_request`** para chamar a UazAPI. Não simule respostas.
+2. Use a **base URL da variável `UAIZAPI_BASE_URL`**, não `api.uazapi.com`.
+3. O header de autenticação é `token`, não `Authorization` nem `admintoken`.
+4. O campo do número é `number` (não `phone`), o campo do texto é `text` (não `message`).
+
+---
+
+## 📤 Enviar Mensagem de Texto
+
+**Endpoint:** `POST {UAIZAPI_BASE_URL}/send/text`
+
+**Headers:**
+```
+Content-Type: application/json
+token: {UAIZAPI_TOKEN}
+```
+
+**Body:**
+```json
+{
+  "number": "5511999999999",
+  "text": "Olá! 👋"
+}
+```
+
+**Resposta de sucesso:**
+```json
+{
+  "id": "3EB01466AB8EDCB02C6E54",
+  "status": "Pending",
+  "fromMe": true
+}
+```
+
+---
+
+## 📊 Verificar Status da Instância
+
+**Endpoint:** `GET {UAIZAPI_BASE_URL}/instance/status`
+
+**Headers:**
+```
+token: {UAIZAPI_TOKEN}
+```
+
+---
+
+## 🖼️ Enviar Imagem
+
+**Endpoint:** `POST {UAIZAPI_BASE_URL}/send/image`
+
+**Body:**
+```json
+{
+  "number": "5511999999999",
+  "image": "https://url-da-imagem.jpg",
+  "caption": "Legenda opcional"
+}
+```
+
+---
+
+## 🎵 Enviar Áudio
+
+**Endpoint:** `POST {UAIZAPI_BASE_URL}/send/audio`
+
+**Body:**
+```json
+{
+  "number": "5511999999999",
+  "audio": "https://url-do-audio.mp3"
+}
+```
+
+---
+
+## 📄 Enviar Documento
+
+**Endpoint:** `POST {UAIZAPI_BASE_URL}/send/document`
+
+**Body:**
+```json
+{
+  "number": "5511999999999",
+  "document": "https://url-do-arquivo.pdf",
+  "fileName": "arquivo.pdf",
+  "caption": "Legenda opcional"
+}
+```
+
+---
+
+## 📋 Formato do Número
+
+- Sempre incluir DDI + DDD + número
+- Sem espaços, traços ou parênteses
+- Exemplos: `5511999999999`, `5585996701800`, `553171629814`
 
 # UazAPI WhatsApp Integration
 
