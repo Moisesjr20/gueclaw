@@ -1,6 +1,8 @@
 import { ILLMProvider } from './base-provider';
 import { DeepSeekProvider } from './deepseek-provider';
 import { DeepSeekReasonerProvider } from './deepseek-reasoner-provider';
+import { GitHubCopilotProvider } from './github-copilot-provider';
+import { GitHubCopilotOAuthProvider } from './github-copilot-oauth-provider';
 
 /**
  * Provider Factory - Creates and manages LLM provider instances
@@ -12,6 +14,39 @@ export class ProviderFactory {
    * Initialize all available providers based on environment variables
    */
   public static initialize(): void {
+    // GitHub Copilot OAuth (Primary - recommended for Copilot Pro)
+    const useOAuth = process.env.GITHUB_COPILOT_USE_OAUTH === 'true';
+    
+    if (useOAuth) {
+      const model = process.env.GITHUB_COPILOT_MODEL || 'claude-sonnet-4.5';
+      const copilotOAuthProvider = new GitHubCopilotOAuthProvider(model);
+      
+      this.providers.set('github-copilot', copilotOAuthProvider);
+      this.providers.set('copilot', copilotOAuthProvider);
+      this.providers.set('github', copilotOAuthProvider);
+      
+      console.log(`✅ GitHub Copilot OAuth provider initialized (model: ${model})`);
+      
+      if (!copilotOAuthProvider.isAuthenticated()) {
+        console.warn('⚠️  GitHub Copilot não autenticado! Execute: npm run copilot:auth');
+      }
+    }
+    // GitHub Copilot / OpenAI (API Key method)
+    else if (process.env.GITHUB_COPILOT_API_KEY || process.env.OPENAI_API_KEY) {
+      const apiKey = process.env.GITHUB_COPILOT_API_KEY || process.env.OPENAI_API_KEY || '';
+      const baseURL = process.env.GITHUB_COPILOT_BASE_URL || process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
+      const model = process.env.GITHUB_COPILOT_MODEL || process.env.OPENAI_MODEL || 'gpt-4o';
+      const apiType = (process.env.GITHUB_COPILOT_API_TYPE || 'openai') as 'openai' | 'github' | 'azure';
+
+      const copilotProvider = new GitHubCopilotProvider(apiKey, baseURL, model, apiType);
+      this.providers.set('github-copilot', copilotProvider);
+      this.providers.set('copilot', copilotProvider);
+      this.providers.set('openai', copilotProvider);
+      this.providers.set('gpt', copilotProvider);
+
+      console.log(`✅ GitHub Copilot provider initialized (${apiType}, model: ${model})`);
+    }
+
     // DeepSeek (primary - fast reasoning)
     if (process.env.DEEPSEEK_API_KEY) {
       const deepseekFast = new DeepSeekProvider(

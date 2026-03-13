@@ -9,6 +9,10 @@ export interface Message {
   content: string;
   timestamp?: number;
   metadata?: Record<string, any>;
+  
+  // Function calling support
+  toolCalls?: ToolCall[];
+  toolCallId?: string;
 }
 
 export interface Conversation {
@@ -21,8 +25,11 @@ export interface Conversation {
 
 export interface ToolCall {
   id: string;
-  name: string;
-  arguments: Record<string, any>;
+  type?: 'function';
+  function: {
+    name: string;
+    arguments: Record<string, any>;
+  };
 }
 
 export interface ToolResult {

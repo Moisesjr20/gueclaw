@@ -1,15 +1,16 @@
 # 🤖 GueClaw Agent - VPS Edition
 
-**GueClaw** é um agente de IA pessoal projetado para operar completamente em uma VPS, com controle total do ambiente via Telegram. Alimentado por DeepSeek (raciocínio rápido e prolongado), ele gerencia Docker, executa comandos, processa arquivos multimodais e pode criar suas próprias skills.
+**GueClaw** é um agente de IA pessoal projetado para operar completamente em uma VPS, com controle total do ambiente via Telegram. Alimentado por múltiplos LLMs (GitHub Copilot/OpenAI, DeepSeek, etc.), ele gerencia Docker, executa comandos, processa arquivos multimodais e pode criar suas próprias skills.
 
 ---
 
 ## ✨ Características Principais
 
-### 🧠 **Dual Reasoning System**
-- **DeepSeek Fast**: Raciocínio rápido para tarefas gerais e tool calls
+### 🧠 **Multi-LLM Support**
+- **GitHub Copilot / OpenAI**: GPT-4o, GPT-4 Turbo para tarefas gerais (recomendado)
+- **DeepSeek Fast**: Raciocínio rápido para tarefas gerais alternativo
 - **DeepSeek Reasoner**: Raciocínio estendido para programação e tarefas complexas
-- Seleção automática baseada no contexto da tarefa
+- Seleção flexível de provedor via configuração
 
 ### 🛠️ **Controle Total da VPS**
 - Execução de comandos shell com acesso total
@@ -50,7 +51,12 @@
 
 ### Serviços Externos
 - **Telegram Bot Token**: Crie um bot via [@BotFather](https://t.me/BotFather)
-- **DeepSeek API Key**: Obtenha em [platform.deepseek.com](https://platform.deepseek.com)
+- **LLM API Key**: Escolha uma das opções:
+  - **OpenAI API**: [platform.openai.com](https://platform.openai.com) (recomendado)
+  - **GitHub Models**: Token GitHub com Copilot subscription
+  - **DeepSeek API**: [platform.deepseek.com](https://platform.deepseek.com)
+
+> 💡 **Configurar GitHub Copilot?** Veja o guia detalhado em [GITHUB-COPILOT-SETUP.md](GITHUB-COPILOT-SETUP.md)
 
 ---
 
@@ -88,16 +94,22 @@ Preencha as variáveis essenciais:
 TELEGRAM_BOT_TOKEN=123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11
 TELEGRAM_ALLOWED_USER_IDS=123456789,987654321
 
-# DeepSeek (Principal)
-DEEPSEEK_API_KEY=sk-xxxxxxxxxxxxx
-DEEPSEEK_BASE_URL=https://api.deepseek.com/v1
-DEEPSEEK_MODEL_FAST=deepseek-chat
-DEEPSEEK_MODEL_REASONING=deepseek-reasoner
+# LLM Provider (escolha uma das opções)
+# Opção 1: GitHub Copilot / OpenAI (recomendado)
+OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxx
+OPENAI_MODEL=gpt-4o
+DEFAULT_PROVIDER=github-copilot
+
+# Opção 2: DeepSeek (alternativo)
+# DEEPSEEK_API_KEY=sk-xxxxxxxxxxxxx
+# DEEPSEEK_BASE_URL=https://api.deepseek.com/v1
+# DEEPSEEK_MODEL_FAST=deepseek-chat
+# DEEPSEEK_MODEL_REASONING=deepseek-reasoner
+# DEFAULT_PROVIDER=deepseek
 
 # Agent Configuration
 MAX_ITERATIONS=5
 MEMORY_WINDOW_SIZE=10
-DEFAULT_PROVIDER=deepseek
 
 # VPS Configuration (para o agente acessar a própria VPS)
 VPS_HOST=localhost
