@@ -1,69 +1,79 @@
 import { Context, InputFile } from 'grammy';
 import * as fs from 'fs';
 import * as path from 'path';
+import { TelegramFormatter } from '../utils/telegram-formatter';
 
 /**
  * Telegram Output Handler - Sends responses back to users
  */
 export class TelegramOutputHandler {
-  private static readonly MAX_MESSAGE_LENGTH = 4096;
-  private static readonly CHUNK_SIZE = 4000;
+  private static readonly MAX_MESSAGE_LENGTH = TelegramFormatter.MAX_MESSAGE_LENGTH;
+  private static readonly CHUNK_SIZE = TelegramFormatter.CHUNK_SIZE;
 
   /**
-   * Send text response to user (plain text, no Markdown formatting)
+   * Send a formatted text response to the user.
+   * Converts Markdown produced by the LLM to Telegram HTML before sending.
+   * Uses parse_mode='HTML' so bold, italic, code blocks, links, etc. render correctly.
    */
   public static async sendText(ctx: Context, text: string): Promise<void> {
     try {
-      // If text is short enough, send directly
-      if (text.length <= this.MAX_MESSAGE_LENGTH) {
-        await ctx.reply(text);
+      const html = TelegramFormatter.toHtml(text);
+
+      if (html.length <= this.MAX_MESSAGE_LENGTH) {
+        await ctx.reply(html, { parse_mode: 'HTML' });
         return;
       }
 
-      // Split into chunks
-      console.log(`📝 Response too long (${text.length} chars), splitting into chunks...`);
-      await this.sendInChunks(ctx, text);
+      console.log(`📝 Response too long (${html.length} chars), splitting into chunks...`);
+      await this.sendInChunks(ctx, html);
 
     } catch (error: any) {
-      console.error('❌ Error sending text response:', error);
-      
-      // Try without markdown
+      console.error('❌ Error sending formatted text response:', error);
+      // Last-resort fallback: strip formatting and send plain text
       try {
         await ctx.reply(text);
       } catch {
-        await ctx.reply('❌ Error sending response. The message may be too long or contain invalid formatting.');
+        await ctx.reply('❌ Erro ao enviar resposta. A mensagem pode conter formatação inválida.');
       }
     }
   }
 
   /**
-   * Send text as a preformatted block using HTML (avoids nested backtick issues)
-   * Uses <pre> tag so the content renders as monospace without Markdown parsing
+   * Send raw text as a monospace <pre> block (for shell/terminal output).
+   * Content is HTML-escaped but NOT processed for Markdown, preserving
+   * prompts, indentation and special characters exactly as-is.
    */
   public static async sendAsCode(ctx: Context, text: string): Promise<void> {
     try {
-      const maxCodeLength = 3800; // <pre> tags take a few chars
-
-      // Escape HTML special chars inside the <pre> block
-      const escape = (s: string) =>
-        s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const maxCodeLength = TelegramFormatter.CHUNK_SIZE; // conservative limit
 
       if (text.length <= maxCodeLength) {
-        await ctx.reply(`<pre>${escape(text)}</pre>`, { parse_mode: 'HTML' });
+        await ctx.reply(`<pre>${TelegramFormatter.escapeHtml(text)}</pre>`, { parse_mode: 'HTML' });
         return;
       }
 
       // Split into multiple blocks
       console.log(`📝 Code response too long (${text.length} chars), splitting into chunks...`);
-      const chunks = this.splitIntoChunks(text, maxCodeLength);
+      const lines = text.split('\n');
+      let current = '';
 
-      for (let i = 0; i < chunks.length; i++) {
-        const prefix = i === 0 ? '' : `📄 Parte ${i + 1}/${chunks.length}\n`;
-        await ctx.reply(`${prefix}<pre>${escape(chunks[i])}</pre>`, { parse_mode: 'HTML' });
+      const flush = async (chunk: string, partLabel: string) => {
+        await ctx.reply(`${partLabel}<pre>${TelegramFormatter.escapeHtml(chunk)}</pre>`, { parse_mode: 'HTML' });
+        await this.sleep(150);
+      };
 
-        if (i < chunks.length - 1) {
-          await this.sleep(100);
+      let part = 1;
+      for (const line of lines) {
+        if (current.length + line.length + 1 > maxCodeLength) {
+          await flush(current, part > 1 ? `<i>📄 Parte ${part}</i>\n` : '');
+          current = line;
+          part++;
+        } else {
+          current += (current ? '\n' : '') + line;
         }
+      }
+      if (current) {
+        await flush(current, part > 1 ? `<i>📄 Parte ${part}</i>\n` : '');
       }
 
     } catch (error: any) {
@@ -73,63 +83,21 @@ export class TelegramOutputHandler {
   }
 
   /**
-   * Send response in chunks
+   * Send pre-formatted HTML in chunks, each within Telegram's 4096-char limit.
+   * The incoming `html` string must already be formatted by TelegramFormatter.toHtml().
    */
-  private static async sendInChunks(ctx: Context, text: string): Promise<void> {
-    const chunks = this.splitIntoChunks(text, this.CHUNK_SIZE);
+  private static async sendInChunks(ctx: Context, html: string): Promise<void> {
+    const chunks = TelegramFormatter.splitHtml(html, this.CHUNK_SIZE);
 
     for (let i = 0; i < chunks.length; i++) {
-      const prefix = i === 0 ? '' : `📄 Part ${i + 1}/${chunks.length}\n\n`;
-      
-      await ctx.reply(prefix + chunks[i]);
-      
+      const header = i === 0 ? '' : `<i>📄 Parte ${i + 1}/${chunks.length}</i>\n\n`;
+      await ctx.reply(header + chunks[i], { parse_mode: 'HTML' });
+
       // Small delay between chunks to avoid rate limiting
       if (i < chunks.length - 1) {
-        await this.sleep(100);
+        await this.sleep(150);
       }
     }
-  }
-
-  /**
-   * Split text into chunks respecting word boundaries
-   */
-  private static splitIntoChunks(text: string, chunkSize: number): string[] {
-    const chunks: string[] = [];
-    let currentChunk = '';
-
-    const lines = text.split('\n');
-
-    for (const line of lines) {
-      if (currentChunk.length + line.length + 1 > chunkSize) {
-        if (currentChunk) {
-          chunks.push(currentChunk.trim());
-          currentChunk = '';
-        }
-
-        // If a single line is too long, split it
-        if (line.length > chunkSize) {
-          const words = line.split(' ');
-          for (const word of words) {
-            if (currentChunk.length + word.length + 1 > chunkSize) {
-              chunks.push(currentChunk.trim());
-              currentChunk = word;
-            } else {
-              currentChunk += (currentChunk ? ' ' : '') + word;
-            }
-          }
-        } else {
-          currentChunk = line;
-        }
-      } else {
-        currentChunk += (currentChunk ? '\n' : '') + line;
-      }
-    }
-
-    if (currentChunk) {
-      chunks.push(currentChunk.trim());
-    }
-
-    return chunks;
   }
 
   /**
@@ -230,28 +198,32 @@ export class TelegramOutputHandler {
    * Send error message
    */
   public static async sendError(ctx: Context, error: string): Promise<void> {
-    await ctx.reply(`❌ Error: ${error}`);
+    const safe = TelegramFormatter.escapeHtml(error);
+    await ctx.reply(`❌ <b>Erro:</b> ${safe}`, { parse_mode: 'HTML' });
   }
 
   /**
    * Send success message
    */
   public static async sendSuccess(ctx: Context, message: string): Promise<void> {
-    await ctx.reply(`✅ ${message}`);
+    const safe = TelegramFormatter.escapeHtml(message);
+    await ctx.reply(`✅ ${safe}`, { parse_mode: 'HTML' });
   }
 
   /**
    * Send warning message
    */
   public static async sendWarning(ctx: Context, message: string): Promise<void> {
-    await ctx.reply(`⚠️ ${message}`);
+    const safe = TelegramFormatter.escapeHtml(message);
+    await ctx.reply(`⚠️ ${safe}`, { parse_mode: 'HTML' });
   }
 
   /**
    * Send info message
    */
   public static async sendInfo(ctx: Context, message: string): Promise<void> {
-    await ctx.reply(`ℹ️ ${message}`);
+    const safe = TelegramFormatter.escapeHtml(message);
+    await ctx.reply(`ℹ️ ${safe}`, { parse_mode: 'HTML' });
   }
 
   /**

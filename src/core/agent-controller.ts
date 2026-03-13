@@ -141,36 +141,38 @@ export class AgentController {
   }
 
   /**
-   * Send response to user (text, code, or file)
+   * Send response to user (formatted HTML text, raw code block, or file)
    */
   private async sendResponse(ctx: Context, response: string): Promise<void> {
-    // Check if should send as file (only for very technical documents)
+    // Very long technical docs → send as file to avoid truncation
     if (this.shouldSendAsFile(response)) {
       await TelegramOutputHandler.sendMarkdownAsFile(ctx, response, 'response.md');
       return;
     }
 
-    // Check if should send as code block (structured/long responses)
-    if (this.shouldSendAsCode(response)) {
+    // Raw shell/terminal output (no markdown) → preserve as-is inside <pre>
+    if (this.shouldSendAsRawCode(response)) {
       await TelegramOutputHandler.sendAsCode(ctx, response);
       return;
     }
 
-    // Send as plain text for simple conversational responses
+    // Default: convert Markdown → Telegram HTML and send with parse_mode='HTML'
     await TelegramOutputHandler.sendText(ctx, response);
   }
 
   /**
-   * Check if response should be sent as preformatted code block.
-   * Only when the LLM explicitly returns content that is clearly code/technical output.
+   * Returns true only for raw terminal/shell output that contains no Markdown.
+   * LLM responses that happen to contain code blocks are handled by sendText()
+   * via TelegramFormatter, which renders them as proper <pre><code> blocks.
    */
-  private shouldSendAsCode(response: string): boolean {
-    // Only use code block when the response is predominantly code
-    const codeBlockPairs = Math.floor((response.match(/```/g) || []).length / 2);
-    const looksLikeShellOutput = /^(\$|#|>|root@|\[root)/.test(response.trim());
-    const looksLikeCodeOnly = codeBlockPairs >= 2 && response.trim().startsWith('```');
-
-    return looksLikeShellOutput || looksLikeCodeOnly;
+  private shouldSendAsRawCode(response: string): boolean {
+    const trimmed = response.trim();
+    const startsWithShellPrompt = /^(\$\s|#\s|\[?root@|\[root\]|>)/.test(trimmed);
+    const hasNoMarkdown = !trimmed.includes('**') &&
+                          !trimmed.includes('```') &&
+                          !trimmed.includes('_') &&
+                          !trimmed.includes('[');
+    return startsWithShellPrompt && hasNoMarkdown;
   }
 
   /**
