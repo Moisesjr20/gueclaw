@@ -9,72 +9,78 @@ summary: Agendamento de mensagens via WhatsApp (UazAPI Scheduler). Use quando o 
 ## Propósito
 Permite o agendamento de mensagens de WhatsApp para serem enviadas no futuro utilizando a UazAPI.
 
-## Variáveis de Ambiente Necessárias
+## ⚠️ REGRAS ABSOLUTAS — LEIA ANTES DE QUALQUER AÇÃO
 
-Configure no arquivo `.env`:
+1. **NUNCA invente IDs, status ou resultados.** Todos os dados devem vir da saída real da ferramenta `vps_execute_command`.
+2. **SEMPRE use a ferramenta `vps_execute_command`** para executar os comandos abaixo. Não simule, não escreva texto inventado como `[Tool Result - ...]`.
+3. **SEMPRE execute a verificação** após criar/cancelar um agendamento (passo de confirmação obrigatório).
+4. O ID real é gerado pelo script e aparece na linha `✅ Agendado com sucesso! ID: XXXXXXXX` do output real.
 
-```env
-UAIZAPI_TOKEN=seu_token_aqui
+## Caminho dos Scripts na VPS
+
+**Caminho absoluto:** `/root/gueclaw/.agents/skills/uazapi-scheduler/scripts/`
+
+## Passo a Passo Para Agendar
+
+### Passo 1 — Criar o agendamento
+Use a ferramenta `vps_execute_command` com este comando **exatamente**:
+
 ```
-
-## Comandos Disponíveis
-
-Os scripts estão localizados em: `.agents/skills/uazapi-scheduler/scripts/`
-
-### 1. Agendar uma Mensagem
-Para agendar uma mensagem, você deve usar o script `schedule.py`.
-
-```bash
-python3 .agents/skills/uazapi-scheduler/scripts/schedule.py "<NUMERO>" "<DATA_HORA_ISO>" "<MENSAGEM>"
+python3 /root/gueclaw/.agents/skills/uazapi-scheduler/scripts/schedule.py "NUMERO" "DATA_HORA_ISO" "MENSAGEM"
 ```
 
 **Regras:**
-- `NUMERO`: Apenas números, formato DDI+DDD+NUMERO. Ex: `5511999999999`.
-- `DATA_HORA_ISO`: OBRIGATORIAMENTE no formato ISO-8601 de São Paulo. Ex: `2026-03-15T14:30:00-03:00`. (Sempre calcule a data correta baseada no momento atual).
-- `MENSAGEM`: O texto da mensagem a ser enviada.
+- `NUMERO`: Apenas dígitos, formato DDI+DDD+NUMERO. Ex: `5511999999999`
+- `DATA_HORA_ISO`: Formato ISO-8601 com fuso de São Paulo. Ex: `2026-03-15T14:30:00-03:00`
+- `MENSAGEM`: Texto entre aspas duplas. Se contiver aspas, use variável de ambiente.
 
 **Exemplo:**
-```bash
-python3 .agents/skills/uazapi-scheduler/scripts/schedule.py "5511999999999" "2026-03-15T14:30:00-03:00" "Lembrete: Reunião às 15h!"
+```
+python3 /root/gueclaw/.agents/skills/uazapi-scheduler/scripts/schedule.py "5511999999999" "2026-03-15T14:30:00-03:00" "Lembrete: Reunião às 15h!"
 ```
 
-### 2. Listar Agendamentos
-Para ver o que está na fila (pendente, enviado, cancelado):
+### Passo 2 — Confirmar que foi salvo (OBRIGATÓRIO)
+Após criar, SEMPRE execute a verificação com `vps_execute_command`:
 
-```bash
-# Lista todas as mensagens
-python3 .agents/skills/uazapi-scheduler/scripts/manage.py list
-
-# Lista apenas as pendentes
-python3 .agents/skills/uazapi-scheduler/scripts/manage.py list pending
+```
+python3 /root/gueclaw/.agents/skills/uazapi-scheduler/scripts/manage.py list pending
 ```
 
-### 3. Cancelar um Agendamento
-Se o usuário desistir do envio e a mensagem ainda estiver com status `pending`:
+O ID real aparece no output do Passo 1. O Passo 2 confirma que está na fila.
 
-```bash
-python3 .agents/skills/uazapi-scheduler/scripts/manage.py cancel <ID_DA_TAREFA>
+## Listar Agendamentos
+
+Use `vps_execute_command`:
+```
+python3 /root/gueclaw/.agents/skills/uazapi-scheduler/scripts/manage.py list
 ```
 
----
-
-## O Motor do Scheduler (Worker)
-O sistema depende de um worker que roda em background verificando o arquivo JSON a cada minuto. 
-Para garantir que ele está rodando e vai disparar as mensagens no momento certo, você deve inicializá-lo.
-
-**Iniciar o worker:**
-```bash
-python3 .agents/skills/uazapi-scheduler/scripts/worker.py
+Ou só pendentes:
+```
+python3 /root/gueclaw/.agents/skills/uazapi-scheduler/scripts/manage.py list pending
 ```
 
-**Ou executar apenas uma vez (útil para cron):**
-```bash
-python3 .agents/skills/uazapi-scheduler/scripts/worker.py --once
+## Cancelar um Agendamento
+
+Use `vps_execute_command`:
+```
+python3 /root/gueclaw/.agents/skills/uazapi-scheduler/scripts/manage.py cancel <ID_REAL>
 ```
 
-*Observação: Antes de confirmar um agendamento para o usuário, certifique-se de que o worker está rodando.*
+## O Worker (Motor de Envio)
 
-## Diretrizes de Uso
-1. Se o usuário falar "mande uma mensagem para X amanhã às Y", calcule a data em ISO baseada na data atual e chame o `schedule.py`.
-2. Após agendar, informe o ID ao usuário para que ele possa cancelar se precisar.
-3. Os dados são salvos em: `.agents/skills/uazapi-scheduler/data/queue.json`
+O worker verifica a fila a cada minuto e dispara as mensagens no horário. Inicie com `vps_execute_command`:
+
+```
+nohup python3 /root/gueclaw/.agents/skills/uazapi-scheduler/scripts/worker.py > /root/gueclaw/.agents/skills/uazapi-scheduler/data/worker.log 2>&1 &
+```
+
+Verifique se está rodando:
+```
+ps aux | grep worker.py
+```
+
+*Sempre inicie o worker antes de confirmar um agendamento ao usuário.*
+
+## Dados salvos em
+`/root/gueclaw/.agents/skills/uazapi-scheduler/data/queue.json`
