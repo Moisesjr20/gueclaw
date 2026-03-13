@@ -161,21 +161,16 @@ export class AgentController {
   }
 
   /**
-   * Check if response should be sent as code block
+   * Check if response should be sent as preformatted code block.
+   * Only when the LLM explicitly returns content that is clearly code/technical output.
    */
   private shouldSendAsCode(response: string): boolean {
-    const lineCount = response.split('\n').length;
-    const hasCodeBlocks = (response.match(/```/g) || []).length >= 2;
-    const hasListStructure = (response.match(/^[-*•]\s/gm) || []).length > 5;
-    const isLongStructured = response.length > 1000 && lineCount > 20;
-    const hasMultipleSections = (response.match(/^#{1,3}\s/gm) || []).length > 3;
+    // Only use code block when the response is predominantly code
+    const codeBlockPairs = Math.floor((response.match(/```/g) || []).length / 2);
+    const looksLikeShellOutput = /^(\$|#|>|root@|\[root)/.test(response.trim());
+    const looksLikeCodeOnly = codeBlockPairs >= 2 && response.trim().startsWith('```');
 
-    // Send as code block for:
-    // 1. Structured lists with many items
-    // 2. Long responses with multiple sections
-    // 3. Responses with code blocks
-    // 4. Any response > 1000 chars with structure
-    return hasListStructure || hasMultipleSections || (isLongStructured && hasCodeBlocks) || (response.length > 2000 && lineCount > 30);
+    return looksLikeShellOutput || looksLikeCodeOnly;
   }
 
   /**

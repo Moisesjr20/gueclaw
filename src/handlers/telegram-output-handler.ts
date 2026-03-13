@@ -37,29 +37,30 @@ export class TelegramOutputHandler {
   }
 
   /**
-   * Send text as code block (formatted with monospace font)
+   * Send text as a preformatted block using HTML (avoids nested backtick issues)
+   * Uses <pre> tag so the content renders as monospace without Markdown parsing
    */
-  public static async sendAsCode(ctx: Context, text: string, language: string = ''): Promise<void> {
+  public static async sendAsCode(ctx: Context, text: string): Promise<void> {
     try {
-      const maxCodeLength = 4000; // Leave room for markdown backticks
+      const maxCodeLength = 3800; // <pre> tags take a few chars
+
+      // Escape HTML special chars inside the <pre> block
+      const escape = (s: string) =>
+        s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
       if (text.length <= maxCodeLength) {
-        // Send as single code block
-        const formattedText = `\`\`\`${language}\n${text}\n\`\`\``;
-        await ctx.reply(formattedText, { parse_mode: 'Markdown' });
+        await ctx.reply(`<pre>${escape(text)}</pre>`, { parse_mode: 'HTML' });
         return;
       }
 
-      // Split into multiple code blocks
+      // Split into multiple blocks
       console.log(`📝 Code response too long (${text.length} chars), splitting into chunks...`);
       const chunks = this.splitIntoChunks(text, maxCodeLength);
-      
+
       for (let i = 0; i < chunks.length; i++) {
-        const prefix = i === 0 ? '' : `📄 Part ${i + 1}/${chunks.length}\n`;
-        const formattedChunk = `${prefix}\`\`\`${language}\n${chunks[i]}\n\`\`\``;
-        
-        await ctx.reply(formattedChunk, { parse_mode: 'Markdown' });
-        
+        const prefix = i === 0 ? '' : `📄 Parte ${i + 1}/${chunks.length}\n`;
+        await ctx.reply(`${prefix}<pre>${escape(chunks[i])}</pre>`, { parse_mode: 'HTML' });
+
         if (i < chunks.length - 1) {
           await this.sleep(100);
         }
@@ -67,7 +68,6 @@ export class TelegramOutputHandler {
 
     } catch (error: any) {
       console.error('❌ Error sending code response:', error);
-      // Fallback to plain text
       await this.sendText(ctx, text);
     }
   }

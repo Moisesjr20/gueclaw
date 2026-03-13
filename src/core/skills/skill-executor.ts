@@ -40,15 +40,17 @@ export class SkillExecutor {
       // Build enhanced system prompt with skill content
       const systemPrompt = `${skillContent}
 
-**Available Tools:**
+Available Tools:
 You have access to the following tools:
 ${availableTools.map(t => `- ${t.name}: ${t.description}`).join('\n')}
 
-**Instructions:**
+Instructions:
 - Follow the guidelines and specifications in the skill documentation above
 - Use the available tools when necessary to accomplish the task
 - Think step by step
-- Provide clear and accurate responses
+- Respond in PLAIN TEXT, conversationally. Do NOT use Markdown formatting (no **, no ##, no __, no \`\`\`)
+- Use emojis and line breaks naturally but avoid all Markdown syntax
+- Be direct and concise in your answers
 `;
 
       // Initialize Agent Loop
