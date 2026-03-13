@@ -143,26 +143,29 @@ export class AgentLoop {
 
     for (const toolCall of toolCalls) {
       try {
-        console.log(`   → ${toolCall.name}(${JSON.stringify(toolCall.arguments).substring(0, 50)}...)`);
+        const toolName = toolCall.function.name;
+        const toolArgs = toolCall.function.arguments;
+        
+        console.log(`   → ${toolName}(${JSON.stringify(toolArgs).substring(0, 50)}...)`);
 
         // Get the tool from registry
-        const tool = ToolRegistry.get(toolCall.name);
+        const tool = ToolRegistry.get(toolName);
 
         if (!tool) {
-          const errorMsg = `Tool "${toolCall.name}" not found in registry`;
+          const errorMsg = `Tool "${toolName}" not found in registry`;
           console.error(`   ❌ ${errorMsg}`);
           
           this.conversationHistory.push({
             conversationId: 'temp',
             role: 'tool',
             content: `Error: ${errorMsg}`,
-            metadata: { toolName: toolCall.name, toolCallId: toolCall.id },
+            metadata: { toolName, toolCallId: toolCall.id },
           });
           continue;
         }
 
         // Execute the tool
-        const result = await tool.execute(toolCall.arguments);
+        const result = await tool.execute(toolArgs);
 
         if (result.success) {
           console.log(`   ✅ Success: ${result.output.substring(0, 100)}${result.output.length > 100 ? '...' : ''}`);
@@ -172,14 +175,14 @@ export class AgentLoop {
 
         // Add tool result to history
         const observation = result.success
-          ? `[Tool Result - ${toolCall.name}]:\n${result.output}`
-          : `[Tool Error - ${toolCall.name}]:\n${result.error}`;
+          ? `[Tool Result - ${toolName}]:\n${result.output}`
+          : `[Tool Error - ${toolName}]:\n${result.error}`;
 
         this.conversationHistory.push({
           conversationId: 'temp',
           role: 'tool',
           content: observation,
-          metadata: { toolName: toolCall.name, toolCallId: toolCall.id, success: result.success },
+          metadata: { toolName, toolCallId: toolCall.id, success: result.success },
         });
 
       } catch (error: any) {
@@ -188,8 +191,8 @@ export class AgentLoop {
         this.conversationHistory.push({
           conversationId: 'temp',
           role: 'tool',
-          content: `[Tool Execution Error - ${toolCall.name}]: ${error.message}`,
-          metadata: { toolName: toolCall.name, toolCallId: toolCall.id, error: true },
+          content: `[Tool Execution Error - ${toolCall.function.name}]: ${error.message}`,
+          metadata: { toolName: toolCall.function.name, toolCallId: toolCall.id, error: true },
         });
       }
     }

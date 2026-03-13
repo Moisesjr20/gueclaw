@@ -1,5 +1,7 @@
 ---
-summary: "Agendamento de mensagens via WhatsApp (UazAPI Scheduler). Use quando o usuário quiser programar, agendar, listar ou cancelar o envio de uma mensagem para o futuro."
+name: uazapi-scheduler
+description: Agendamento de mensagens via WhatsApp (UazAPI Scheduler). Use quando o usuário quiser programar, agendar, listar ou cancelar o envio de uma mensagem para o futuro.
+summary: Agendamento de mensagens via WhatsApp (UazAPI Scheduler). Use quando o usuário quiser programar, agendar, listar ou cancelar o envio de uma mensagem para o futuro.
 ---
 
 # Skill: UazAPI Scheduler
