@@ -2,7 +2,7 @@
 name: self-improvement
 description: Create, modify, and improve agent skills. Allows the agent to extend its own capabilities by generating new skill files.
 metadata:
-  version: 1.0.0
+  version: 1.1.0
   author: GueClaw System
   category: meta
   tools:
@@ -11,9 +11,114 @@ metadata:
 
 # Self-Improvement Skill
 
-## Purpose
+## Propósito
 
-This skill enables the agent to create, modify, and manage its own skills. It allows GueClaw to extend its capabilities dynamically based on user needs and evolving requirements.
+Permite ao GueClaw criar e modificar suas próprias skills dinamicamente. Use quando o usuário pedir para criar uma nova habilidade, integração ou automação que ainda não existe como skill.
+
+## ⚠️ COMO FUNCIONA NESTE AGENTE
+
+- O agente roda em `/opt/gueclaw-agent` na VPS
+- Skills ficam em `.agents/skills/<nome-da-skill>/SKILL.md`
+- A `file_operations` tool escreve **localmente no servidor** (`/opt/gueclaw-agent`)
+- **Skills criadas na VPS são perdidas no próximo deploy** (o deploy faz `git pull`)
+- Para persistir uma skill, o usuário deve fazer commit no repositório local e fazer deploy
+
+### Fluxo correto ao criar uma skill
+
+1. Criar o arquivo via `file_operations` na VPS (para usar imediatamente)
+2. Avisar o usuário que a skill ficará disponível até o próximo deploy
+3. Recomendar que o usuário salve o conteúdo localmente e faça commit
+
+---
+
+## Estrutura Obrigatória de Toda Skill
+
+```markdown
+---
+name: nome-da-skill
+description: O que a skill faz — usado pelo router para decidir quando ativá-la
+summary: Mesmo texto da description (usado em listagens)
+---
+
+# Título da Skill
+
+## Propósito
+O que esta skill faz e quando usar
+
+## ⚠️ REGRAS ABSOLUTAS
+(Se a skill usa ferramentas externas, liste aqui o que é proibido fazer)
+
+## Passo a Passo
+Instruções detalhadas com os comandos exatos a executar
+
+## Exemplos
+Cenários reais de uso
+```
+
+---
+
+## Como Criar uma Nova Skill
+
+### Passo 1 — Criar o diretório
+
+Use `file_operations` com `action: create_dir`:
+```
+filePath: .agents/skills/nome-da-skill
+```
+
+### Passo 2 — Escrever o SKILL.md
+
+Use `file_operations` com `action: write`:
+```
+filePath: .agents/skills/nome-da-skill/SKILL.md
+content: [conteúdo completo da skill]
+```
+
+### Passo 3 — Verificar
+
+Use `file_operations` com `action: read`:
+```
+filePath: .agents/skills/nome-da-skill/SKILL.md
+```
+
+### Passo 4 — Avisar o usuário
+
+Informe:
+- Que a skill foi criada e já está disponível nesta sessão
+- Que ela será recarregada automaticamente na próxima mensagem
+- Que será perdida no próximo deploy se não for salva no repositório
+
+---
+
+## Como Modificar uma Skill Existente
+
+1. Ler o arquivo atual com `file_operations` (`action: read`)
+2. Gerar o conteúdo atualizado
+3. Sobrescrever com `file_operations` (`action: write`)
+4. Incrementar o número de versão no frontmatter
+5. Confirmar leitura do arquivo salvo
+
+---
+
+## Categorias de Skills
+
+- `automation`: Tarefas agendadas, workflows automáticos
+- `infrastructure`: VPS, Docker, sistema
+- `integration`: APIs e serviços externos (WhatsApp, Telegram, etc.)
+- `data`: Processamento e análise de dados
+- `monitoring`: Logs, alertas, saúde do sistema
+- `development`: Geração de código, programação
+- `meta`: Skills sobre skills
+
+---
+
+## Boas Práticas
+
+- Skills devem ser focadas em **um único domínio**
+- Sempre incluir seção "REGRAS ABSOLUTAS" se a skill faz chamadas externas
+- Especificar **caminhos absolutos ou relativos ao cwd `/opt/gueclaw-agent`**
+- Documentar qual tool usar para cada ação (`vps_execute_command`, `api_request`, `file_operations`)
+- Incluir o passo de verificação após qualquer operação
 
 ## Core Capabilities
 
