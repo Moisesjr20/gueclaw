@@ -3,23 +3,37 @@ import { DeepSeekProvider } from './deepseek-provider';
 import { DeepSeekReasonerProvider } from './deepseek-reasoner-provider';
 import { GitHubCopilotProvider } from './github-copilot-provider';
 import { GitHubCopilotOAuthProvider } from './github-copilot-oauth-provider';
+import { TelegramNotifier } from '../../services/telegram-notifier';
 
 /**
  * Provider Factory - Creates and manages LLM provider instances
  */
 export class ProviderFactory {
   private static providers: Map<string, ILLMProvider> = new Map();
+  private static telegramNotifier: TelegramNotifier | null = null;
 
   /**
    * Initialize all available providers based on environment variables
    */
   public static initialize(): void {
+    // Initialize Telegram Notifier (for OAuth notifications)
+    if (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_ALLOWED_USER_IDS) {
+      this.telegramNotifier = new TelegramNotifier(
+        process.env.TELEGRAM_BOT_TOKEN,
+        process.env.TELEGRAM_ALLOWED_USER_IDS
+      );
+    }
+
     // GitHub Copilot OAuth (Primary - recommended for Copilot Pro)
     const useOAuth = process.env.GITHUB_COPILOT_USE_OAUTH === 'true';
     
     if (useOAuth) {
       const model = process.env.GITHUB_COPILOT_MODEL || 'claude-sonnet-4.5';
-      const copilotOAuthProvider = new GitHubCopilotOAuthProvider(model);
+      const copilotOAuthProvider = new GitHubCopilotOAuthProvider(
+        model,
+        './data/github-token.json',
+        this.telegramNotifier || undefined
+      );
       
       this.providers.set('github-copilot', copilotOAuthProvider);
       this.providers.set('copilot', copilotOAuthProvider);

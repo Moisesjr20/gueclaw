@@ -1,6 +1,7 @@
 import axios, { AxiosInstance } from 'axios';
 import { ILLMProvider, CompletionOptions } from './base-provider';
 import { Message, LLMResponse } from '../../types';
+import { TelegramNotifier } from '../../services/telegram-notifier';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -12,6 +13,11 @@ import * as path from 'path';
  * 2. User visits URL and enters 8-digit code
  * 3. Poll for access token
  * 4. Use token for API requests
+ * 
+ * Auto-Renewal:
+ * - Detects token expiration (401 errors)
+ * - Sends OAuth request via Telegram
+ * - Automatically renews and resumes
  */
 export class GitHubCopilotOAuthProvider implements ILLMProvider {
   public readonly name = 'github-copilot-oauth';
@@ -23,13 +29,17 @@ export class GitHubCopilotOAuthProvider implements ILLMProvider {
   private accessToken: string | null = null;
   private tokenPath: string;
   private clientId = 'Iv1.b507a08c87ecfe98'; // GitHub Copilot Client ID
+  private notifier: TelegramNotifier | null = null;
+  private isRenewing: boolean = false;
 
   constructor(
     model: string = 'claude-sonnet-4.5',
-    tokenPath: string = './data/github-token.json'
+    tokenPath: string = './data/github-token.json',
+    notifier?: TelegramNotifier
   ) {
     this.model = model;
     this.tokenPath = tokenPath;
+    this.notifier = notifier || null;
 
     this.client = axios.create({
       timeout: 180000,
@@ -222,6 +232,133 @@ export class GitHubCopilotOAuthProvider implements ILLMProvider {
   }
 
   /**
+   * Automatically renew token and send notification via Telegram
+   */
+  private async autoRenewToken(): Promise<void> {
+    // Prevent multiple simultaneous renewals
+    if (this.isRenewing) {
+      console.log('⏳ Token renewal already in progress...');
+      return;
+    }
+
+    this.isRenewing = true;
+
+    try {
+      console.log('🔄 Auto-renewing GitHub Copilot token...');
+
+      // Step 1: Request device code
+      const deviceResponse = await axios.post(
+        'https://github.com/login/device/code',
+        {
+          client_id: this.clientId,
+          scope: 'read:user user:email',
+        },
+        {
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      const {
+        device_code,
+        user_code,
+        verification_uri,
+        expires_in,
+        interval,
+      } = deviceResponse.data;
+
+      // Send notification via Telegram
+      if (this.notifier) {
+        await this.notifier.sendOAuthRequest(device_code, user_code, verification_uri);
+      } else {
+        console.log('\n╔══════════════════════════════════════════════════╗');
+        console.log('║     🔐 Token Expirado - Renovação Necessária    ║');
+        console.log('╚══════════════════════════════════════════════════╝\n');
+        console.log(`📱 Acesse: ${verification_uri}`);
+        console.log(`🔑 Digite o código: ${user_code}\n`);
+      }
+
+      // Step 2: Poll for access token
+      const pollInterval = (interval || 5) * 1000;
+      const expiresAt = Date.now() + expires_in * 1000;
+
+      while (Date.now() < expiresAt) {
+        await new Promise(resolve => setTimeout(resolve, pollInterval));
+
+        try {
+          const tokenResponse = await axios.post(
+            'https://github.com/login/oauth/access_token',
+            {
+              client_id: this.clientId,
+              device_code: device_code,
+              grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
+            },
+            {
+              headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+              },
+            }
+          );
+
+          const { access_token, error } = tokenResponse.data;
+
+          if (access_token) {
+            this.accessToken = access_token;
+            this.saveToken(access_token);
+
+            console.log('✅ Token renovado com sucesso!');
+
+            // Get fresh Copilot token
+            await this.getCopilotToken();
+
+            // Send success notification
+            if (this.notifier) {
+              await this.notifier.sendOAuthSuccess();
+            }
+
+            this.isRenewing = false;
+            return;
+          }
+
+          if (error === 'authorization_pending') {
+            continue;
+          }
+
+          if (error === 'slow_down') {
+            await new Promise(resolve => setTimeout(resolve, 5000));
+            continue;
+          }
+
+          if (error === 'expired_token' || error === 'access_denied') {
+            throw new Error(`Renovation failed: ${error}`);
+          }
+
+        } catch (pollError: any) {
+          if (pollError.response?.data?.error === 'authorization_pending') {
+            continue;
+          }
+          throw pollError;
+        }
+      }
+
+      throw new Error('Token renovation timeout');
+
+    } catch (error: any) {
+      console.error('❌ Failed to auto-renew token:', error.message);
+      
+      if (this.notifier) {
+        await this.notifier.sendOAuthFailure(error.message);
+      }
+      
+      this.isRenewing = false;
+      throw error;
+    }
+  }
+
+  /**
    * Check if authenticated
    */
   public isAuthenticated(): boolean {
@@ -275,11 +412,21 @@ export class GitHubCopilotOAuthProvider implements ILLMProvider {
       console.error('❌ GitHub Copilot API error:', error.response?.data || error.message);
 
       if (error.response?.status === 401) {
-        return {
-          content: 'Erro: Token expirado. Execute: npm run copilot:auth',
-          finishReason: 'error',
-          usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
-        };
+        console.log('🔄 Token expired - attempting auto-renewal...');
+        
+        // Try to auto-renew token
+        try {
+          await this.autoRenewToken();
+          
+          // Retry the request with new token
+          return await this.generateCompletion(messages, options);
+        } catch (renewError: any) {
+          return {
+            content: 'Erro: Token expirado e renovação falhou. Verifique o Telegram para instruções de autenticação.',
+            finishReason: 'error',
+            usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+          };
+        }
       }
 
       return {
