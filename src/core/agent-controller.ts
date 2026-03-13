@@ -141,36 +141,57 @@ export class AgentController {
   }
 
   /**
-   * Send response to user (text or file)
+   * Send response to user (text, code, or file)
    */
   private async sendResponse(ctx: Context, response: string): Promise<void> {
-    // Only send as file for very long responses or technical documents
-    // The TelegramOutputHandler will handle chunking for long messages
+    // Check if should send as file (only for very technical documents)
     if (this.shouldSendAsFile(response)) {
       await TelegramOutputHandler.sendMarkdownAsFile(ctx, response, 'response.md');
-    } else {
-      await TelegramOutputHandler.sendText(ctx, response);
+      return;
     }
+
+    // Check if should send as code block (structured/long responses)
+    if (this.shouldSendAsCode(response)) {
+      await TelegramOutputHandler.sendAsCode(ctx, response);
+      return;
+    }
+
+    // Send as plain text for simple conversational responses
+    await TelegramOutputHandler.sendText(ctx, response);
+  }
+
+  /**
+   * Check if response should be sent as code block
+   */
+  private shouldSendAsCode(response: string): boolean {
+    const lineCount = response.split('\n').length;
+    const hasCodeBlocks = (response.match(/```/g) || []).length >= 2;
+    const hasListStructure = (response.match(/^[-*•]\s/gm) || []).length > 5;
+    const isLongStructured = response.length > 1000 && lineCount > 20;
+    const hasMultipleSections = (response.match(/^#{1,3}\s/gm) || []).length > 3;
+
+    // Send as code block for:
+    // 1. Structured lists with many items
+    // 2. Long responses with multiple sections
+    // 3. Responses with code blocks
+    // 4. Any response > 1000 chars with structure
+    return hasListStructure || hasMultipleSections || (isLongStructured && hasCodeBlocks) || (response.length > 2000 && lineCount > 30);
   }
 
   /**
    * Check if response should be sent as file
    */
   private shouldSendAsFile(response: string): boolean {
-    // Only send as file for technical documentation or extremely long content
-    const codeBlockCount = (response.match(/```/g) || []).length;
+    // Only send as file for technical documentation with YAML frontmatter
     const hasYamlFrontmatter = response.trim().startsWith('---');
-    const lineCount = response.split('\n').length;
-    const isExtremeLong = response.length > 8000; // TelegramOutputHandler chunks up to 4096 per message
-    const hasLotsOfCode = codeBlockCount >= 8; // 4+ code blocks (pairs of ```)
-    const isVeryStructured = lineCount > 150;
+    const isExtremelyLong = response.length > 15000;
+    const hasLotsOfCode = (response.match(/```/g) || []).length >= 12;
 
     // Send as file only for:
     // 1. Technical specs with YAML frontmatter
-    // 2. Extremely long responses (>8000 chars)
-    // 3. Heavy code documentation (8+ code blocks)
-    // 4. Very structured content (>150 lines)
-    return hasYamlFrontmatter || (isExtremeLong && (hasLotsOfCode || isVeryStructured));
+    // 2. Extremely long responses (>15000 chars)
+    // 3. Heavy code documentation (6+ code blocks)
+    return hasYamlFrontmatter || (isExtremelyLong && hasLotsOfCode);
   }
 
   /**

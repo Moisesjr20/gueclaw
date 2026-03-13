@@ -37,6 +37,42 @@ export class TelegramOutputHandler {
   }
 
   /**
+   * Send text as code block (formatted with monospace font)
+   */
+  public static async sendAsCode(ctx: Context, text: string, language: string = ''): Promise<void> {
+    try {
+      const maxCodeLength = 4000; // Leave room for markdown backticks
+
+      if (text.length <= maxCodeLength) {
+        // Send as single code block
+        const formattedText = `\`\`\`${language}\n${text}\n\`\`\``;
+        await ctx.reply(formattedText, { parse_mode: 'Markdown' });
+        return;
+      }
+
+      // Split into multiple code blocks
+      console.log(`📝 Code response too long (${text.length} chars), splitting into chunks...`);
+      const chunks = this.splitIntoChunks(text, maxCodeLength);
+      
+      for (let i = 0; i < chunks.length; i++) {
+        const prefix = i === 0 ? '' : `📄 Part ${i + 1}/${chunks.length}\n`;
+        const formattedChunk = `${prefix}\`\`\`${language}\n${chunks[i]}\n\`\`\``;
+        
+        await ctx.reply(formattedChunk, { parse_mode: 'Markdown' });
+        
+        if (i < chunks.length - 1) {
+          await this.sleep(100);
+        }
+      }
+
+    } catch (error: any) {
+      console.error('❌ Error sending code response:', error);
+      // Fallback to plain text
+      await this.sendText(ctx, text);
+    }
+  }
+
+  /**
    * Send response in chunks
    */
   private static async sendInChunks(ctx: Context, text: string): Promise<void> {
