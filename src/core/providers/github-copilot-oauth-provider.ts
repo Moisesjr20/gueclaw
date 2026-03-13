@@ -27,10 +27,13 @@ export class GitHubCopilotOAuthProvider implements ILLMProvider {
   private client: AxiosInstance;
   private model: string;
   private accessToken: string | null = null;
+  private copilotToken: string | null = null;
+  private copilotTokenExpiresAt: number | null = null;
   private tokenPath: string;
   private clientId = 'Iv1.b507a08c87ecfe98'; // GitHub Copilot Client ID
   private notifier: TelegramNotifier | null = null;
   private isRenewing: boolean = false;
+  private refreshTimer: NodeJS.Timeout | null = null;
 
   constructor(
     model: string = 'claude-sonnet-4.5',
@@ -169,6 +172,12 @@ export class GitHubCopilotOAuthProvider implements ILLMProvider {
       );
 
       const copilotToken = response.data.token;
+      const expiresAt = response.data.expires_at;
+      
+      this.copilotToken = copilotToken;
+      this.copilotTokenExpiresAt = new Date(expiresAt * 1000).getTime();
+      
+      console.log(`🕐 Token expires at: ${new Date(this.copilotTokenExpiresAt).toISOString()}`);
       
       // Update client with Copilot token
       this.client = axios.create({
@@ -184,11 +193,52 @@ export class GitHubCopilotOAuthProvider implements ILLMProvider {
       });
 
       console.log('✅ Token do Copilot obtido com sucesso!\n');
+      
+      // Schedule automatic renewal before token expires (refresh at 50% of lifetime)
+      this.scheduleTokenRefresh();
 
     } catch (error: any) {
       console.error('❌ Erro ao obter token do Copilot:', error.message);
       throw error;
     }
+  }
+
+  /**
+   * Schedule automatic token refresh before expiration
+   */
+  private scheduleTokenRefresh(): void {
+    console.log(`🔍 Scheduling token refresh... (expiresAt: ${this.copilotTokenExpiresAt})`);
+    
+    // Clear existing timer
+    if (this.refreshTimer) {
+      clearTimeout(this.refreshTimer);
+    }
+
+    if (!this.copilotTokenExpiresAt) {
+      console.log('⚠️  No expiration timestamp available, cannot schedule refresh');
+      return;
+    }
+
+    // Calculate time until token expires
+    const now = Date.now();
+    const expiresIn = this.copilotTokenExpiresAt - now;
+    
+    console.log(`⏱️  Token expires in ${Math.round(expiresIn / 1000 / 60)} minutes`);
+    
+    // Refresh at 50% of lifetime (typically ~30 minutes for 1-hour token)
+    const refreshIn = Math.max(expiresIn * 0.5, 60000); // Minimum 1 minute
+
+    console.log(`🔄 Token auto-refresh scheduled in ${Math.round(refreshIn / 1000 / 60)} minutes`);
+
+    this.refreshTimer = setTimeout(async () => {
+      try {
+        console.log('🔄 Auto-refreshing Copilot token...');
+        await this.getCopilotToken();
+      } catch (error: any) {
+        console.error('❌ Failed to auto-refresh token:', error.message);
+        // Will retry on next API call via auto-renewal
+      }
+    }, refreshIn);
   }
 
   /**
@@ -496,5 +546,16 @@ export class GitHubCopilotOAuthProvider implements ILLMProvider {
     }
 
     return response;
+  }
+
+  /**
+   * Cleanup method to clear scheduled token refresh timer
+   */
+  public destroy(): void {
+    if (this.refreshTimer) {
+      clearTimeout(this.refreshTimer);
+      this.refreshTimer = null;
+      console.log('🧹 Token refresh timer cleared');
+    }
   }
 }
