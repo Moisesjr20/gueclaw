@@ -144,8 +144,9 @@ export class AgentController {
    * Send response to user (text or file)
    */
   private async sendResponse(ctx: Context, response: string): Promise<void> {
-    // If response is very long or looks like a spec/code file, send as file
-    if (response.length > 3000 || this.shouldSendAsFile(response)) {
+    // Only send as file for very long responses or technical documents
+    // The TelegramOutputHandler will handle chunking for long messages
+    if (this.shouldSendAsFile(response)) {
       await TelegramOutputHandler.sendMarkdownAsFile(ctx, response, 'response.md');
     } else {
       await TelegramOutputHandler.sendText(ctx, response);
@@ -156,12 +157,20 @@ export class AgentController {
    * Check if response should be sent as file
    */
   private shouldSendAsFile(response: string): boolean {
-    // Check for code blocks, specs, or structured content
+    // Only send as file for technical documentation or extremely long content
     const codeBlockCount = (response.match(/```/g) || []).length;
     const hasYamlFrontmatter = response.trim().startsWith('---');
-    const isVeryStructured = response.split('\n').length > 50;
+    const lineCount = response.split('\n').length;
+    const isExtremeLong = response.length > 8000; // TelegramOutputHandler chunks up to 4096 per message
+    const hasLotsOfCode = codeBlockCount >= 8; // 4+ code blocks (pairs of ```)
+    const isVeryStructured = lineCount > 150;
 
-    return codeBlockCount >= 4 || hasYamlFrontmatter || isVeryStructured;
+    // Send as file only for:
+    // 1. Technical specs with YAML frontmatter
+    // 2. Extremely long responses (>8000 chars)
+    // 3. Heavy code documentation (8+ code blocks)
+    // 4. Very structured content (>150 lines)
+    return hasYamlFrontmatter || (isExtremeLong && (hasLotsOfCode || isVeryStructured));
   }
 
   /**

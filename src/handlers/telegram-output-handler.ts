@@ -10,13 +10,13 @@ export class TelegramOutputHandler {
   private static readonly CHUNK_SIZE = 4000;
 
   /**
-   * Send text response to user
+   * Send text response to user (plain text, no Markdown formatting)
    */
   public static async sendText(ctx: Context, text: string): Promise<void> {
     try {
       // If text is short enough, send directly
       if (text.length <= this.MAX_MESSAGE_LENGTH) {
-        await ctx.reply(text, { parse_mode: 'Markdown' });
+        await ctx.reply(text);
         return;
       }
 
