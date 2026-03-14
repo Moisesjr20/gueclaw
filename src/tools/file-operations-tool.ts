@@ -4,6 +4,52 @@ import { ToolResult } from '../types';
 import * as fs from 'fs';
 import * as path from 'path';
 
+// Set FILE_WORKSPACE_ROOT in .env to restrict file access to a specific directory.
+// If unset, all paths are allowed except the explicit denylist below.
+// Read dynamically per call so env changes (e.g., in tests) are respected.
+
+// Paths always blocked regardless of WORKSPACE_ROOT
+const DENIED_PATHS = [
+  '/etc/shadow',
+  '/etc/gshadow',
+  '/etc/sudoers',
+  '/root/.ssh',
+  '/proc/self/environ',
+  '/proc/1/environ',
+];
+
+function assertSafePath(filePath: string): string {
+  const resolved = path.resolve(filePath);
+
+  const workspaceRoot = process.env.FILE_WORKSPACE_ROOT
+    ? path.resolve(process.env.FILE_WORKSPACE_ROOT)
+    : null;
+
+  if (workspaceRoot) {
+    const withSep = workspaceRoot.endsWith(path.sep) ? workspaceRoot : workspaceRoot + path.sep;
+    if (resolved !== workspaceRoot && !resolved.startsWith(withSep)) {
+      throw new Error(`Acesso negado: '${filePath}' está fora do workspace permitido (${workspaceRoot}).`);
+    }
+  }
+
+  // Normalize to POSIX-style for cross-platform denylist matching
+  // (handles Windows where path.resolve('/etc/shadow') → 'D:\etc\shadow')
+  const toPosix = (p: string) => p.replace(/\\/g, '/').replace(/^[A-Za-z]:/, '');
+  const resolvedPosix = toPosix(resolved);
+  const inputPosix = toPosix(filePath);
+
+  for (const denied of DENIED_PATHS) {
+    if (
+      inputPosix === denied || inputPosix.startsWith(denied + '/') ||
+      resolvedPosix === denied || resolvedPosix.startsWith(denied + '/')
+    ) {
+      throw new Error(`Acesso negado: '${filePath}' é um caminho protegido do sistema.`);
+    }
+  }
+
+  return resolved;
+}
+
 /**
  * Tool for file operations
  */
@@ -46,33 +92,34 @@ export class FileOperationsTool extends BaseTool {
       this.validate(args, ['action', 'filePath']);
 
       const { action, filePath, content, encoding = 'utf8' } = args;
+      const safePath = assertSafePath(filePath);
 
       switch (action) {
         case 'read':
-          return await this.readFile(filePath, encoding);
+          return await this.readFile(safePath, encoding);
         
         case 'write':
           this.validate(args, ['content']);
-          return await this.writeFile(filePath, content, encoding);
+          return await this.writeFile(safePath, content, encoding);
         
         case 'append':
           this.validate(args, ['content']);
-          return await this.appendFile(filePath, content, encoding);
+          return await this.appendFile(safePath, content, encoding);
         
         case 'delete':
-          return await this.deleteFile(filePath);
+          return await this.deleteFile(safePath);
         
         case 'list_dir':
-          return await this.listDirectory(filePath);
+          return await this.listDirectory(safePath);
         
         case 'create_dir':
-          return await this.createDirectory(filePath);
+          return await this.createDirectory(safePath);
         
         case 'exists':
-          return await this.checkExists(filePath);
+          return await this.checkExists(safePath);
         
         case 'get_info':
-          return await this.getInfo(filePath);
+          return await this.getInfo(safePath);
         
         default:
           return this.error(`Unknown file action: ${action}`);

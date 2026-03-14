@@ -5,9 +5,16 @@
 
 const { spawn } = require('child_process');
 
-const VPS_HOST = '147.93.69.211';
-const VPS_USER = 'root';
-const VPS_PASSWORD = "2ZeVU0IfAwjKW93'g1B+";
+require('dotenv').config();
+
+const VPS_USER = process.env.VPS_USER || 'root';
+const VPS_HOST = (process.env.VPS_HOST || '147.93.69.211').replace(/^[^@]*@/, '');
+const VPS_PASSWORD = process.env.VPS_PASSWORD || '';
+
+if (!VPS_PASSWORD) {
+  console.error('❌ VPS_PASSWORD not set in .env');
+  process.exit(1);
+}
 
 console.log('\n╔══════════════════════════════════════════════════╗');
 console.log('║      GitHub Copilot OAuth - Reset & Auth        ║');

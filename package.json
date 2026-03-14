@@ -15,7 +15,8 @@
     "test:watch": "jest --watch",
     "test:copilot": "ts-node scripts/test-copilot.ts",
     "copilot:auth": "ts-node scripts/auth-copilot.ts",
-    "validate": "npm run lint:fix && npm run build && npm run test:unit"
+    "validate": "npm run lint:fix && npm run build && npm run test:unit",
+    "secrets:scan": "node scripts/check-secrets.js"
   },
   "keywords": [
     "ai-agent",

@@ -3,15 +3,49 @@ import { ToolDefinition } from '../core/providers/base-provider';
 import { ToolResult } from '../types';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import * as path from 'path';
 
 const execAsync = promisify(exec);
+
+const MAX_COMMAND_LENGTH = 1000;
+
+// Patterns that match catastrophically destructive operations
+const DANGEROUS_PATTERNS: RegExp[] = [
+  /\brm\s+(-\w+\s+)*-[a-z]*r[a-z]*f[a-z]*\s+\/([\s;|&]|$)/i,  // rm -rf /
+  /\brm\s+(-\w+\s+)*-[a-z]*f[a-z]*r[a-z]*\s+\/([\s;|&]|$)/i,  // rm -fr /
+  /\bdd\s+.*\bof=\/dev\/(sd|hd|nvme|xvd|vd)/i,                   // dd → raw disk
+  /\bmkfs(\.\w+)?\s/i,                                            // format filesystem
+  /\bshred\s+.*\/dev\//i,                                        // shred disk device
+  /\bwipefs\b/i,                                                  // wipe filesystem signatures
+  /\bfdisk\s+.*\/dev\//i,                                        // fdisk on device
+  /\bparted\s+.*\/dev\//i,                                       // parted on device
+  />\s*\/dev\/(sd|hd|nvme|xvd|vd)/i,                             // redirect to disk
+];
+
+function assertSafeCommand(command: string): void {
+  if (command.length > MAX_COMMAND_LENGTH) {
+    throw new Error(`Comando muito longo (${command.length} chars). Máximo: ${MAX_COMMAND_LENGTH}.`);
+  }
+  for (const pattern of DANGEROUS_PATTERNS) {
+    if (pattern.test(command)) {
+      throw new Error('Comando bloqueado: padrão destrutivo detectado.');
+    }
+  }
+}
+
+function assertSafeWorkingDir(dir: string): string {
+  if (/[;&|`$<>()\n\r]/.test(dir)) {
+    throw new Error('workingDir contém caracteres inválidos.');
+  }
+  return path.resolve(dir);
+}
 
 /**
  * Tool for executing shell commands on the VPS
  */
 export class VPSCommandTool extends BaseTool {
   public readonly name = 'vps_execute_command';
-  public readonly description = 'Execute shell commands on the VPS. Can run any bash/shell command with full access.';
+  public readonly description = 'Execute shell commands on the VPS to manage the system.  ';
 
   public getDefinition(): ToolDefinition {
     return {
@@ -44,16 +78,19 @@ export class VPSCommandTool extends BaseTool {
 
       const { command, workingDir, timeout = 30000 } = args;
 
-      console.log(`🖥️  Executing VPS command: ${command}`);
+      assertSafeCommand(command);
+      if (process.env.LOG_LEVEL === 'debug') {
+        console.log(`🖥️  Executing VPS command: ${command.substring(0, 200)}`);
+      }
 
       const options: any = {
-        timeout,
-        maxBuffer: 1024 * 1024 * 10, // 10MB
+        timeout: Math.min(Number(timeout) || 30000, 120000), // cap at 2 min
+        maxBuffer: 1024 * 1024 * 10,
         encoding: 'utf8' as BufferEncoding,
       };
 
       if (workingDir) {
-        options.cwd = workingDir;
+        options.cwd = assertSafeWorkingDir(workingDir);
       }
 
       const { stdout, stderr } = await execAsync(command, options);

@@ -2,6 +2,67 @@ import { BaseTool } from './base-tool';
 import { ToolDefinition } from '../core/providers/base-provider';
 import { ToolResult } from '../types';
 import axios from 'axios';
+import { URL } from 'url';
+import * as net from 'net';
+import * as dns from 'dns/promises';
+
+// RFC1918, link-local, loopback and CGNAT ranges — blocked to prevent SSRF
+const SSRF_BLOCKED: RegExp[] = [
+  /^127\./,
+  /^0\./,
+  /^169\.254\./,
+  /^10\./,
+  /^172\.(1[6-9]|2[0-9]|3[01])\./,
+  /^192\.168\./,
+  /^100\.64\./,
+  /^::1$/,
+  /^fc00:/i,
+  /^fe80:/i,
+];
+
+function isBlockedIp(ip: string): boolean {
+  return SSRF_BLOCKED.some(r => r.test(ip));
+}
+
+async function assertSafeUrl(rawUrl: string): Promise<void> {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    throw new Error(`URL inválida: ${rawUrl}`);
+  }
+
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    throw new Error(`Protocolo não permitido: ${parsed.protocol}. Use http ou https.`);
+  }
+
+  const hostname = parsed.hostname;
+
+  if (hostname === 'localhost' || hostname.endsWith('.local') || hostname.endsWith('.internal')) {
+    throw new Error(`Hostname interno bloqueado: ${hostname}`);
+  }
+
+  if (net.isIP(hostname)) {
+    if (isBlockedIp(hostname)) {
+      throw new Error(`Acesso a endereço IP interno bloqueado: ${hostname}`);
+    }
+    return;
+  }
+
+  // Resolve DNS and re-validate the resulting IPs
+  const addresses = await (dns.resolve4(hostname).catch(() => [] as string[]));
+  for (const addr of addresses) {
+    if (isBlockedIp(addr)) {
+      throw new Error(`DNS de '${hostname}' resolve para endereço interno: ${addr}`);
+    }
+  }
+}
+
+function maskSensitiveUrl(url: string): string {
+  return url
+    .replace(/\/bot\d+:[A-Za-z0-9_-]+\//g, '/bot[REDACTED]/')
+    .replace(/([?&](?:token|key|secret|password|api_key)=)[^&]*/gi, '$1[REDACTED]');
+}
 
 /**
  * Tool for making HTTP API requests
@@ -54,8 +115,8 @@ export class APIRequestTool extends BaseTool {
 
       const { method, url, headers = {}, body, queryParams, timeout = 30000 } = args;
 
-      console.log(`🌐 Making ${method} request to ${url}`);
-
+      await assertSafeUrl(url);
+      console.log(`🌐 Making ${method} request to ${maskSensitiveUrl(url)}`);
       const config: any = {
         method: method.toUpperCase(),
         url,

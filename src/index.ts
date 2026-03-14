@@ -73,6 +73,18 @@ class GueClaw {
       process.exit(1);
     }
 
+    // Validate that the whitelist has at least one valid Telegram numeric ID
+    const allowedIds = (process.env.TELEGRAM_ALLOWED_USER_IDS || '')
+      .split(',')
+      .map(id => id.trim())
+      .filter(id => /^\d{1,20}$/.test(id));
+
+    if (allowedIds.length === 0) {
+      console.error('❌ TELEGRAM_ALLOWED_USER_IDS está vazio ou não contém IDs numéricos válidos.');
+      console.error('   Adicione pelo menos um Telegram user ID (só dígitos) para liberar acesso ao bot.');
+      process.exit(1);
+    }
+
     // Check if at least one LLM provider is configured
     const hasGitHubCopilot = process.env.GITHUB_COPILOT_USE_OAUTH === 'true' || 
                              process.env.GITHUB_COPILOT_API_KEY || 

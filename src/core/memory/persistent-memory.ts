@@ -1,6 +1,13 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
+function assertSafeUserId(userId: string): string {
+  if (!/^\d{1,20}$/.test(userId)) {
+    throw new Error(`userId inválido: '${userId}'. Apenas dígitos numéricos são permitidos.`);
+  }
+  return userId;
+}
+
 /**
  * PersistentMemory — file-based memory that survives across bot restarts.
  *
@@ -15,7 +22,7 @@ export class PersistentMemory {
   // ─── Helpers ─────────────────────────────────────────────────────────────
 
   private static dir(userId: string): string {
-    const d = path.join(this.BASE_DIR, userId);
+    const d = path.join(this.BASE_DIR, assertSafeUserId(userId));
     if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
     return d;
   }
@@ -31,7 +38,7 @@ export class PersistentMemory {
    * Returns empty string if no memory files exist for the user.
    */
   public static read(userId: string): string {
-    const dir = path.join(this.BASE_DIR, userId);
+    const dir = path.join(this.BASE_DIR, assertSafeUserId(userId));
     if (!fs.existsSync(dir)) return '';
 
     const sections: string[] = [];
@@ -55,7 +62,7 @@ export class PersistentMemory {
    * Load the most recent compaction summary, if it exists.
    */
   public static loadLastCompact(userId: string): string | null {
-    const dir = path.join(this.BASE_DIR, userId);
+    const dir = path.join(this.BASE_DIR, assertSafeUserId(userId));
     if (!fs.existsSync(dir)) return null;
 
     const files = fs.readdirSync(dir)

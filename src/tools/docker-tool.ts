@@ -1,10 +1,43 @@
 import { BaseTool } from './base-tool';
 import { ToolDefinition } from '../core/providers/base-provider';
 import { ToolResult } from '../types';
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import { promisify } from 'util';
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
+
+// Docker container/volume names: alphanumeric + underscore, hyphen, dot (max 253)
+const DOCKER_NAME_RE  = /^[a-zA-Z0-9][a-zA-Z0-9_.\-]{0,252}$/;
+// Image names may include registry host, namespace, tag or digest
+const DOCKER_IMAGE_RE = /^[a-zA-Z0-9][a-zA-Z0-9._\-/:@]{0,300}$/;
+const SHELL_META_RE   = /[;&|`$<>()\n\r\t ]/;
+
+function sanitizeDockerName(name: string, field = 'containerName'): string {
+  if (!DOCKER_NAME_RE.test(name)) {
+    throw new Error(`'${field}' inválido: "${name}". Use apenas letras, números, hífens, underscores e pontos (máx 253).`);
+  }
+  return name;
+}
+
+function sanitizeImageName(name: string): string {
+  const t = name.trim();
+  if (!DOCKER_IMAGE_RE.test(t) || SHELL_META_RE.test(t)) {
+    throw new Error(`imageName inválido: "${t}". Não pode conter metacaracteres.`);
+  }
+  return t;
+}
+
+function sanitizeFilePath(p: string, field: string): string {
+  if (SHELL_META_RE.test(p)) {
+    throw new Error(`'${field}' contém metacaracteres inválidos.`);
+  }
+  return p;
+}
+
+function safeTail(tail: unknown): number {
+  const n = Math.floor(Number(tail) || 100);
+  return Math.max(1, Math.min(n, 10000));
+}
 
 /**
  * Tool for managing Docker containers
@@ -70,47 +103,47 @@ export class DockerTool extends BaseTool {
         
         case 'start':
           this.validate(args, ['containerName']);
-          return await this.startContainer(args.containerName);
+          return await this.startContainer(sanitizeDockerName(args.containerName));
         
         case 'stop':
           this.validate(args, ['containerName']);
-          return await this.stopContainer(args.containerName);
+          return await this.stopContainer(sanitizeDockerName(args.containerName));
         
         case 'restart':
           this.validate(args, ['containerName']);
-          return await this.restartContainer(args.containerName);
+          return await this.restartContainer(sanitizeDockerName(args.containerName));
         
         case 'remove':
           this.validate(args, ['containerName']);
-          return await this.removeContainer(args.containerName);
+          return await this.removeContainer(sanitizeDockerName(args.containerName));
         
         case 'logs':
           this.validate(args, ['containerName']);
-          return await this.getLogs(args.containerName, args.tail || 100);
+          return await this.getLogs(sanitizeDockerName(args.containerName), safeTail(args.tail));
         
         case 'exec':
           this.validate(args, ['containerName', 'command']);
-          return await this.execCommand(args.containerName, args.command);
+          return await this.execCommand(sanitizeDockerName(args.containerName), args.command);
         
         case 'inspect':
           this.validate(args, ['containerName']);
-          return await this.inspectContainer(args.containerName);
+          return await this.inspectContainer(sanitizeDockerName(args.containerName));
         
         case 'pull':
           this.validate(args, ['imageName']);
-          return await this.pullImage(args.imageName);
+          return await this.pullImage(sanitizeImageName(args.imageName));
         
         case 'build':
           this.validate(args, ['imageName', 'buildContext']);
-          return await this.buildImage(args.imageName, args.buildContext);
+          return await this.buildImage(sanitizeImageName(args.imageName), sanitizeFilePath(args.buildContext, 'buildContext'));
         
         case 'compose_up':
           this.validate(args, ['composePath']);
-          return await this.composeUp(args.composePath);
+          return await this.composeUp(sanitizeFilePath(args.composePath, 'composePath'));
         
         case 'compose_down':
           this.validate(args, ['composePath']);
-          return await this.composeDown(args.composePath);
+          return await this.composeDown(sanitizeFilePath(args.composePath, 'composePath'));
         
         default:
           return this.error(`Unknown Docker action: ${action}`);
@@ -122,73 +155,80 @@ export class DockerTool extends BaseTool {
     }
   }
 
-  private async runDockerCommand(command: string): Promise<string> {
-    const { stdout, stderr } = await execAsync(`docker ${command}`, { maxBuffer: 1024 * 1024 * 10 });
-    return stdout.trim() || stderr.trim();
+  private async run(dockerArgs: string[]): Promise<string> {
+    const { stdout, stderr } = await execFileAsync('docker', dockerArgs, {
+      maxBuffer: 1024 * 1024 * 10,
+    });
+    return ((stdout || '') + (stderr || '')).toString().trim();
   }
 
   private async listContainers(): Promise<ToolResult> {
-    const output = await this.runDockerCommand('ps -a --format "table {{.ID}}\\t{{.Names}}\\t{{.Status}}\\t{{.Image}}"');
+    const output = await this.run(['ps', '-a', '--format', 'table {{.ID}}\t{{.Names}}\t{{.Status}}\t{{.Image}}']);
     return this.success(output || 'No containers found');
   }
 
   private async listImages(): Promise<ToolResult> {
-    const output = await this.runDockerCommand('images --format "table {{.Repository}}\\t{{.Tag}}\\t{{.ID}}\\t{{.Size}}"');
+    const output = await this.run(['images', '--format', 'table {{.Repository}}\t{{.Tag}}\t{{.ID}}\t{{.Size}}']);
     return this.success(output || 'No images found');
   }
 
   private async startContainer(name: string): Promise<ToolResult> {
-    await this.runDockerCommand(`start ${name}`);
+    await this.run(['start', name]);
     return this.success(`Container '${name}' started successfully`);
   }
 
   private async stopContainer(name: string): Promise<ToolResult> {
-    await this.runDockerCommand(`stop ${name}`);
+    await this.run(['stop', name]);
     return this.success(`Container '${name}' stopped successfully`);
   }
 
   private async restartContainer(name: string): Promise<ToolResult> {
-    await this.runDockerCommand(`restart ${name}`);
+    await this.run(['restart', name]);
     return this.success(`Container '${name}' restarted successfully`);
   }
 
   private async removeContainer(name: string): Promise<ToolResult> {
-    await this.runDockerCommand(`rm -f ${name}`);
+    await this.run(['rm', '-f', name]);
     return this.success(`Container '${name}' removed successfully`);
   }
 
   private async getLogs(name: string, tail: number): Promise<ToolResult> {
-    const output = await this.runDockerCommand(`logs --tail ${tail} ${name}`);
+    const output = await this.run(['logs', '--tail', String(tail), name]);
     return this.success(output || 'No logs available');
   }
 
   private async execCommand(name: string, command: string): Promise<ToolResult> {
-    const output = await this.runDockerCommand(`exec ${name} ${command}`);
+    // command runs inside the container — name is already sanitized at call site
+    const output = await this.run(['exec', name, 'sh', '-c', command]);
     return this.success(output || 'Command executed (no output)');
   }
 
   private async inspectContainer(name: string): Promise<ToolResult> {
-    const output = await this.runDockerCommand(`inspect ${name}`);
+    const output = await this.run(['inspect', name]);
     return this.success(output);
   }
 
   private async pullImage(imageName: string): Promise<ToolResult> {
-    const output = await this.runDockerCommand(`pull ${imageName}`);
+    const output = await this.run(['pull', imageName]);
     return this.success(`Image '${imageName}' pulled successfully\n${output}`);
   }
 
   private async buildImage(imageName: string, buildContext: string): Promise<ToolResult> {
-    const output = await this.runDockerCommand(`build -t ${imageName} ${buildContext}`);
+    const output = await this.run(['build', '-t', imageName, buildContext]);
     return this.success(`Image '${imageName}' built successfully\n${output}`);
   }
 
   private async composeUp(composePath: string): Promise<ToolResult> {
-    const { stdout } = await execAsync(`docker-compose -f ${composePath} up -d`, { maxBuffer: 1024 * 1024 * 10 });
-    return this.success(`Docker Compose started\n${stdout.trim()}`);
+    const { stdout } = await execFileAsync('docker-compose', ['-f', composePath, 'up', '-d'], {
+      maxBuffer: 1024 * 1024 * 10,
+    });
+    return this.success(`Docker Compose started\n${stdout.toString().trim()}`);
   }
 
   private async composeDown(composePath: string): Promise<ToolResult> {
-    const { stdout } = await execAsync(`docker-compose -f ${composePath} down`, { maxBuffer: 1024 * 1024 * 10 });
-    return this.success(`Docker Compose stopped\n${stdout.trim()}`);
+    const { stdout } = await execFileAsync('docker-compose', ['-f', composePath, 'down'], {
+      maxBuffer: 1024 * 1024 * 10,
+    });
+    return this.success(`Docker Compose stopped\n${stdout.toString().trim()}`);
   }
 }

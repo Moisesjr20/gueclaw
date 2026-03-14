@@ -3,7 +3,7 @@ import * as path from 'path';
 import { PersistentMemory } from '../../src/core/memory/persistent-memory';
 
 const BASE_DIR = path.join(process.cwd(), 'data', 'memory');
-const TEST_USER = `test-pm-${Date.now()}`;
+const TEST_USER = String(Date.now());
 const USER_DIR = path.join(BASE_DIR, TEST_USER);
 
 afterAll(() => {
@@ -15,7 +15,7 @@ afterAll(() => {
 describe('PersistentMemory', () => {
   describe('read', () => {
     it('returns empty string when no memory directory exists for user', () => {
-      const result = PersistentMemory.read('non-existent-user-xyz-abc');
+      const result = PersistentMemory.read('99999999999');
       expect(result).toBe('');
     });
 
@@ -36,7 +36,7 @@ describe('PersistentMemory', () => {
 
   describe('curate', () => {
     it('creates MEMORY.md if it does not exist', () => {
-      const userId = `${TEST_USER}-curate`;
+      const userId = String(Number(TEST_USER) + 1);
       const memFile = path.join(BASE_DIR, userId, 'MEMORY.md');
       expect(fs.existsSync(memFile)).toBe(false);
 
@@ -47,7 +47,7 @@ describe('PersistentMemory', () => {
     });
 
     it('appends multiple facts, each on its own line', () => {
-      const userId = `${TEST_USER}-curate-multi`;
+      const userId = String(Number(TEST_USER) + 2);
       PersistentMemory.curate(userId, 'fato A');
       PersistentMemory.curate(userId, 'fato B');
 
@@ -84,7 +84,7 @@ describe('PersistentMemory', () => {
 
   describe('saveCompact', () => {
     it('creates a compact-{ts}.md file in the user directory', () => {
-      const userId = `${TEST_USER}-compact`;
+      const userId = String(Number(TEST_USER) + 3);
       PersistentMemory.saveCompact(userId, 'resumo de contexto salvo');
 
       const dir = path.join(BASE_DIR, userId);
@@ -100,12 +100,12 @@ describe('PersistentMemory', () => {
 
   describe('loadLastCompact', () => {
     it('returns null when no compact files exist for user', () => {
-      const result = PersistentMemory.loadLastCompact('no-compact-user-xyz-abc');
+      const result = PersistentMemory.loadLastCompact('88888888888');
       expect(result).toBeNull();
     });
 
     it('returns the content of the most recent compact file', () => {
-      const userId = `${TEST_USER}-loadcompact`;
+      const userId = String(Number(TEST_USER) + 4);
       PersistentMemory.saveCompact(userId, 'primeiro resumo');
 
       // Small delay to ensure a different timestamp for the second file
@@ -116,7 +116,7 @@ describe('PersistentMemory', () => {
     });
 
     it('returns the latest file when multiple compact files exist', () => {
-      const userId = `${TEST_USER}-loadcompact-multi`;
+      const userId = String(Number(TEST_USER) + 5);
       PersistentMemory.saveCompact(userId, 'resumo antigo');
       // Force slightly different timestamp via sleep workaround: just write directly
       const dir = path.join(BASE_DIR, userId);
