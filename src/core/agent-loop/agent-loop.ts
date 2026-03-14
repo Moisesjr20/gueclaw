@@ -1,6 +1,7 @@
 import { ILLMProvider, CompletionOptions } from '../providers/base-provider';
-import { Message, AgentAction, ToolCall } from '../../types';
+import { Message, AgentAction, ToolCall, NO_REPLY } from '../../types';
 import { ToolRegistry } from '../../tools/tool-registry';
+import { IdentityLoader } from '../../utils/identity-loader';
 
 /**
  * Agent Loop - ReAct Pattern Implementation
@@ -15,11 +16,15 @@ export class AgentLoop {
   constructor(
     provider: ILLMProvider,
     conversationHistory: Message[] = [],
-    systemPrompt?: string
+    systemPrompt?: string,
+    /** Optional context block prepended to the system prompt (memory, skill manifest, etc.) */
+    enrichment?: string
   ) {
     this.provider = provider;
     this.conversationHistory = [...conversationHistory];
-    this.systemPrompt = systemPrompt || this.getDefaultSystemPrompt();
+    const base = systemPrompt || this.getDefaultSystemPrompt();
+    const full = enrichment ? `${enrichment}\n\n${base}` : base;
+    this.systemPrompt = IdentityLoader.prepend(full);
     this.maxIterations = parseInt(process.env.MAX_ITERATIONS || '5', 10);
   }
 
@@ -79,9 +84,16 @@ export class AgentLoop {
 
         // Check finish reason
         if (response.finishReason === 'stop') {
+          // LLM already replied via tool — skip sending to Telegram
+          if (response.content === NO_REPLY) {
+            console.log('🔕 NO_REPLY received — response already delivered via tool');
+            finalResponse = NO_REPLY;
+            break;
+          }
+
           // We have a final answer
           finalResponse = response.content;
-          
+
           // Add assistant response to history
           this.conversationHistory.push({
             conversationId: 'temp',
@@ -230,7 +242,10 @@ Instruções adicionais:
 - Para qualquer tarefa que exija ação: SEMPRE use o formato acima APÓS executar
 - Seja honesto: só afirme sucesso se a chamada da ferramenta realmente retornou sucesso
 
-Lembre-se: você tem controle total sobre o ambiente VPS. Tome cuidado com operações destrutivas.`;
+Lembre-se: você tem controle total sobre o ambiente VPS. Tome cuidado com operações destrutivas.
+
+REGRA ESPECIAL — NO_REPLY:
+Quando você já entregou a resposta completa ao usuário através de uma ferramenta (ex: send_message, envio direto), retorne EXATAMENTE a string "NO_REPLY" como conteúdo da sua mensagem final — sem mais nada. Isso evita respostas duplicadas.`;
   }
 
   /**

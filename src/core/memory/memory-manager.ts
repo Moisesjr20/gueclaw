@@ -98,6 +98,39 @@ export class MemoryManager {
   }
 
   /**
+   * Count total messages in a conversation
+   */
+  public countMessages(conversationId: string): number {
+    return this.messageRepo.count(conversationId);
+  }
+
+  /**
+   * Get messages beyond the active memory window (compaction candidates)
+   */
+  public getOldMessages(conversationId: string): Message[] {
+    return this.messageRepo.getOldMessages(conversationId, this.memoryWindowSize);
+  }
+
+  /**
+   * Delete messages by IDs (used after compaction)
+   */
+  public deleteMessages(messageIds: string[]): void {
+    this.messageRepo.deleteByIds(messageIds);
+  }
+
+  /**
+   * Add a system message that represents a compaction summary
+   */
+  public addCompactSummary(conversationId: string, summary: string): Message {
+    return this.messageRepo.add({
+      conversationId,
+      role: 'system',
+      content: `[Resumo de contexto anterior]\n${summary}`,
+      metadata: { type: 'compact_summary' },
+    });
+  }
+
+  /**
    * Cleanup old conversations
    */
   public cleanup(daysOld: number = 30): void {

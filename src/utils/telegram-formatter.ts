@@ -32,11 +32,12 @@ export class TelegramFormatter {
    * Seguro contra injeção de HTML — o texto bruto é sempre escapado antes de inserir tags.
    */
   public static toHtml(rawText: string): string {
-    // Array de slots: fragmentos extraídos são substituídos por tokens \x00{n}\x00
+    // Array de slots: fragmentos extraídos são substituídos por tokens \x00{n}\x00 (eslint-disable no-control-regex)
     const slots: string[] = [];
     const protect = (html: string): string => {
       const id = slots.length;
       slots.push(html);
+      // eslint-disable-next-line no-control-regex
       return `\x00${id}\x00`;
     };
 
@@ -86,6 +87,7 @@ export class TelegramFormatter {
     text = text.replace(/^&gt;\s?(.+)$/gm, '<blockquote>$1</blockquote>');
 
     // Passo 12 — restaurar slots protegidos
+    // eslint-disable-next-line no-control-regex
     text = text.replace(/\x00(\d+)\x00/g, (_match, i: string) => slots[parseInt(i, 10)]);
 
     return text;

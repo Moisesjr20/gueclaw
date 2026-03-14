@@ -1,12 +1,15 @@
 import { Context } from 'grammy';
-import { TelegramInput } from '../types';
+import { TelegramInput, NO_REPLY } from '../types';
 import { TelegramInputHandler } from '../handlers/telegram-input-handler';
 import { TelegramOutputHandler } from '../handlers/telegram-output-handler';
+import { CommandHandler } from '../handlers/command-handler';
 import { MemoryManager } from '../core/memory/memory-manager';
+import { PersistentMemory } from '../core/memory/persistent-memory';
 import { SkillLoader } from '../core/skills/skill-loader';
 import { SkillRouter } from '../core/skills/skill-router';
 import { SkillExecutor } from '../core/skills/skill-executor';
 import { AgentLoop } from '../core/agent-loop/agent-loop';
+import { IdentityLoader } from '../utils/identity-loader';
 import { ProviderFactory } from '../core/providers/provider-factory';
 import * as fs from 'fs';
 import pdfParse from 'pdf-parse';
@@ -57,6 +60,12 @@ export class AgentController {
         console.log(`📎 Attachments: ${input.attachments.map((a: any) => `${a.type}:${a.fileName}`).join(', ')}`);
       }
 
+      // Handle slash commands before any LLM processing
+      if (input.text?.startsWith('/')) {
+        const handled = await CommandHandler.handle(ctx, input, this.memoryManager);
+        if (handled) return;
+      }
+
       // Prepare user input text
       let userInputText = input.text || '';
 
@@ -89,11 +98,22 @@ export class AgentController {
               }
             }
           } else if (attachment.type === 'image') {
-            userInputText += `\n\n[Attached Image: ${attachment.fileName}]`;
-            // TODO: Implement image analysis with vision API
+            // Provide the image path so the LLM can call analyze_image tool
+            if (attachment.filePath) {
+              userInputText += `\n\n[Imagem recebida: ${attachment.fileName} — caminho: ${attachment.filePath}]\nUse a ferramenta analyze_image com o caminho acima para analisar a imagem.`;
+            } else {
+              userInputText += `\n\n[Imagem recebida: ${attachment.fileName}]`;
+            }
           } else if (attachment.type === 'audio') {
-            userInputText += `\n\n[Attached Audio: ${attachment.fileName}]`;
-            // TODO: Implement speech-to-text with Whisper
+            // Use pre-transcription from Whisper if available, otherwise provide path for manual tool call
+            const meta = (attachment as any).metadata as { transcription?: string } | undefined;
+            if (meta?.transcription) {
+              userInputText += `\n\n[Áudio transcrito (${attachment.fileName})]:\n${meta.transcription}`;
+            } else if (attachment.filePath) {
+              userInputText += `\n\n[Áudio recebido: ${attachment.fileName} — caminho: ${attachment.filePath}]\nUse a ferramenta transcribe_audio com o caminho acima para transcrever.`;
+            } else {
+              userInputText += `\n\n[Áudio recebido: ${attachment.fileName}]`;
+            }
           }
         }
       }
@@ -107,8 +127,14 @@ export class AgentController {
       // Add user message to memory
       this.memoryManager.addUserMessage(conversation.id, userInputText);
 
+      // Compact old messages if threshold exceeded
+      await this.compactIfNeeded(conversation.id, input.userId);
+
       // Get conversation history
       const history = this.memoryManager.getRecentMessages(conversation.id);
+
+      // Build enriched system prompt context (memory + skills manifest)
+      const enrichment = this.buildEnrichment(input.userId);
 
       // Route to appropriate skill
       const skillName = await this.skillRouter.route(userInputText, this.availableSkills);
@@ -116,23 +142,26 @@ export class AgentController {
       let response: string;
 
       if (skillName && SkillLoader.skillExists(skillName)) {
-        // Execute skill
+        // Execute skill — pass enrichment so the skill loop is also memory-aware
         console.log(`🎯 Using skill: ${skillName}`);
-        response = await SkillExecutor.executeAuto(skillName, userInputText, history);
+        response = await SkillExecutor.executeAuto(skillName, userInputText, history, enrichment);
       } else {
         // Use general agent loop
         console.log(`💭 Using general reasoning (no specific skill)`);
         
         const provider = ProviderFactory.getFastProvider();
-        const agentLoop = new AgentLoop(provider, history);
+        const agentLoop = new AgentLoop(provider, history, undefined, enrichment);
         response = await agentLoop.run(userInputText);
       }
 
-      // Save assistant response to memory
-      this.memoryManager.addAssistantMessage(conversation.id, response);
-
-      // Send response
-      await this.sendResponse(ctx, response);
+      // Save assistant response to memory (skip NO_REPLY sentinel)
+      if (response !== NO_REPLY) {
+        this.memoryManager.addAssistantMessage(conversation.id, response);
+        // Send response
+        await this.sendResponse(ctx, response);
+      } else {
+        console.log('🔕 Skipping Telegram send — NO_REPLY');
+      }
 
       console.log(`✅ Response sent successfully`);
       console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
@@ -159,8 +188,13 @@ export class AgentController {
       return;
     }
 
-    // Default: convert Markdown → Telegram HTML and send with parse_mode='HTML'
-    await TelegramOutputHandler.sendText(ctx, response);
+    // Default: use typewriter streaming effect if enabled, otherwise send all at once
+    const streamingEnabled = process.env.STREAMING_ENABLED === 'true';
+    if (streamingEnabled) {
+      await TelegramOutputHandler.sendTypewriter(ctx, response);
+    } else {
+      await TelegramOutputHandler.sendText(ctx, response);
+    }
   }
 
   /**
@@ -192,6 +226,90 @@ export class AgentController {
     // 2. Extremely long responses (>15000 chars)
     // 3. Heavy code documentation (6+ code blocks)
     return hasYamlFrontmatter || (isExtremelyLong && hasLotsOfCode);
+  }
+
+  /**
+   * Build an enrichment block injected at the top of the system prompt.
+   * Contains: USER_ID for memory tool, persistent memory, and skill manifest.
+   */
+  private buildEnrichment(userId: string): string {
+    const parts: string[] = [];
+
+    // USER_ID so the LLM can pass it to memory_write tool
+    parts.push(`USER_ID (use em chamadas à ferramenta memory_write): ${userId}`);
+
+    // Persistent memory (MEMORY.md + today's log)
+    const memory = PersistentMemory.read(userId);
+    if (memory) {
+      parts.push(`## Memória do Usuário\n${memory}`);
+    }
+
+    // Last compaction summary
+    const compact = PersistentMemory.loadLastCompact(userId);
+    if (compact) {
+      parts.push(`## Resumo de Contexto Anterior\n${compact}`);
+    }
+
+    // Skill manifest — lightweight list so LLM knows what skills exist
+    const manifest = SkillLoader.loadManifest();
+    if (manifest.length > 0) {
+      const lines = manifest
+        .map(s => `- **${s.name}** (dirName: "${s.dirName}"): ${s.description}`)
+        .join('\n');
+      parts.push(
+        `## Skills Disponíveis\nUse a ferramenta \`read_skill\` com o dirName para carregar as instruções completas de uma skill antes de executá-la.\n${lines}`
+      );
+    }
+
+    return parts.join('\n\n');
+  }
+
+  /**
+   * Compact old messages if the conversation exceeds CONTEXT_COMPACT_THRESHOLD.
+   * Summarises messages beyond the active window using the LLM and stores the
+   * summary both on disk (PersistentMemory) and in the DB as a system message.
+   */
+  private async compactIfNeeded(conversationId: string, userId: string): Promise<void> {
+    const threshold = parseInt(process.env.CONTEXT_COMPACT_THRESHOLD || '30', 10);
+    const total = this.memoryManager.countMessages(conversationId);
+
+    if (total <= threshold) return;
+
+    console.log(`🗜️  Compacting conversation (${total} msgs > threshold ${threshold})...`);
+
+    const oldMessages = this.memoryManager.getOldMessages(conversationId);
+    if (oldMessages.length === 0) return;
+
+    // Build a plain-text transcript of the old messages
+    const transcript = oldMessages
+      .map(m => `[${m.role.toUpperCase()}]: ${m.content.substring(0, 500)}`)
+      .join('\n');
+
+    const summarisationPrompt = [
+      { conversationId: 'compact', role: 'user' as const, content: `Resuma em português o seguinte trecho de conversa de forma concisa (máx. 400 palavras). Preserve fatos, decisões e contexto técnico importantes:\n\n${transcript}` },
+    ];
+
+    try {
+      const provider = ProviderFactory.getFastProvider();
+      const summaryResponse = await provider.generateCompletion(summarisationPrompt, {
+        temperature: 0.3,
+        maxTokens: 600,
+      });
+
+      const summary = summaryResponse.content.trim();
+
+      // Persist to disk
+      PersistentMemory.saveCompact(userId, summary);
+
+      // Replace old messages in DB with a compact summary system message
+      const ids = oldMessages.map(m => m.id).filter(Boolean) as string[];
+      this.memoryManager.deleteMessages(ids);
+      this.memoryManager.addCompactSummary(conversationId, summary);
+
+      console.log(`✅ Compaction done — removed ${ids.length} old messages`);
+    } catch (err: any) {
+      console.error('⚠️  Compaction failed (non-critical):', err.message);
+    }
   }
 
   /**

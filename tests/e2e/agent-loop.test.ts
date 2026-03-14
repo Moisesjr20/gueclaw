@@ -1,9 +1,8 @@
 import { AgentLoop } from '../../src/core/agent-loop/agent-loop';
-import { ILLMProvider } from '../../src/core/providers/base-provider';
+import { ILLMProvider, CompletionOptions, ToolDefinition } from '../../src/core/providers/base-provider';
 import { ToolRegistry } from '../../src/tools/tool-registry';
 import { BaseTool } from '../../src/tools/base-tool';
-import { ToolDefinition } from '../../src/core/providers/base-provider';
-import { ToolResult } from '../../src/types';
+import { Message, LLMResponse, ToolResult } from '../../src/types';
 
 // Mock tool for testing
 class CalculatorTool extends BaseTool {
@@ -53,20 +52,30 @@ class CalculatorTool extends BaseTool {
 
 // Mock LLM provider
 class MockProvider implements ILLMProvider {
-  async generateCompletion(messages: any[], tools?: any[]): Promise<any> {
-    // Simple mock: if last message asks for calculation, return tool call
+  public readonly name = 'mock-provider';
+  public readonly supportsToolCalls = true;
+  public readonly supportsStreaming = false;
+
+  async generateCompletion(messages: Message[], _options?: CompletionOptions): Promise<LLMResponse> {
+    // If a tool result is already in history, return final answer
+    const hasToolResult = messages.some(m => m.role === 'tool');
+    if (hasToolResult) {
+      return { content: 'The answer is 8.', finishReason: 'stop' };
+    }
+
+    // If user asks for calculation, return a tool call
     const lastMessage = messages[messages.length - 1];
-    
-    if (lastMessage.content.includes('5 + 3')) {
+    if (lastMessage.content && lastMessage.content.includes('5 + 3')) {
       return {
-        content: null,
-        tool_calls: [
+        content: '',
+        finishReason: 'tool_calls',
+        toolCalls: [
           {
             id: 'test-call-1',
             type: 'function',
             function: {
               name: 'calculator',
-              arguments: JSON.stringify({ operation: 'add', a: 5, b: 3 }),
+              arguments: { operation: 'add', a: 5, b: 3 },
             },
           },
         ],
@@ -74,52 +83,36 @@ class MockProvider implements ILLMProvider {
     }
 
     // Default response
-    return {
-      content: 'The answer is 8.',
-      tool_calls: null,
-    };
+    return { content: 'The answer is 8.', finishReason: 'stop' };
   }
 }
 
 describe('AgentLoop E2E', () => {
   let agentLoop: AgentLoop;
   let provider: MockProvider;
-  let registry: ToolRegistry;
 
   beforeAll(() => {
+    ToolRegistry.clear();
+    ToolRegistry.register(new CalculatorTool());
     provider = new MockProvider();
-    registry = ToolRegistry.getInstance();
-    
-    // Register calculator tool
-    const calcTool = new CalculatorTool();
-    registry.registerTool(calcTool);
-
-    agentLoop = new AgentLoop(provider, registry);
+    agentLoop = new AgentLoop(provider, []);
   });
 
   afterAll(() => {
-    // Clean up
-    (registry as any).tools.clear();
+    ToolRegistry.clear();
   });
 
   describe('run', () => {
     it('should complete a simple task without tools', async () => {
-      const result = await agentLoop.run(
-        '123-test',
-        'Hello, how are you?',
-        []
-      );
+      const result = await agentLoop.run('Hello, how are you?');
 
       expect(result).toBeDefined();
       expect(typeof result).toBe('string');
     });
 
     it('should execute tool when needed', async () => {
-      const result = await agentLoop.run(
-        '124-test',
-        'What is 5 + 3?',
-        []
-      );
+      const loop = new AgentLoop(provider, []);
+      const result = await loop.run('What is 5 + 3?');
 
       expect(result).toBeDefined();
       expect(result).toContain('8');

@@ -15,7 +15,8 @@ export class SkillExecutor {
     skillName: string,
     userInput: string,
     conversationHistory: any[],
-    useReasoning: boolean = false
+    useReasoning: boolean = false,
+    extraContext?: string
   ): Promise<string> {
     try {
       console.log(`🎯 Executing skill: ${skillName}`);
@@ -66,8 +67,8 @@ Instruções adicionais:
 - Para perguntas simples que não precisam de ação: responda diretamente sem o formato estruturado
 `;
 
-      // Initialize Agent Loop
-      const agentLoop = new AgentLoop(provider, conversationHistory, systemPrompt);
+      // Initialize Agent Loop (pass extraContext as enrichment)
+      const agentLoop = new AgentLoop(provider, conversationHistory, systemPrompt, extraContext);
 
       // Execute the loop
       const result = await agentLoop.run(userInput);
@@ -89,7 +90,8 @@ Instruções adicionais:
   public static async executeAuto(
     skillName: string,
     userInput: string,
-    conversationHistory: any[]
+    conversationHistory: any[],
+    extraContext?: string
   ): Promise<string> {
     // Keywords that indicate need for deep reasoning
     const reasoningKeywords = [
@@ -103,6 +105,6 @@ Instruções adicionais:
       skillName.toLowerCase().includes(keyword)
     );
 
-    return this.execute(skillName, userInput, conversationHistory, needsReasoning);
+    return this.execute(skillName, userInput, conversationHistory, needsReasoning, extraContext);
   }
 }

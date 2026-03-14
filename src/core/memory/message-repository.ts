@@ -102,4 +102,39 @@ export class MessageRepository {
     const result = stmt.get(conversationId) as { count: number };
     return result.count;
   }
+
+  /**
+   * Get messages older than the most-recent `windowSize` messages.
+   * Used to identify candidates for compaction.
+   */
+  public getOldMessages(conversationId: string, windowSize: number): Message[] {
+    const stmt = this.db.prepare(`
+      SELECT * FROM messages
+      WHERE conversation_id = ?
+      ORDER BY timestamp ASC
+      LIMIT MAX(0, (SELECT COUNT(*) FROM messages WHERE conversation_id = ?) - ?)
+    `);
+
+    const rows = stmt.all(conversationId, conversationId, windowSize) as any[];
+
+    return rows.map((row) => ({
+      id: row.id,
+      conversationId: row.conversation_id,
+      role: row.role,
+      content: row.content,
+      timestamp: row.timestamp * 1000,
+      metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
+    }));
+  }
+
+  /**
+   * Delete messages by their IDs.
+   */
+  public deleteByIds(ids: string[]): number {
+    if (ids.length === 0) return 0;
+    const placeholders = ids.map(() => '?').join(', ');
+    const stmt = this.db.prepare(`DELETE FROM messages WHERE id IN (${placeholders})`);
+    const result = stmt.run(...ids);
+    return result.changes;
+  }
 }

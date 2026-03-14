@@ -8,7 +8,7 @@ import { Message, LLMResponse, ToolCall } from '../../types';
 export class DeepSeekProvider implements ILLMProvider {
   public readonly name = 'deepseek';
   public readonly supportsToolCalls = true;
-  public readonly supportsStreaming = false;
+  public readonly supportsStreaming = true;
 
   private client: AxiosInstance;
   private model: string;
@@ -82,6 +82,45 @@ export class DeepSeekProvider implements ILLMProvider {
           totalTokens: 0,
         },
       };
+    }
+  }
+
+  public async *generateStreamingCompletion(
+    messages: Message[],
+    options?: CompletionOptions
+  ): AsyncGenerator<string, void, unknown> {
+    try {
+      const formattedMessages = this.formatMessages(messages, options?.systemPrompt);
+
+      const payload: any = {
+        model: this.model,
+        messages: formattedMessages,
+        temperature: options?.temperature ?? 0.7,
+        max_tokens: options?.maxTokens ?? 4096,
+        stream: true,
+      };
+
+      const response = await this.client.post('/chat/completions', payload, {
+        responseType: 'stream',
+      });
+
+      for await (const chunk of response.data) {
+        const lines = chunk.toString().split('\n').filter((l: string) => l.trim() !== '');
+        for (const line of lines) {
+          const message = line.replace(/^data: /, '');
+          if (message === '[DONE]') return;
+          try {
+            const parsed = JSON.parse(message);
+            const delta = parsed.choices[0]?.delta?.content;
+            if (delta) yield delta;
+          } catch {
+            continue;
+          }
+        }
+      }
+    } catch (error: any) {
+      console.error('❌ DeepSeek streaming error:', error.message);
+      yield `Error: ${error.message}`;
     }
   }
 

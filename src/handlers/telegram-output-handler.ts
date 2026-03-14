@@ -250,6 +250,59 @@ export class TelegramOutputHandler {
   }
 
   /**
+   * Send response with typewriter reveal effect.
+   * Words appear progressively by editing the message, giving a streaming UX.
+   * Falls back to sendText() for short responses.
+   */
+  public static async sendTypewriter(ctx: Context, text: string): Promise<void> {
+    const wordsPerBatch = parseInt(process.env.STREAM_WORDS_PER_BATCH || '20', 10);
+    const delayMs = parseInt(process.env.STREAM_DELAY_MS || '300', 10);
+
+    const words = text.split(/\s+/).filter(w => w.length > 0);
+
+    // Don't bother streaming very short responses
+    if (words.length < wordsPerBatch * 2) {
+      return this.sendText(ctx, text);
+    }
+
+    let sentMsg: any;
+    try {
+      // Send initial chunk with cursor indicator
+      const initial = words.slice(0, wordsPerBatch).join(' ') + ' ▌';
+      sentMsg = await ctx.reply(initial);
+    } catch {
+      return this.sendText(ctx, text);
+    }
+
+    const chatId = ctx.chat!.id;
+    const msgId = sentMsg.message_id;
+
+    for (let i = wordsPerBatch; i < words.length; i += wordsPerBatch) {
+      await this.sleep(delayMs);
+      const isLast = i + wordsPerBatch >= words.length;
+      try {
+        if (isLast) {
+          // Final edit: apply full HTML formatting
+          const html = TelegramFormatter.toHtml(text);
+          if (html.length <= this.MAX_MESSAGE_LENGTH) {
+            await ctx.api.editMessageText(chatId, msgId, html, { parse_mode: 'HTML' });
+          } else {
+            // Too long for single message — delete placeholder and send in chunks
+            await ctx.api.deleteMessage(chatId, msgId).catch(() => {});
+            await this.sendInChunks(ctx, html);
+          }
+        } else {
+          const partial = words.slice(0, i + wordsPerBatch).join(' ') + ' ▌';
+          await ctx.api.editMessageText(chatId, msgId, partial);
+        }
+      } catch {
+        // Telegram edit failed (e.g. message too old) — fall through
+        break;
+      }
+    }
+  }
+
+  /**
    * Handle Telegram rate limiting
    */
   public static async handleRateLimit(retryAfter: number): Promise<void> {

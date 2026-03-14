@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import pdfParse from 'pdf-parse';
 import * as Papa from 'papaparse';
+import { AudioTool } from '../tools/audio-tool';
 
 /**
  * Telegram Input Handler - Processes incoming messages and files
@@ -216,8 +217,16 @@ export class TelegramInputHandler {
       // Download file
       await this.downloadFile(file.file_path!, filePath);
 
-      // TODO: Implement speech-to-text with Whisper
-      // For now, just return the file reference
+      // Auto-transcribe if enabled
+      let transcription: string | undefined;
+      if (process.env.AUDIO_TRANSCRIPTION_ENABLED !== 'false') {
+        console.log(`🔊 Auto-transcribing audio with Whisper...`);
+        const text = await AudioTool.transcribeFile(filePath);
+        if (text) {
+          transcription = text;
+          console.log(`📝 Transcription: ${text.substring(0, 80)}...`);
+        }
+      }
 
       return {
         type: 'audio',
@@ -226,7 +235,9 @@ export class TelegramInputHandler {
         mimeType: fileData.mime_type || 'audio/ogg',
         fileName: audio?.file_name || 'voice.ogg',
         fileSize: fileData.file_size,
-      };
+        // Store transcription in metadata so AgentController can use it
+        ...(transcription ? { metadata: { transcription } } : {}),
+      } as FileAttachment & { metadata?: { transcription: string } };
 
     } catch (error: any) {
       console.error('❌ Error processing audio:', error);

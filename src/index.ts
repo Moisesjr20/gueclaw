@@ -10,6 +10,14 @@ import { VPSCommandTool } from './tools/vps-command-tool';
 import { DockerTool } from './tools/docker-tool';
 import { FileOperationsTool } from './tools/file-operations-tool';
 import { APIRequestTool } from './tools/api-request-tool';
+import { MemoryWriteTool } from './tools/memory-write-tool';
+import { ReadSkillTool } from './tools/read-skill-tool';
+import { AnalyzeImageTool } from './tools/analyze-image-tool';
+import { AudioTool } from './tools/audio-tool';
+
+// Import services
+import { Heartbeat } from './services/heartbeat';
+import { TelegramNotifier } from './services/telegram-notifier';
 
 /**
  * GueClaw Agent - Main Entry Point
@@ -17,6 +25,7 @@ import { APIRequestTool } from './tools/api-request-tool';
 class GueClaw {
   private bot: Bot;
   private controller: AgentController;
+  private heartbeat?: Heartbeat;
 
   constructor() {
     this.validateEnvironment();
@@ -93,6 +102,10 @@ class GueClaw {
       new DockerTool(),
       new FileOperationsTool(),
       new APIRequestTool(),
+      new MemoryWriteTool(),
+      new ReadSkillTool(),
+      new AnalyzeImageTool(),
+      new AudioTool(),
     ]);
 
     console.log(`✅ Registered ${ToolRegistry.getAllNames().length} tools`);
@@ -203,6 +216,14 @@ class GueClaw {
       console.log(`🔧 Tools: ${ToolRegistry.getAllNames().join(', ')}`);
       console.log('\n✅ Bot is running! Send a message to get started.\n');
 
+      // Start heartbeat monitor
+      const notifier = new TelegramNotifier(
+        process.env.TELEGRAM_BOT_TOKEN!,
+        process.env.TELEGRAM_ALLOWED_USER_IDS!
+      );
+      this.heartbeat = new Heartbeat(notifier);
+      this.heartbeat.start();
+
       await this.bot.start();
 
     } catch (error: any) {
@@ -211,12 +232,10 @@ class GueClaw {
     }
   }
 
-  /**
-   * Graceful shutdown
-   */
   public async shutdown(): Promise<void> {
     console.log('\n🛑 Shutting down GueClaw Agent...');
     
+    this.heartbeat?.stop();
     await this.bot.stop();
     DatabaseConnection.close();
     

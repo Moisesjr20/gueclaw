@@ -62,8 +62,9 @@ export class SkillLoader {
     try {
       const content = fs.readFileSync(skillPath, 'utf8');
       
-      // Remove frontmatter, keeping only the main content
-      const withoutFrontmatter = content.replace(/^---\n[\s\S]*?\n---\n/, '');
+      // Normalize line endings, then remove frontmatter
+      const normalized = content.replace(/\r\n/g, '\n');
+      const withoutFrontmatter = normalized.replace(/^---\n[\s\S]*?\n---\n/, '');
       
       return withoutFrontmatter.trim();
     } catch (error: any) {
@@ -78,8 +79,11 @@ export class SkillLoader {
   private static parseSkillFile(filePath: string): SkillMetadata | null {
     const content = fs.readFileSync(filePath, 'utf8');
 
+    // Normalize line endings (handle Windows CRLF)
+    const normalized = content.replace(/\r\n/g, '\n');
+
     // Extract YAML frontmatter
-    const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    const frontmatterMatch = normalized.match(/^---\n([\s\S]*?)\n---/);
 
     if (!frontmatterMatch) {
       console.warn(`⚠️  No frontmatter found in ${filePath}`);
@@ -108,6 +112,34 @@ export class SkillLoader {
       console.error(`❌ Failed to parse YAML frontmatter: ${error.message}`);
       return null;
     }
+  }
+
+  /**
+   * Load lightweight manifest for all skills — used for system prompt injection.
+   * Returns name, description, and dirName (the directory name used with read_skill tool).
+   */
+  public static loadManifest(): Array<{ name: string; description: string; dirName: string }> {
+    const manifest: Array<{ name: string; description: string; dirName: string }> = [];
+
+    if (!fs.existsSync(this.SKILLS_DIR)) return manifest;
+
+    const entries = fs.readdirSync(this.SKILLS_DIR, { withFileTypes: true });
+
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const skillFile = path.join(this.SKILLS_DIR, entry.name, 'SKILL.md');
+      if (!fs.existsSync(skillFile)) continue;
+      try {
+        const meta = this.parseSkillFile(skillFile);
+        if (meta) {
+          manifest.push({ name: meta.name, description: meta.description, dirName: entry.name });
+        }
+      } catch {
+        // silently skip broken skills
+      }
+    }
+
+    return manifest;
   }
 
   /**

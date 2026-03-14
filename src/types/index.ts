@@ -100,3 +100,9 @@ export interface AgentAction {
   actionInput?: Record<string, any>;
   observation?: string;
 }
+
+/**
+ * Sentinel returned by the LLM when it already replied via a tool call.
+ * The output layer MUST NOT forward this string to Telegram.
+ */
+export const NO_REPLY = 'NO_REPLY';
