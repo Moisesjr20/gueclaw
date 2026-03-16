@@ -99,6 +99,14 @@ export class AgentLoop {
 
         // Check if we have tool calls
         if (response.toolCalls && response.toolCalls.length > 0) {
+          // Add the assistant message with tool_calls to history BEFORE executing
+          this.conversationHistory.push({
+            conversationId: 'temp',
+            role: 'assistant',
+            content: response.content || '',
+            toolCalls: response.toolCalls,
+          });
+
           // Execute all tool calls
           await this.executeToolCalls(response.toolCalls, iteration);
           
@@ -244,6 +252,7 @@ export class AgentLoop {
           conversationId: 'temp',
           role: 'tool',
           content: observation,
+          toolCallId: toolCall.id,
           metadata: { toolName, toolCallId: toolCall.id, success: result.success },
         });
 
@@ -268,6 +277,7 @@ export class AgentLoop {
           conversationId: 'temp',
           role: 'tool',
           content: `[Tool Execution Error - ${toolCall.function.name}]: ${error.message}`,
+          toolCallId: toolCall.id,
           metadata: { toolName: toolCall.function.name, toolCallId: toolCall.id, error: true },
         });
       }

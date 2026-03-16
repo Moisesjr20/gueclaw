@@ -41,7 +41,7 @@ import paramiko
 def get_password():
     env_path = '${path.resolve(__dirname, '../.env').replace(/\\/g, '/')}'
     try:
-        with open(env_path) as f:
+        with open(env_path, encoding='utf-8') as f:
             for line in f:
                 if line.startswith('VPS_PASSWORD='):
                     return line.split('=', 1)[1].strip().strip('"').strip("'")

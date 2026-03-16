@@ -466,6 +466,7 @@ export class GitHubCopilotOAuthProvider implements ILLMProvider {
             parameters: tool.parameters,
           },
         }));
+        payload.tool_choice = options.toolChoice ?? 'auto';
       }
 
       // Call Copilot API
@@ -514,8 +515,18 @@ export class GitHubCopilotOAuthProvider implements ILLMProvider {
     }
 
     for (const msg of messages) {
+      if (msg.role === 'tool') {
+        // OpenAI format: tool result messages need role=tool and tool_call_id
+        formatted.push({
+          role: 'tool',
+          tool_call_id: msg.toolCallId || msg.metadata?.toolCallId || 'unknown',
+          content: msg.content,
+        });
+        continue;
+      }
+
       const formattedMsg: any = {
-        role: msg.role === 'tool' ? 'assistant' : msg.role,
+        role: msg.role,
         content: msg.content,
       };
 
@@ -538,7 +549,8 @@ export class GitHubCopilotOAuthProvider implements ILLMProvider {
 
   private parseResponse(data: any): LLMResponse {
     if (!data?.choices?.length) {
-      console.error('❌ Copilot API returned empty choices array:', JSON.stringify(data).slice(0, 300));
+      const dataStr = data !== undefined ? (JSON.stringify(data) ?? '(unserializable)') : '(undefined)';
+      console.error('❌ Copilot API returned empty choices array:', dataStr.slice(0, 300));
       return {
         content: '',
         finishReason: 'error',
@@ -548,8 +560,26 @@ export class GitHubCopilotOAuthProvider implements ILLMProvider {
     const choice = data.choices[0];
     const message = choice.message;
 
+    // Debug log when tool_calls finish_reason is detected
+    if (choice.finish_reason === 'tool_calls') {
+      console.log('[DEBUG] finish_reason=tool_calls | message.tool_calls:', JSON.stringify(message.tool_calls).slice(0, 500));
+      console.log('[DEBUG] message.content type:', typeof message.content, '| value:', JSON.stringify(message.content)?.slice(0, 200));
+    }
+
+    // Handle Claude-style content arrays (type:"tool_use" blocks)
+    let textContent: string = '';
+    let nativeToolCalls: any[] = [];
+    if (Array.isArray(message.content)) {
+      for (const block of message.content) {
+        if (block.type === 'text') textContent += block.text;
+        if (block.type === 'tool_use') nativeToolCalls.push(block);
+      }
+    } else {
+      textContent = message.content || '';
+    }
+
     const response: LLMResponse = {
-      content: message.content || '',
+      content: textContent,
       finishReason: choice.finish_reason,
       usage: {
         promptTokens: data.usage?.prompt_tokens || 0,
@@ -559,14 +589,29 @@ export class GitHubCopilotOAuthProvider implements ILLMProvider {
     };
 
     if (message.tool_calls && message.tool_calls.length > 0) {
-      response.toolCalls = message.tool_calls.map((tc: any) => ({
-        id: tc.id,
-        type: tc.type,
-        function: {
-          name: tc.function.name,
-          arguments: JSON.parse(tc.function.arguments),
-        },
+      response.toolCalls = message.tool_calls.map((tc: any) => {
+        let args: any;
+        if (typeof tc.function.arguments === 'string') {
+          try { args = JSON.parse(tc.function.arguments); }
+          catch { args = { raw: tc.function.arguments }; }
+        } else {
+          args = tc.function.arguments ?? {};
+        }
+        return {
+          id: tc.id,
+          type: tc.type,
+          function: { name: tc.function.name, arguments: args },
+        };
+      });
+    } else if (nativeToolCalls.length > 0) {
+      // Handle Claude native format: content blocks of type "tool_use"
+      response.toolCalls = nativeToolCalls.map((block: any) => ({
+        id: block.id,
+        type: 'function',
+        function: { name: block.name, arguments: block.input ?? {} },
       }));
+      // Normalize finish_reason so agent loop knows to execute tools
+      response.finishReason = 'tool_calls';
     }
 
     return response;
