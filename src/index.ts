@@ -4,6 +4,7 @@ import { DatabaseConnection } from './core/memory/database';
 import { ProviderFactory } from './core/providers/provider-factory';
 import { ToolRegistry } from './tools/tool-registry';
 import { AgentController } from './core/agent-controller';
+import { DebugAPI } from './api/debug-api';
 
 // Import tools
 import { VPSCommandTool } from './tools/vps-command-tool';
@@ -235,6 +236,12 @@ class GueClaw {
       );
       this.heartbeat = new Heartbeat(notifier);
       this.heartbeat.start();
+
+      // Start Debug API (local only, port 3742)
+      if (process.env.DISABLE_DEBUG_API !== 'true') {
+        const debugApi = new DebugAPI();
+        await debugApi.start();
+      }
 
       await this.bot.start();
 

@@ -49,8 +49,8 @@ describe('VPSCommandTool — command injection guards', () => {
     expect(result.error).toContain('bloqueado');
   });
 
-  it('blocks commands exceeding 1000 characters', async () => {
-    const result = await tool.execute({ command: 'echo ' + 'A'.repeat(1000) });
+  it('blocks commands exceeding 4096 characters', async () => {
+    const result = await tool.execute({ command: 'echo ' + 'A'.repeat(4096) });
     expect(result.success).toBe(false);
     expect(result.error).toContain('longo');
   });

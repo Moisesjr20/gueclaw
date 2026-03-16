@@ -76,6 +76,23 @@ export class DatabaseConnection {
       )
     `);
 
+    // Execution traces for debug API
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS execution_traces (
+        id TEXT PRIMARY KEY,
+        conversation_id TEXT NOT NULL,
+        message_id TEXT,
+        iteration INTEGER NOT NULL,
+        tool_name TEXT,
+        tool_args TEXT,
+        tool_result TEXT,
+        thought TEXT,
+        tokens_used INTEGER,
+        finish_reason TEXT,
+        created_at INTEGER DEFAULT (strftime('%s', 'now'))
+      )
+    `);
+
     // Create indexes
     db.exec(`
       CREATE INDEX IF NOT EXISTS idx_messages_conversation 
@@ -86,6 +103,9 @@ export class DatabaseConnection {
       
       CREATE INDEX IF NOT EXISTS idx_skill_executions_user 
       ON skill_executions(user_id, timestamp);
+
+      CREATE INDEX IF NOT EXISTS idx_traces_conversation
+      ON execution_traces(conversation_id, created_at);
     `);
 
     console.log('📊 Database schema initialized');

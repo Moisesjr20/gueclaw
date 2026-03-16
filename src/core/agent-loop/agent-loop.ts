@@ -2,6 +2,7 @@ import { ILLMProvider, CompletionOptions } from '../providers/base-provider';
 import { Message, AgentAction, ToolCall, NO_REPLY } from '../../types';
 import { ToolRegistry } from '../../tools/tool-registry';
 import { IdentityLoader } from '../../utils/identity-loader';
+import { TraceRepository } from '../../api/trace-repository';
 
 /**
  * Agent Loop - ReAct Pattern Implementation
@@ -13,6 +14,7 @@ export class AgentLoop {
   private systemPrompt: string;
   private maxIterations: number;
   private blockedTools: Set<string>;
+  private trackedConversationId?: string;
 
   constructor(
     provider: ILLMProvider,
@@ -21,7 +23,9 @@ export class AgentLoop {
     /** Optional context block prepended to the system prompt (memory, skill manifest, etc.) */
     enrichment?: string,
     /** Tool names that must not be offered to the LLM for this loop instance */
-    blockedTools?: string[]
+    blockedTools?: string[],
+    /** Conversation ID for trace recording (optional) */
+    conversationId?: string
   ) {
     this.provider = provider;
     this.conversationHistory = [...conversationHistory];
@@ -30,6 +34,7 @@ export class AgentLoop {
     this.systemPrompt = IdentityLoader.prepend(full);
     this.maxIterations = parseInt(process.env.MAX_ITERATIONS || '5', 10);
     this.blockedTools = new Set(blockedTools ?? []);
+    this.trackedConversationId = conversationId;
   }
 
   /**
@@ -80,10 +85,22 @@ export class AgentLoop {
 
         console.log(`💭 Thought: ${response.content.substring(0, 100)}${response.content.length > 100 ? '...' : ''}`);
 
+        // Record trace for this iteration (thought + finish reason)
+        if (this.trackedConversationId) {
+          try {
+            TraceRepository.getInstance().addTrace({
+              conversationId: this.trackedConversationId,
+              iteration,
+              thought: response.content.substring(0, 2000) || undefined,
+              finishReason: response.finishReason,
+            });
+          } catch { /* non-critical */ }
+        }
+
         // Check if we have tool calls
         if (response.toolCalls && response.toolCalls.length > 0) {
           // Execute all tool calls
-          await this.executeToolCalls(response.toolCalls);
+          await this.executeToolCalls(response.toolCalls, iteration);
           
           // Continue loop
           continue;
@@ -170,7 +187,7 @@ export class AgentLoop {
   /**
    * Execute tool calls and add results to conversation history
    */
-  private async executeToolCalls(toolCalls: ToolCall[]): Promise<void> {
+  private async executeToolCalls(toolCalls: ToolCall[], iteration: number = 0): Promise<void> {
     console.log(`🔧 Executing ${toolCalls.length} tool call(s)...`);
 
     for (const toolCall of toolCalls) {
@@ -229,6 +246,20 @@ export class AgentLoop {
           content: observation,
           metadata: { toolName, toolCallId: toolCall.id, success: result.success },
         });
+
+        // Record trace for this tool call
+        if (this.trackedConversationId) {
+          try {
+            TraceRepository.getInstance().addTrace({
+              conversationId: this.trackedConversationId,
+              iteration,
+              toolName,
+              toolArgs: toolArgs,
+              toolResult: (result.success ? result.output : result.error)?.substring(0, 4000),
+              finishReason: result.success ? 'tool_success' : 'tool_error',
+            });
+          } catch { /* non-critical */ }
+        }
 
       } catch (error: any) {
         console.error(`   ❌ Tool execution error: ${error.message}`);

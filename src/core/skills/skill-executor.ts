@@ -16,7 +16,8 @@ export class SkillExecutor {
     userInput: string,
     conversationHistory: any[],
     useReasoning: boolean = false,
-    extraContext?: string
+    extraContext?: string,
+    conversationId?: string
   ): Promise<string> {
     try {
       console.log(`🎯 Executing skill: ${skillName}`);
@@ -76,7 +77,7 @@ Instruções adicionais:
 `;
 
       // Initialize Agent Loop — pass blockedTools so the schema never exposes them
-      const agentLoop = new AgentLoop(provider, conversationHistory, systemPrompt, extraContext, metadata?.blocked_tools);
+      const agentLoop = new AgentLoop(provider, conversationHistory, systemPrompt, extraContext, metadata?.blocked_tools, conversationId);
 
       // Execute the loop
       const result = await agentLoop.run(userInput);
@@ -99,7 +100,8 @@ Instruções adicionais:
     skillName: string,
     userInput: string,
     conversationHistory: any[],
-    extraContext?: string
+    extraContext?: string,
+    conversationId?: string
   ): Promise<string> {
     // Keywords that indicate need for deep reasoning
     const reasoningKeywords = [
@@ -113,6 +115,6 @@ Instruções adicionais:
       skillName.toLowerCase().includes(keyword)
     );
 
-    return this.execute(skillName, userInput, conversationHistory, needsReasoning, extraContext);
+    return this.execute(skillName, userInput, conversationHistory, needsReasoning, extraContext, conversationId);
   }
 }

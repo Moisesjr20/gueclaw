@@ -144,13 +144,13 @@ export class AgentController {
       if (skillName && SkillLoader.skillExists(skillName)) {
         // Execute skill — pass enrichment so the skill loop is also memory-aware
         console.log(`🎯 Using skill: ${skillName}`);
-        response = await SkillExecutor.executeAuto(skillName, userInputText, history, enrichment);
+        response = await SkillExecutor.executeAuto(skillName, userInputText, history, enrichment, conversation.id);
       } else {
         // Use general agent loop
         console.log(`💭 Using general reasoning (no specific skill)`);
         
         const provider = ProviderFactory.getFastProvider();
-        const agentLoop = new AgentLoop(provider, history, undefined, enrichment);
+        const agentLoop = new AgentLoop(provider, history, undefined, enrichment, undefined, conversation.id);
         response = await agentLoop.run(userInputText);
       }
 
