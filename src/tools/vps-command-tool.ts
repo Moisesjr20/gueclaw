@@ -7,7 +7,7 @@ import * as path from 'path';
 
 const execAsync = promisify(exec);
 
-const MAX_COMMAND_LENGTH = 1000;
+const MAX_COMMAND_LENGTH = 4096;
 
 // Patterns that match catastrophically destructive operations
 const DANGEROUS_PATTERNS: RegExp[] = [

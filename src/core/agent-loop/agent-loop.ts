@@ -12,13 +12,16 @@ export class AgentLoop {
   private conversationHistory: Message[];
   private systemPrompt: string;
   private maxIterations: number;
+  private blockedTools: Set<string>;
 
   constructor(
     provider: ILLMProvider,
     conversationHistory: Message[] = [],
     systemPrompt?: string,
     /** Optional context block prepended to the system prompt (memory, skill manifest, etc.) */
-    enrichment?: string
+    enrichment?: string,
+    /** Tool names that must not be offered to the LLM for this loop instance */
+    blockedTools?: string[]
   ) {
     this.provider = provider;
     this.conversationHistory = [...conversationHistory];
@@ -26,6 +29,7 @@ export class AgentLoop {
     const full = enrichment ? `${enrichment}\n\n${base}` : base;
     this.systemPrompt = IdentityLoader.prepend(full);
     this.maxIterations = parseInt(process.env.MAX_ITERATIONS || '5', 10);
+    this.blockedTools = new Set(blockedTools ?? []);
   }
 
   /**
@@ -50,8 +54,11 @@ export class AgentLoop {
       console.log(`\n🔁 Iteration ${iteration}/${this.maxIterations}`);
 
       try {
-        // Get available tools
-        const tools = ToolRegistry.getAllDefinitions();
+        // Get available tools — respect blockedTools list
+        const allTools = ToolRegistry.getAllDefinitions();
+        const tools = this.blockedTools.size > 0
+          ? allTools.filter(t => !this.blockedTools.has(t.name))
+          : allTools;
 
         // Generate completion
         const options: CompletionOptions = {
@@ -118,6 +125,19 @@ export class AgentLoop {
         }
 
         // If we get here with no tool calls and no stop, treat as final response
+        // Guard against empty content — retry with guidance instead of sending blank
+        if (!response.content || response.content.trim() === '') {
+          if (iteration < this.maxIterations) {
+            this.conversationHistory.push({
+              conversationId: 'temp',
+              role: 'user',
+              content: '[Sistema]: Sua resposta foi vazia. Por favor, analise os resultados das ferramentas e forneça uma resposta completa ao usuário.',
+            });
+            continue;
+          }
+          finalResponse = 'Desculpe, não consegui processar a resposta. Por favor, tente novamente.';
+          break;
+        }
         finalResponse = response.content;
         break;
 
@@ -159,6 +179,19 @@ export class AgentLoop {
         const toolArgs = toolCall.function.arguments;
         
         console.log(`   → ${toolName}(${JSON.stringify(toolArgs).substring(0, 50)}...)`);
+
+        // Reject if tool is blocked for this skill
+        if (this.blockedTools.has(toolName)) {
+          const errorMsg = `Tool "${toolName}" is not allowed in this context.`;
+          console.warn(`   🚫 Blocked tool call attempt: ${toolName}`);
+          this.conversationHistory.push({
+            conversationId: 'temp',
+            role: 'tool',
+            content: `Error: ${errorMsg} Use an alternative tool.`,
+            metadata: { toolName, toolCallId: toolCall.id },
+          });
+          continue;
+        }
 
         // Get the tool from registry
         const tool = ToolRegistry.get(toolName);

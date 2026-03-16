@@ -75,8 +75,8 @@ Instruções adicionais:
 - Para perguntas simples que não precisam de ação: responda diretamente sem o formato estruturado
 `;
 
-      // Initialize Agent Loop (pass extraContext as enrichment)
-      const agentLoop = new AgentLoop(provider, conversationHistory, systemPrompt, extraContext);
+      // Initialize Agent Loop — pass blockedTools so the schema never exposes them
+      const agentLoop = new AgentLoop(provider, conversationHistory, systemPrompt, extraContext, metadata?.blocked_tools);
 
       // Execute the loop
       const result = await agentLoop.run(userInput);

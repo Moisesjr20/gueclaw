@@ -30,21 +30,10 @@ Use sempre os valores das variáveis de ambiente. Não hardcode.
 
 ## 📋 Listar e Salvar Grupos — Comando Único
 
-Use **`vps_execute_command`** com o seguinte comando. Ele faz o fetch, filtra os campos, salva o arquivo e imprime a lista em uma única chamada:
+Use **`vps_execute_command`** com este comando exato (uma linha, sem quebras):
 
-```bash
-curl -s -H 'token: ef81eb52-692d-4e31-b98e-c2c0d045013a' 'https://kyrius.uazapi.com/group/list' | python3 -c "
-import sys, json, datetime
-data = json.load(sys.stdin)
-groups = data.get('groups', [])
-filtered = [{'name': g['Name'], 'jid': g['JID'], 'participants': g.get('ParticipantCount', 0)} for g in groups]
-output = {'updated_at': datetime.datetime.utcnow().isoformat()+'Z', 'total': len(filtered), 'groups': filtered}
-with open('/opt/gueclaw-agent/.agents/skills/uazapi-groups/data/groups.json', 'w') as f:
-    json.dump(output, f, ensure_ascii=False, indent=2)
-for i, g in enumerate(filtered, 1):
-    print(f'{i}. {g[\"name\"]} ({g[\"participants\"]} membros) — {g[\"jid\"]}')
-print(f'\nTotal: {len(filtered)} grupos salvos em data/groups.json')
-"
+```
+curl -s -H 'token: ef81eb52-692d-4e31-b98e-c2c0d045013a' 'https://kyrius.uazapi.com/group/list' | python3 -c "import sys,json,datetime;d=json.load(sys.stdin);g=d.get('groups',[]);f=[{'name':x['Name'],'jid':x['JID'],'n':x.get('ParticipantCount',0)} for x in g];json.dump({'updated_at':datetime.datetime.utcnow().isoformat()+'Z','total':len(f),'groups':[{'name':x['name'],'jid':x['jid']} for x in f]},open('/opt/gueclaw-agent/.agents/skills/uazapi-groups/data/groups.json','w'),ensure_ascii=False,indent=2);[print(f'{i+1}. {x[\"name\"]} ({x[\"n\"]} membros) - {x[\"jid\"]}') for i,x in enumerate(f)];print(f'Total: {len(f)} grupos')"
 ```
 
 > **Por que `vps_execute_command` e não `api_request`?**
