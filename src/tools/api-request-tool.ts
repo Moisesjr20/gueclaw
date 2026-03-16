@@ -152,7 +152,14 @@ export class APIRequestTool extends BaseTool {
         data: response.data,
       };
 
-      return this.success(JSON.stringify(output, null, 2), {
+      const MAX_RESPONSE_CHARS = 60_000;
+      let serialized = JSON.stringify(output, null, 2);
+      if (serialized.length > MAX_RESPONSE_CHARS) {
+        const truncated = serialized.slice(0, MAX_RESPONSE_CHARS);
+        serialized = truncated + `\n\n[⚠️ RESPONSE TRUNCATED: total ${serialized.length} chars, showing first ${MAX_RESPONSE_CHARS}. Use vps_execute_command with curl | python3/jq to process large responses server-side.]`;
+      }
+
+      return this.success(serialized, {
         status: response.status,
         contentType: response.headers['content-type'],
       });

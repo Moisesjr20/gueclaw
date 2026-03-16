@@ -20,6 +20,96 @@ Use sempre os valores das variáveis de ambiente. Não hardcode.
 
 ## ⚠️ REGRAS ABSOLUTAS
 
+1. **SEMPRE use `vps_execute_command`** para listar grupos. Nunca use `api_request` diretamente — a resposta tem >700KB e estoura o contexto do LLM.
+2. Use o header `token: {UAIZAPI_TOKEN}`.
+3. O filtro dos campos DEVE acontecer no servidor (via python3 inline), nunca traga o JSON completo para o contexto.
+4. Nunca invente JIDs ou nomes — use apenas os dados reais da resposta da API.
+
+---
+
+## 📋 Listar e Salvar Grupos — Comando Único
+
+Use **`vps_execute_command`** com o seguinte comando. Ele faz o fetch, filtra os campos, salva o arquivo e imprime a lista em uma única chamada:
+
+```bash
+curl -s -H 'token: ef81eb52-692d-4e31-b98e-c2c0d045013a' 'https://kyrius.uazapi.com/group/list' | python3 -c "
+import sys, json, datetime
+data = json.load(sys.stdin)
+groups = data.get('groups', [])
+filtered = [{'name': g['Name'], 'jid': g['JID'], 'participants': g.get('ParticipantCount', 0)} for g in groups]
+output = {'updated_at': datetime.datetime.utcnow().isoformat()+'Z', 'total': len(filtered), 'groups': filtered}
+with open('/opt/gueclaw-agent/.agents/skills/uazapi-groups/data/groups.json', 'w') as f:
+    json.dump(output, f, ensure_ascii=False, indent=2)
+for i, g in enumerate(filtered, 1):
+    print(f'{i}. {g[\"name\"]} ({g[\"participants\"]} membros) — {g[\"jid\"]}')
+print(f'\nTotal: {len(filtered)} grupos salvos em data/groups.json')
+"
+```
+
+> **Por que `vps_execute_command` e não `api_request`?**
+> A API retorna >700KB (34 campos por grupo incluindo lista de participantes). Trazer isso para o contexto do LLM estoura o limite de tokens. Filtrando no servidor com python3, apenas os campos `name`, `jid` e `participants` chegam ao agente — em torno de 3KB.
+
+---
+
+## 🔍 Consultar Grupos Salvos (Sem Chamar a API)
+
+Para ler a lista salva sem chamar a API novamente:
+
+```bash
+cat /opt/gueclaw-agent/.agents/skills/uazapi-groups/data/groups.json | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+print(f'Atualizado em: {data[\"updated_at\"]}')
+for i, g in enumerate(data['groups'], 1):
+    print(f'{i}. {g[\"name\"]} — {g[\"jid\"]}')
+print(f'Total: {data[\"total\"]} grupos')
+"
+```
+
+---
+
+## 📤 Apresentar Resultado ao Usuário
+
+Após executar o comando, apresente ao usuário:
+- Quantidade total de grupos encontrados
+- Lista com **nome**, **número de membros** e **JID** de cada grupo
+- Confirmação de que o arquivo foi salvo
+
+**Exemplo de resposta formatada:**
+```
+✅ Encontrei 45 grupos no seu WhatsApp:
+
+1. Família Silva (8 membros) — 120363001@g.us
+2. Trabalho Equipe (23 membros) — 120363002@g.us
+3. Amigos Futebol (11 membros) — 120363003@g.us
+...
+
+💾 Lista salva em data/groups.json
+```
+
+---
+
+## 🛠️ Fluxo Completo
+
+```
+1. vps_execute_command → curl | python3 (filtra + salva + imprime)
+2. Apresentar a lista impressa ao usuário com formatação
+```
+
+
+## 🔑 Configuração
+
+```
+Base URL: https://kyrius.uazapi.com   (variável UAIZAPI_BASE_URL)
+Token:    ef81eb52-692d-4e31-b98e-c2c0d045013a  (variável UAIZAPI_TOKEN)
+```
+
+Use sempre os valores das variáveis de ambiente. Não hardcode.
+
+---
+
+## ⚠️ REGRAS ABSOLUTAS
+
 1. **SEMPRE use a ferramenta `api_request`** para chamar a UazAPI. Nunca simule respostas.
 2. Use o header `token: {UAIZAPI_TOKEN}`, não `Authorization`.
 3. **SEMPRE salve o resultado em arquivo** após listar os grupos (veja seção "Armazenar").
