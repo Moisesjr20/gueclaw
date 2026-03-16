@@ -76,7 +76,7 @@ export class SkillLoader {
   /**
    * Parse YAML frontmatter from skill file
    */
-  private static parseSkillFile(filePath: string): SkillMetadata | null {
+  public static parseSkillFile(filePath: string): SkillMetadata | null {
     const content = fs.readFileSync(filePath, 'utf8');
 
     // Normalize line endings (handle Windows CRLF)
@@ -106,10 +106,24 @@ export class SkillLoader {
         author: frontmatter.author,
         category: frontmatter.category,
         tools: frontmatter.tools || [],
+        blocked_tools: frontmatter.blocked_tools || [],
       };
 
     } catch (error: any) {
       console.error(`❌ Failed to parse YAML frontmatter: ${error.message}`);
+      return null;
+    }
+  }
+
+  /**
+   * Get metadata for a specific skill by name
+   */
+  public static getMetadata(skillName: string): SkillMetadata | null {
+    const skillPath = path.join(this.SKILLS_DIR, skillName, 'SKILL.md');
+    if (!fs.existsSync(skillPath)) return null;
+    try {
+      return this.parseSkillFile(skillPath);
+    } catch {
       return null;
     }
   }

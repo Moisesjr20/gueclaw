@@ -1,6 +1,7 @@
 ---
 name: uazapi-groups
 description: Lista e armazena todos os grupos do WhatsApp via UazAPI. Use esta skill quando o usuário quiser listar grupos do WhatsApp, sincronizar a lista de grupos, buscar o JID de um grupo, obter IDs de grupos, ou qualquer menção a "grupos do WhatsApp". Armazena os resultados em arquivo JSON para consulta futura.
+blocked_tools: [api_request]
 ---
 
 # UazAPI — Grupos do WhatsApp

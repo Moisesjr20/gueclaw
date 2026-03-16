@@ -35,8 +35,16 @@ export class SkillExecutor {
 
       console.log(`🧠 Using provider: ${provider.name} (reasoning: ${useReasoning})`);
 
-      // Get available tools for this skill
-      const availableTools = ToolRegistry.getAllDefinitions();
+      // Get available tools for this skill — filter out any tools blocked by the skill
+      const metadata = SkillLoader.getMetadata(skillName);
+      const blockedTools = new Set(metadata?.blocked_tools ?? []);
+      const allTools = ToolRegistry.getAllDefinitions();
+      const availableTools = blockedTools.size > 0
+        ? allTools.filter(t => !blockedTools.has(t.name))
+        : allTools;
+      if (blockedTools.size > 0) {
+        console.log(`🚫 Skill "${skillName}" blocked tools: ${[...blockedTools].join(', ')}`);
+      }
 
       // Build enhanced system prompt with skill content
       const systemPrompt = `${skillContent}

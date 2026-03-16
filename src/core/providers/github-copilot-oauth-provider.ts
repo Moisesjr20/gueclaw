@@ -537,6 +537,14 @@ export class GitHubCopilotOAuthProvider implements ILLMProvider {
   }
 
   private parseResponse(data: any): LLMResponse {
+    if (!data?.choices?.length) {
+      console.error('❌ Copilot API returned empty choices array:', JSON.stringify(data).slice(0, 300));
+      return {
+        content: '',
+        finishReason: 'error',
+        usage: { promptTokens: data?.usage?.prompt_tokens || 0, completionTokens: 0, totalTokens: 0 },
+      };
+    }
     const choice = data.choices[0];
     const message = choice.message;
 

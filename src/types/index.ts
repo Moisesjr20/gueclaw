@@ -57,6 +57,7 @@ export interface SkillMetadata {
   author?: string;
   category?: string;
   tools?: string[];
+  blocked_tools?: string[];
 }
 
 export interface AgentConfig {
