@@ -49,23 +49,23 @@ export class TelegramNotifier {
    * Send GitHub Copilot OAuth authentication request
    */
   async sendOAuthRequest(deviceCode: string, userCode: string, verificationUri: string): Promise<void> {
-    const message = `
-🔐 **GitHub Copilot - Autenticação Necessária**
-
-O token expirou! Por favor, autorize novamente:
-
-**Código:** \`${userCode}\`
-
-🔗 **Link:** ${verificationUri}
-
-📱 Abra o link, faça login no GitHub e digite o código acima.
-
-⏳ Aguardando sua autorização...
-`;
+    const message = [
+      '🔐 <b>GitHub Copilot - Autenticação Necessária</b>',
+      '',
+      'O token expirou! Por favor, autorize novamente:',
+      '',
+      `<b>Código:</b> <code>${userCode}</code>`,
+      '',
+      `<b>Link:</b> <a href="${verificationUri}">${verificationUri}</a>`,
+      '',
+      '📱 Abra o link, faça login no GitHub e digite o código acima.',
+      '',
+      '⏳ Aguardando sua autorização...',
+    ].join('\n');
 
     await this.sendToAllUsers(message, {
-      parse_mode: 'Markdown',
-      disable_web_page_preview: false,
+      parse_mode: 'HTML',
+      disable_web_page_preview: true,
     });
 
     console.log(`📲 OAuth request sent to Telegram users`);
@@ -78,16 +78,16 @@ O token expirou! Por favor, autorize novamente:
    * Send OAuth success notification
    */
   async sendOAuthSuccess(): Promise<void> {
-    const message = `
-✅ **GitHub Copilot Autenticado!**
-
-🎉 Token renovado com sucesso!
-
-O bot já está funcionando normalmente.
-`;
+    const message = [
+      '✅ <b>GitHub Copilot Autenticado!</b>',
+      '',
+      '🎉 Token renovado com sucesso!',
+      '',
+      'O bot já está funcionando normalmente.',
+    ].join('\n');
 
     await this.sendToAllUsers(message, {
-      parse_mode: 'Markdown',
+      parse_mode: 'HTML',
     });
 
     console.log('✅ OAuth success notification sent to Telegram');
@@ -97,21 +97,18 @@ O bot já está funcionando normalmente.
    * Send OAuth failure notification
    */
   async sendOAuthFailure(error: string): Promise<void> {
-    const message = `
-❌ **Falha na Autenticação GitHub Copilot**
-
-Erro: ${error}
-
-Por favor, execute manualmente:
-\`\`\`
-ssh root@VPS_IP
-cd /opt/gueclaw-agent
-npm run copilot:auth
-\`\`\`
-`;
+    const safeError = error.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const message = [
+      '❌ <b>Falha na Autenticação GitHub Copilot</b>',
+      '',
+      `Erro: ${safeError}`,
+      '',
+      'Por favor, execute manualmente:',
+      '<pre>ssh root@VPS_IP\ncd /opt/gueclaw-agent\nnpm run copilot:auth</pre>',
+    ].join('\n');
 
     await this.sendToAllUsers(message, {
-      parse_mode: 'Markdown',
+      parse_mode: 'HTML',
     });
 
     console.error('❌ OAuth failure notification sent to Telegram');

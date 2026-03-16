@@ -48,8 +48,14 @@ export class SkillRouter {
         maxTokens: 100,
       });
 
-      // Parse response
-      const skillName = this.parseRoutingResponse(response.content);
+      // Reject error responses immediately — don't parse error text as a skill name
+      if (response.finishReason === 'error') {
+        console.warn('⚠️  Skill routing failed (provider error) — falling back to general chat');
+        return null;
+      }
+
+      // Parse response, validating against known skill names
+      const skillName = this.parseRoutingResponse(response.content, availableSkills);
 
       if (skillName) {
         console.log(`✅ Routed to skill: ${skillName}`);
@@ -87,7 +93,7 @@ ${skillsList}
 5. Be precise: only route to a skill if there's a clear match
 
 Examples:
-- User: "Create a new skill for managing databases" → "self-improvement"
+- User: "Create a new skill for managing databases" → "skill-creator"
 - User: "Check Docker containers status" → "vps-manager"
 - User: "What's the weather like?" → "null"
 - User: "Tell me a joke" → "null"
@@ -96,9 +102,11 @@ Respond with the skill name or "null":`;
   }
 
   /**
-   * Parse the LLM response to extract skill name
+   * Parse the LLM response to extract skill name.
+   * Validates the candidate against the list of available skills to prevent
+   * accidental matches on error messages (e.g. "erro", "i").
    */
-  private parseRoutingResponse(response: string): string | null {
+  private parseRoutingResponse(response: string, availableSkills: SkillMetadata[]): string | null {
     const cleaned = response.trim().toLowerCase();
 
     // Check for explicit null
@@ -108,9 +116,14 @@ Respond with the skill name or "null":`;
 
     // Try to extract skill name (remove quotes, backticks, etc.)
     const match = cleaned.match(/[\w-]+/);
-    
+
     if (match) {
-      return match[0];
+      const candidate = match[0];
+      // Only accept if it exactly matches a known skill directory name
+      if (availableSkills.some(s => s.name === candidate)) {
+        return candidate;
+      }
+      console.warn(`⚠️  Routing response "${candidate}" is not a known skill — ignoring`);
     }
 
     return null;

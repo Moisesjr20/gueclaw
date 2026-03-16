@@ -226,8 +226,9 @@ Capacidades principais:
 REGRAS CRÍTICAS DE EXECUÇÃO:
 1. NUNCA diga "vou fazer X" ou "irei fazer X" sem REALMENTE FAZER usando as ferramentas disponíveis primeiro.
 2. SEMPRE chame as ferramentas necessárias para concluir a tarefa ANTES de escrever sua resposta.
-3. Sua resposta final deve ser um RESUMO do que foi realmente feito, nunca uma promessa.
+3. Sua resposta final deve ser um RESUMO do que foi realmente feito, nunca uma promessa ou plano futuro.
 4. Se uma ferramenta falhar, tente uma abordagem alternativa. Reporte o erro real no resumo.
+5. Qualquer tarefa que envolva editar arquivos, alterar configurações, chamar APIs, executar comandos ou criar/deletar recursos DEVE usar as ferramentas correspondentes — nunca responda apenas com texto descrevendo o que faria.
 
 FORMATO OBRIGATÓRIO DE RESPOSTA (use sempre para tarefas com ação):
 📥 SOLICITAÇÃO: [Descrição breve do que foi pedido]

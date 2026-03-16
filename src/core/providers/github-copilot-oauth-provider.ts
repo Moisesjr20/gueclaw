@@ -33,6 +33,7 @@ export class GitHubCopilotOAuthProvider implements ILLMProvider {
   private clientId = 'Iv1.b507a08c87ecfe98'; // GitHub Copilot Client ID
   private notifier: TelegramNotifier | null = null;
   private isRenewing: boolean = false;
+  private renewalPromise: Promise<void> | null = null;
   private refreshTimer: NodeJS.Timeout | null = null;
 
   constructor(
@@ -236,7 +237,9 @@ export class GitHubCopilotOAuthProvider implements ILLMProvider {
         await this.getCopilotToken();
       } catch (error: any) {
         console.error('❌ Failed to auto-refresh token:', error.message);
-        // Will retry on next API call via auto-renewal
+        // Retry in 2 minutes instead of waiting for the next API call to trigger renewal
+        console.log('🔁 Scheduling token refresh retry in 2 minutes...');
+        setTimeout(() => this.scheduleTokenRefresh(), 2 * 60 * 1000);
       }
     }, refreshIn);
   }
@@ -282,15 +285,28 @@ export class GitHubCopilotOAuthProvider implements ILLMProvider {
   }
 
   /**
-   * Automatically renew token and send notification via Telegram
+   * Automatically renew token and send notification via Telegram.
+   * Concurrent callers share the same in-flight renewal Promise so only one
+   * device-code flow is ever started at a time.
    */
   private async autoRenewToken(): Promise<void> {
-    // Prevent multiple simultaneous renewals
-    if (this.isRenewing) {
-      console.log('⏳ Token renewal already in progress...');
-      return;
+    // If a renewal is already in progress, wait for it instead of starting a new one
+    if (this.renewalPromise) {
+      console.log('\u23f3 Token renewal already in progress \u2014 waiting for it to complete...');
+      return this.renewalPromise;
     }
 
+    this.renewalPromise = this._doAutoRenewToken().finally(() => {
+      this.renewalPromise = null;
+    });
+    return this.renewalPromise;
+  }
+
+  private async _doAutoRenewToken(): Promise<void> {
+    // Legacy guard kept for safety
+    if (this.isRenewing) {
+      return;
+    }
     this.isRenewing = true;
 
     try {

@@ -20,6 +20,9 @@ tmp/*
 logs/*
 !logs/.gitkeep
 
+# Skills generated/cached data (may contain private info)
+.agents/skills/*/data/*.json
+
 # IDE
 .vscode/
 .idea/
