@@ -59,9 +59,7 @@ client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 client.connect('${VPS_HOST}', port=${VPS_PORT_SSH}, username='${VPS_USER}', password=pw, timeout=15)
 
 transport = client.get_transport()
-transport.request_port_forward('', ${REMOTE_API_PORT})
 
-from paramiko.transport import Transport
 import socket
 
 def forward():

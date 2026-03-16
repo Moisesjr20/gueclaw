@@ -104,7 +104,10 @@ export class VPSCommandTool extends BaseTool {
 
     } catch (error: any) {
       console.error(`❌ VPS command error:`, error.message);
-      return this.error(`Command failed: ${error.message}\n${error.stderr || ''}`);
+      const stdoutPart = error.stdout?.toString().trim() || '';
+      const stderrPart = error.stderr?.toString().trim() || '';
+      const details = [stdoutPart, stderrPart].filter(Boolean).join('\n[STDERR]: ');
+      return this.error(`Command failed: ${error.message}${details ? '\n' + details : ''}`);
     }
   }
 }
