@@ -476,7 +476,8 @@ export class GitHubCopilotOAuthProvider implements ILLMProvider {
       return this.parseResponse(response.data);
 
     } catch (error: any) {
-      console.error('❌ GitHub Copilot API error:', error.response?.data || error.message);
+      const errMsg: string = error?.response?.data?.message || error?.message || String(error) || 'Unknown error';
+      console.error('❌ GitHub Copilot API error:', errMsg);
 
       if (error.response?.status === 401) {
         console.log('🔄 Token expired - attempting auto-renewal...');
@@ -497,7 +498,7 @@ export class GitHubCopilotOAuthProvider implements ILLMProvider {
       }
 
       return {
-        content: `Erro do GitHub Copilot: ${error.response?.data?.message || error.message}`,
+        content: `Erro do GitHub Copilot: ${errMsg}`,
         finishReason: 'error',
         usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
       };
@@ -562,7 +563,7 @@ export class GitHubCopilotOAuthProvider implements ILLMProvider {
 
     // Debug log when tool_calls finish_reason is detected
     if (choice.finish_reason === 'tool_calls') {
-      console.log('[DEBUG] finish_reason=tool_calls | message.tool_calls:', JSON.stringify(message.tool_calls).slice(0, 500));
+      console.log('[DEBUG] finish_reason=tool_calls | message.tool_calls:', (JSON.stringify(message.tool_calls) ?? 'undefined').slice(0, 500));
       console.log('[DEBUG] message.content type:', typeof message.content, '| value:', JSON.stringify(message.content)?.slice(0, 200));
     }
 
