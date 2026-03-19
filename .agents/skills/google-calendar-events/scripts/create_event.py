@@ -29,6 +29,24 @@ try:
 except ImportError:
     pass
 
+
+def _load_env():
+    """Fallback: lê .env manualmente a partir da raiz do projeto."""
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    # scripts/ -> google-calendar-events/ -> skills/ -> .agents/ -> project root
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_dir))))
+    env_file = os.path.join(project_root, '.env')
+    if os.path.exists(env_file):
+        with open(env_file) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, _, val = line.partition('=')
+                    os.environ.setdefault(key.strip(), val.strip())
+
+
+_load_env()
+
 WORK_CLIENT_ID     = os.environ.get('GOOGLE_WORK_CLIENT_ID', '')
 WORK_CLIENT_SECRET = os.environ.get('GOOGLE_WORK_CLIENT_SECRET', '')
 WORK_REFRESH_TOKEN = os.environ.get('GOOGLE_WORK_REFRESH_TOKEN', '')
