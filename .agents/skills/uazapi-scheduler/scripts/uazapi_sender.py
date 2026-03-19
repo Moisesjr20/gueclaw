@@ -48,7 +48,7 @@ def send_message(token, number, text):
     ctx.verify_mode = ssl.CERT_NONE
 
     try:
-        with urllib.request.urlopen(req, context=ctx, timeout=30) as response:
+        with urllib.request.urlopen(req, context=ctx, timeout=90) as response:
             result = json.loads(response.read().decode())
             return True, result
     except urllib.error.HTTPError as e:
