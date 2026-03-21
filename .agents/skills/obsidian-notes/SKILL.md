@@ -19,12 +19,18 @@ O vault Obsidian do usuário é um repositório Git privado sincronizado entre:
 ## ⚠️ Estrutura do Repositório
 
 ```
-/opt/obsidian-vault/          ← raiz do Git (OBSIDIAN_VAULT_PATH)
-└── GueClaw/                  ← vault real onde ficam as NOTAS (.md)
-      └── .obsidian/          ← config do Obsidian (não modificar)
+/opt/obsidian-vault/               ← raiz do Git (OBSIDIAN_VAULT_PATH)
+└── GueClaw/                       ← vault real onde ficam as NOTAS (.md)
+      ├── .obsidian/               ← config do Obsidian (não modificar)
+      ├── skills/                  ← skills e agentes (NÃO criar notas aqui)
+      │   ├── myskills/            ← skills operacionais (SKILL.md por skill)
+      │   ├── myagents/            ← 133 agentes especializados em 10 categorias
+      │   └── DOE/                 ← documentos do framework DOE
+      └── [notas do usuário...]    ← arquivos .md criados pelo usuário/agente
 ```
 
 > **IMPORTANTE:** Todas as notas ficam em `/opt/obsidian-vault/GueClaw/`, NÃO na raiz `/opt/obsidian-vault/`.
+> A pasta `GueClaw/skills/` contém skills e agentes — **nunca criar notas dentro dela**.
 > Variável de conveniência: `NOTES_DIR=/opt/obsidian-vault/GueClaw`
 
 ## Configuração de Ambiente
@@ -128,12 +134,12 @@ cd /opt/obsidian-vault && grep -r "TERMO" GueClaw --include="*.md" -n
 ## 📋 Listar Todas as Notas
 
 ```bash
-cd /opt/obsidian-vault && find GueClaw -name "*.md" ! -path "GueClaw/.obsidian/*" | sort | sed 's|GueClaw/||'
+cd /opt/obsidian-vault && find GueClaw -name "*.md" ! -path "GueClaw/.obsidian/*" ! -path "GueClaw/skills/*" | sort | sed 's|GueClaw/||'
 ```
 
 Para listar com data de modificação:
 ```bash
-cd /opt/obsidian-vault && find GueClaw -name "*.md" ! -path "GueClaw/.obsidian/*" -printf "%T@ %f\n" | sort -rn | head -20 | awk '{print $2}'
+cd /opt/obsidian-vault && find GueClaw -name "*.md" ! -path "GueClaw/.obsidian/*" ! -path "GueClaw/skills/*" -printf "%T@ %f\n" | sort -rn | head -20 | awk '{print $2}'
 ```
 
 ---
@@ -161,12 +167,14 @@ Mensagem de commit: `"update: atualizar nota NOME"`
 
 Sugestão de estrutura (respeite a estrutura que o usuário já criou):
 ```
-/opt/obsidian-vault/
+/opt/obsidian-vault/GueClaw/
   ideias/
   reunioes/
   projetos/
   diario/
 ```
+
+> ⚠️ A pasta `GueClaw/skills/` é reservada para skills e agentes. Nunca criar notas nela.
 
 Para criar nota em subpasta:
 ```bash
