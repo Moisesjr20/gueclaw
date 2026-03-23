@@ -114,6 +114,21 @@ export class AgentLoop {
           continue;
         }
 
+        // API said tool_calls but no actual tool calls were returned (model hallucination guard)
+        if (response.finishReason === 'tool_calls') {
+          console.warn('⚠️  finish_reason=tool_calls but no tool_calls in response — forcing retry');
+          if (iteration < this.maxIterations) {
+            this.conversationHistory.push({
+              conversationId: 'temp',
+              role: 'user',
+              content: '[Sistema]: Você indicou querer usar ferramentas mas não chamou nenhuma. Use as ferramentas disponíveis via function calling para executar a ação solicitada.',
+            });
+            continue;
+          }
+          finalResponse = 'Não consegui executar a ação necessária com as ferramentas disponíveis. Por favor, tente novamente.';
+          break;
+        }
+
         // Check finish reason
         if (response.finishReason === 'stop') {
           // LLM already replied via tool — skip sending to Telegram

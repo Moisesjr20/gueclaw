@@ -106,8 +106,8 @@ def send_one(force=False):
         next_lead = get_next_to_send(conn)
 
         if next_lead is None:
-            print("✅ Nenhum lead pendente na fila. Campanha concluída ou verifique WhatsApp primeiro.")
-            sys.exit(0)
+            print("⏸️  Nenhum lead pendente na fila. Campanha concluída ou verifique WhatsApp primeiro.")
+            sys.exit(2)  # exit 2 = sem leads (worker não conta como envio bem-sucedido)
 
         number = next_lead["whatsapp_number"]
         title  = (next_lead["title"] or "Desconhecido").strip()

@@ -79,7 +79,9 @@ def mark_slot_fired(state, slot_hour):
 
 
 def fire_one_message():
-    """Chama send_campaign.py --force. Retorna True se sucesso."""
+    """Chama send_campaign.py --force.
+    Retorna True se mensagem enviada, False se erro, None se sem leads.
+    """
     send_script = os.path.join(SCRIPT_DIR, "send_campaign.py")
     result = subprocess.run(
         [sys.executable, send_script, "--force"],
@@ -89,6 +91,9 @@ def fire_one_message():
     print(result.stdout.strip())
     if result.returncode == 0:
         return True
+    elif result.returncode == 2:
+        # Sem leads na fila — não é erro, campanha concluída
+        return None
     else:
         if result.stderr.strip():
             print(f"  stderr: {result.stderr.strip()}")
@@ -118,10 +123,15 @@ def check_and_fire():
 
         success = fire_one_message()
 
-        if success:
+        if success is True:
             state = mark_slot_fired(state, slot_hour)
             save_state(state)
             print(f"[{ts}] ✅ Slot {slot_hour}h registrado. Slots hoje: {state['sent_slots']}")
+        elif success is None:
+            # Sem leads — marca o slot para não tentar de novo neste ciclo
+            state = mark_slot_fired(state, slot_hour)
+            save_state(state)
+            print(f"[{ts}] ⏸️  Sem leads na fila. Slot {slot_hour}h marcado como processado.")
         else:
             print(f"[{ts}] ⚠️  Falha no envio do slot {slot_hour}h. Será tentado novamente se ainda dentro da janela.")
 
