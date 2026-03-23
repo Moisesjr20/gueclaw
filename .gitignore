@@ -22,6 +22,9 @@ logs/*
 
 # Skills generated/cached data (may contain private info)
 .agents/skills/*/data/*.json
+.agents/skills/*/data/*.csv
+.agents/skills/*/data/*.db
+.agents/skills/*/data/*.sqlite
 
 # IDE
 .vscode/

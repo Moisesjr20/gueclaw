@@ -436,11 +436,16 @@ export class GitHubCopilotOAuthProvider implements ILLMProvider {
     options?: CompletionOptions
   ): Promise<LLMResponse> {
     if (!this.isAuthenticated()) {
-      return {
-        content: 'Erro: GitHub Copilot não autenticado. Execute: npm run copilot:auth',
-        finishReason: 'error',
-        usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
-      };
+      console.log('🔄 Sem token local — iniciando fluxo de autenticação automática via Telegram...');
+      try {
+        await this.autoRenewToken();
+      } catch (authError: any) {
+        return {
+          content: 'Erro: GitHub Copilot não autenticado. Verifique o Telegram para instruções.',
+          finishReason: 'error',
+          usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+        };
+      }
     }
 
     try {

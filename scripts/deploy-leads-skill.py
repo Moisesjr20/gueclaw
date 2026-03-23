@@ -47,12 +47,14 @@ REMOTE_BASE = '/opt/gueclaw-agent'
 SKILL = '.agents/skills/whatsapp-leads-sender'
 
 uploads = [
-    (f'{SKILL}/SKILL.md',                   f'{REMOTE_BASE}/{SKILL}/SKILL.md'),
-    (f'{SKILL}/scripts/uazapi_helper.py',   f'{REMOTE_BASE}/{SKILL}/scripts/uazapi_helper.py'),
-    (f'{SKILL}/scripts/check_whatsapp.py',  f'{REMOTE_BASE}/{SKILL}/scripts/check_whatsapp.py'),
-    (f'{SKILL}/scripts/send_campaign.py',   f'{REMOTE_BASE}/{SKILL}/scripts/send_campaign.py'),
-    (f'{SKILL}/scripts/worker.py',          f'{REMOTE_BASE}/{SKILL}/scripts/worker.py'),
-    (f'{SKILL}/scripts/report.py',          f'{REMOTE_BASE}/{SKILL}/scripts/report.py'),
+    (f'{SKILL}/SKILL.md',                    f'{REMOTE_BASE}/{SKILL}/SKILL.md'),
+    (f'{SKILL}/scripts/uazapi_helper.py',    f'{REMOTE_BASE}/{SKILL}/scripts/uazapi_helper.py'),
+    (f'{SKILL}/scripts/db_manager.py',       f'{REMOTE_BASE}/{SKILL}/scripts/db_manager.py'),
+    (f'{SKILL}/scripts/import_csv.py',       f'{REMOTE_BASE}/{SKILL}/scripts/import_csv.py'),
+    (f'{SKILL}/scripts/check_whatsapp.py',   f'{REMOTE_BASE}/{SKILL}/scripts/check_whatsapp.py'),
+    (f'{SKILL}/scripts/send_campaign.py',    f'{REMOTE_BASE}/{SKILL}/scripts/send_campaign.py'),
+    (f'{SKILL}/scripts/worker.py',           f'{REMOTE_BASE}/{SKILL}/scripts/worker.py'),
+    (f'{SKILL}/scripts/report.py',           f'{REMOTE_BASE}/{SKILL}/scripts/report.py'),
 ]
 
 print(f'\nUploading {len(uploads)} files...')
@@ -74,10 +76,28 @@ if csv_exists == 'MISSING':
         ensure_remote_dir(os.path.dirname(csv_remote))
         sftp.put(csv_local, csv_remote)
         print(f'  Uploaded: leads.csv (first upload)')
+        # Run import_csv.py to migrate CSV → SQLite immediately
+        print('\nMigrando CSV para SQLite...')
+        stdin, stdout, stderr = client.exec_command(
+            f'cd {REMOTE_BASE} && python3 {SKILL}/scripts/import_csv.py 2>&1', timeout=60)
+        out = stdout.read().decode()
+        print(out.strip() if out.strip() else stderr.read().decode())
     else:
         print('  WARNING: leads.csv not found locally and not on VPS')
 else:
     print(f'  Skipped: leads.csv already exists on VPS (preserving live data)')
+    # Run import_csv.py in case SQLite does not exist yet (idempotent)
+    db_remote = f'{REMOTE_BASE}/{SKILL}/data/leads.db'
+    stdin, stdout, stderr = client.exec_command(f'test -f {db_remote} && echo EXISTS || echo MISSING')
+    db_exists = stdout.read().decode().strip()
+    if db_exists == 'MISSING':
+        print('\nSQLite não existe, importando CSV existente...')
+        stdin, stdout, stderr = client.exec_command(
+            f'cd {REMOTE_BASE} && python3 {SKILL}/scripts/import_csv.py 2>&1', timeout=60)
+        out = stdout.read().decode()
+        print(out.strip() if out.strip() else stderr.read().decode())
+    else:
+        print('  SQLite já existe no VPS — dados preservados.')
 
 sftp.close()
 
