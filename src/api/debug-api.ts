@@ -1,6 +1,8 @@
-import express, { Request, Response } from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import * as fs from 'fs';
 import * as path from 'path';
+import { execSync } from 'child_process';
+import Database from 'better-sqlite3';
 import { DatabaseConnection } from '../core/memory/database';
 import { TraceRepository } from './trace-repository';
 import { MemoryManager } from '../core/memory/memory-manager';
@@ -13,6 +15,16 @@ import { NO_REPLY } from '../types';
 
 const DEFAULT_PORT = 3742;
 const LOG_PATH = process.env.PM2_LOG_PATH || '/root/.pm2/logs/gueclaw-agent-out.log';
+const DASHBOARD_API_KEY = process.env.DASHBOARD_API_KEY || '';
+
+const LEADS_DB_PATH = path.resolve(
+  __dirname,
+  '../../.agents/skills/whatsapp-leads-sender/data/leads.db',
+);
+const WORKER_STATE_PATH = path.resolve(
+  __dirname,
+  '../../.agents/skills/whatsapp-leads-sender/data/worker_state.json',
+);
 
 export class DebugAPI {
   private app = express();
@@ -26,17 +38,36 @@ export class DebugAPI {
     this.skillRouter = new SkillRouter();
     this.availableSkills = SkillLoader.loadAll();
     this.app.use(express.json());
+
+    // CORS — allow dashboard on Vercel
+    this.app.use((_req: Request, res: Response, next: NextFunction) => {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type,x-api-key');
+      if (_req.method === 'OPTIONS') { res.sendStatus(204); return; }
+      next();
+    });
+
     this.registerRoutes();
   }
 
+  /** Middleware: validate x-api-key header (no-op if DASHBOARD_API_KEY is unset) */
+  private auth() {
+    return (req: Request, res: Response, next: NextFunction): void => {
+      if (!DASHBOARD_API_KEY) { next(); return; }
+      if (req.headers['x-api-key'] === DASHBOARD_API_KEY) { next(); return; }
+      res.status(401).json({ error: 'Unauthorized' });
+    };
+  }
+
   private registerRoutes(): void {
-    // Health check
+    // Health check (public — used by Vercel probe)
     this.app.get('/api/health', (_req: Request, res: Response) => {
       res.json({ ok: true, ts: Date.now() });
     });
 
     // List recent conversations
-    this.app.get('/api/conversations', (req: Request, res: Response) => {
+    this.app.get('/api/conversations', this.auth(), (req: Request, res: Response) => {
       try {
         const db = DatabaseConnection.getInstance();
         const limit = Math.min(Number(req.query.limit) || 20, 100);
@@ -69,7 +100,7 @@ export class DebugAPI {
     });
 
     // Get messages for a conversation
-    this.app.get('/api/conversations/:id/messages', (req: Request, res: Response) => {
+    this.app.get('/api/conversations/:id/messages', this.auth(), (req: Request, res: Response) => {
       try {
         const db = DatabaseConnection.getInstance();
         const limit = Math.min(Number(req.query.limit) || 50, 500);
@@ -92,7 +123,7 @@ export class DebugAPI {
     });
 
     // Get execution trace for a conversation
-    this.app.get('/api/conversations/:id/trace', (req: Request, res: Response) => {
+    this.app.get('/api/conversations/:id/trace', this.auth(), (req: Request, res: Response) => {
       try {
         const limit = Math.min(Number(req.query.limit) || 200, 1000);
         const convId = String(req.params.id);
@@ -104,7 +135,7 @@ export class DebugAPI {
     });
 
     // Delete a conversation and its traces
-    this.app.delete('/api/conversations/:id', (req: Request, res: Response) => {
+    this.app.delete('/api/conversations/:id', this.auth(), (req: Request, res: Response) => {
       try {
         const db = DatabaseConnection.getInstance();
         const convId = String(req.params.id);
@@ -117,7 +148,7 @@ export class DebugAPI {
     });
 
     // Tail PM2 logs
-    this.app.get('/api/logs/tail', (req: Request, res: Response) => {
+    this.app.get('/api/logs/tail', this.auth(), (req: Request, res: Response) => {
       try {
         const lines = Math.min(Number(req.query.lines) || 50, 500);
         if (!fs.existsSync(LOG_PATH)) {
@@ -133,7 +164,7 @@ export class DebugAPI {
     });
 
     // List available skills
-    this.app.get('/api/skills', (_req: Request, res: Response) => {
+    this.app.get('/api/skills', this.auth(), (_req: Request, res: Response) => {
       try {
         const skills = SkillLoader.loadAll();
         res.json(skills);
@@ -143,7 +174,7 @@ export class DebugAPI {
     });
 
     // Simulate a message (bypasses Telegram, returns full diagnostic)
-    this.app.post('/api/simulate', async (req: Request, res: Response) => {
+    this.app.post('/api/simulate', this.auth(), async (req: Request, res: Response) => {
       const { userId = 'debug-user', input } = req.body as { userId?: string; input: string };
       if (!input || typeof input !== 'string') {
         return res.status(400).json({ error: 'input is required' });
@@ -189,7 +220,7 @@ export class DebugAPI {
     });
 
     // Get skill execution stats
-    this.app.get('/api/stats', (_req: Request, res: Response) => {
+    this.app.get('/api/stats', this.auth(), (_req: Request, res: Response) => {
       try {
         const db = DatabaseConnection.getInstance();
         const skillStats = db.prepare(`
@@ -212,6 +243,115 @@ export class DebugAPI {
         res.status(500).json({ error: err.message });
       }
     });
+    // ──────────────────────────────────────────────────────────
+    // PM2 status
+    // ──────────────────────────────────────────────────────────
+    this.app.get('/api/pm2/status', this.auth(), (_req: Request, res: Response) => {
+      try {
+        const raw = execSync('pm2 jlist', { timeout: 6000 }).toString();
+        const procs = JSON.parse(raw) as any[];
+        const data = procs.map((p: any) => ({
+          id: p.pm_id,
+          name: p.name,
+          status: p.pm2_env?.status ?? 'unknown',
+          restarts: p.pm2_env?.restart_time ?? 0,
+          uptime: p.pm2_env?.pm_uptime ? Date.now() - p.pm2_env.pm_uptime : null,
+          memoryBytes: p.monit?.memory ?? 0,
+          cpu: p.monit?.cpu ?? 0,
+          pidPath: p.pm2_env?.pm_pid_path ?? null,
+        }));
+        res.json(data);
+      } catch (err: any) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    // ──────────────────────────────────────────────────────────
+    // Campaign — stats summary
+    // ──────────────────────────────────────────────────────────
+    this.app.get('/api/campaign', this.auth(), (_req: Request, res: Response) => {
+      try {
+        if (!fs.existsSync(LEADS_DB_PATH)) {
+          return res.status(404).json({ error: 'leads.db not found' });
+        }
+        const db = new Database(LEADS_DB_PATH, { readonly: true });
+        const total    = (db.prepare('SELECT COUNT(*) AS n FROM leads').get() as any).n;
+        const sent     = (db.prepare('SELECT COUNT(*) AS n FROM leads WHERE sent_at IS NOT NULL').get() as any).n;
+        const pending  = (db.prepare('SELECT COUNT(*) AS n FROM leads WHERE sent_at IS NULL AND skip=0 AND has_whatsapp=1').get() as any).n;
+        const hasWa    = (db.prepare('SELECT COUNT(*) AS n FROM leads WHERE has_whatsapp=1').get() as any).n;
+        const lastSent = db.prepare('SELECT title, whatsapp_number, sent_at FROM leads WHERE sent_at IS NOT NULL ORDER BY sent_at DESC LIMIT 5').all();
+        db.close();
+
+        let state: any = {};
+        if (fs.existsSync(WORKER_STATE_PATH)) {
+          try { state = JSON.parse(fs.readFileSync(WORKER_STATE_PATH, 'utf8')); } catch {}
+        }
+
+        res.json({ total, sent, pending, hasWa, lastSent, workerState: state });
+      } catch (err: any) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    // ──────────────────────────────────────────────────────────
+    // Campaign — next leads in queue
+    // ──────────────────────────────────────────────────────────
+    this.app.get('/api/campaign/queue', this.auth(), (req: Request, res: Response) => {
+      try {
+        if (!fs.existsSync(LEADS_DB_PATH)) {
+          return res.status(404).json({ error: 'leads.db not found' });
+        }
+        const limit = Math.min(Number(req.query.limit) || 20, 100);
+        const db = new Database(LEADS_DB_PATH, { readonly: true });
+        const rows = db.prepare(
+          'SELECT id, title, city, whatsapp_number FROM leads WHERE sent_at IS NULL AND skip=0 AND has_whatsapp=1 ORDER BY id LIMIT ?',
+        ).all(limit);
+        db.close();
+        res.json(rows);
+      } catch (err: any) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    // ──────────────────────────────────────────────────────────
+    // Campaign — pause today (sets all 4 slots as fired)
+    // ──────────────────────────────────────────────────────────
+    this.app.post('/api/campaign/pause', this.auth(), (_req: Request, res: Response) => {
+      try {
+        const today = new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
+          .split('/').reverse().join('-');
+        const isoToday = new Date().toISOString().slice(0, 10);
+        const state = fs.existsSync(WORKER_STATE_PATH)
+          ? JSON.parse(fs.readFileSync(WORKER_STATE_PATH, 'utf8'))
+          : {};
+        state.date = isoToday;
+        state.sent_slots = [9, 12, 15, 18];
+        fs.writeFileSync(WORKER_STATE_PATH, JSON.stringify(state, null, 2));
+        res.json({ ok: true, state });
+      } catch (err: any) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    // ──────────────────────────────────────────────────────────
+    // Campaign — resume today (clears slots)
+    // ──────────────────────────────────────────────────────────
+    this.app.post('/api/campaign/resume', this.auth(), (_req: Request, res: Response) => {
+      try {
+        const isoToday = new Date().toISOString().slice(0, 10);
+        const state = fs.existsSync(WORKER_STATE_PATH)
+          ? JSON.parse(fs.readFileSync(WORKER_STATE_PATH, 'utf8'))
+          : {};
+        state.date = isoToday;
+        state.sent_count = 0;
+        state.sent_slots = [];
+        fs.writeFileSync(WORKER_STATE_PATH, JSON.stringify(state, null, 2));
+        res.json({ ok: true, state });
+      } catch (err: any) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
   }
 
   private buildEnrichment(userId: string): string {
