@@ -13,7 +13,7 @@ if (!VPS_PASSWORD) {
 
 console.log('🚀 Deploying to VPS...\n');
 
-const deploy = spawn('ssh', [`${VPS_USER}@${VPS_HOST}`, 'cd /opt/gueclaw-agent && ./update.sh'], {
+const deploy = spawn('ssh', [`${VPS_USER}@${VPS_HOST}`, 'cd /opt/gueclaw-agent && bash update.sh'], {
   stdio: ['pipe', 'pipe', 'pipe']
 });
 
