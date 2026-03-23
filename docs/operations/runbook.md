@@ -58,6 +58,96 @@ Todas em `/opt/gueclaw-agent/.env`. Nunca commitar este arquivo.
 | `GOOGLE_CLIENT_ID` | OAuth Google Calendar |
 | `GOOGLE_CLIENT_SECRET` | OAuth Google Calendar |
 
+## Campanha WhatsApp (whatsapp-leads-sender)
+
+### Status da campanha
+```bash
+cd /opt/gueclaw-agent/.agents/skills/whatsapp-leads-sender
+python3 scripts/send_campaign.py --status
+```
+
+Mostra: total de leads, pendentes, já enviados, fila atual, slots do dia.
+
+### Worker state (controle de slots diários)
+```bash
+cat data/worker_state.json
+# { "date": "2026-03-23", "sent_count": 1, "sent_slots": [9] }
+```
+
+### Parar a campanha hoje
+```bash
+# Força todos os slots do dia como "já disparados"
+python3 -c "
+import json, datetime
+f = 'data/worker_state.json'
+s = json.load(open(f))
+s['date'] = datetime.date.today().isoformat()
+s['sent_slots'] = [9, 12, 15, 18]
+json.dump(s, open(f,'w'), indent=2)
+print('Campanha pausada para hoje.')
+"
+```
+
+### Retomar campanha
+```bash
+# Zera os slots do dia para que todos disparem normalmente
+python3 -c "
+import json, datetime
+f = 'data/worker_state.json'
+s = json.load(open(f)) if __import__('os').path.exists(f) else {}
+s['date'] = datetime.date.today().isoformat()
+s['sent_count'] = 0
+s['sent_slots'] = []
+json.dump(s, open(f,'w'), indent=2)
+print('Campanha retomada.')
+"
+pm2 restart whatsapp-worker
+```
+
+### Marcar lead como já enviado manualmente
+```bash
+python3 -c "
+import sqlite3, datetime
+conn = sqlite3.connect('data/leads.db')
+conn.execute(\"UPDATE leads SET sent_at=? WHERE whatsapp_number=?\",
+             (datetime.datetime.now().isoformat(timespec='seconds'), '55XXXXXXXXXXX'))
+conn.commit()
+print('Marcado. Rows:', conn.total_changes)
+conn.close()
+"
+```
+
+### Schedule de disparo
+| Slot | Horário (Brasília) | Dias |
+|------|--------------------|------|
+| 9h   | 08:56 – 09:04      | Seg–Sex |
+| 12h  | 11:56 – 12:04      | Seg–Sex |
+| 15h  | 14:56 – 15:04      | Seg–Sex |
+| 18h  | 17:56 – 18:04      | Seg–Sex |
+
+### Diagnóstico: "Nenhum lead pendente" com leads no DB
+```bash
+# Verificar se has_whatsapp está preenchido
+python3 -c "
+import sqlite3
+c = sqlite3.connect('data/leads.db')
+r = c.execute('SELECT has_whatsapp, COUNT(*) FROM leads GROUP BY has_whatsapp').fetchall()
+print(r)  # (None, X) = não verificado, (1, X) = tem WA, (0, X) = não tem WA
+c.close()
+"
+# Se todos forem NULL ou 0 → set has_whatsapp=1 nos que têm número válido
+python3 -c "
+import sqlite3
+c = sqlite3.connect('data/leads.db')
+c.execute(\"UPDATE leads SET has_whatsapp=1 WHERE has_whatsapp IS NULL AND whatsapp_number != ''\")
+c.commit()
+print('Updated:', c.total_changes)
+c.close()
+"
+```
+
+---
+
 ## Diagnóstico de Problemas
 
 ### Bot não responde no Telegram
