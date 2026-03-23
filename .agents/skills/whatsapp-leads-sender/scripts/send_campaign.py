@@ -19,13 +19,14 @@ import datetime
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPT_DIR)
-from uazapi_helper import send_text
+from uazapi_helper import send_text, check_numbers
 from db_manager import init_db, get_conn, get_next_to_send, mark_sent, get_stats
 
 SKILL_DIR  = os.path.dirname(SCRIPT_DIR)
 STATE_PATH = os.path.join(SKILL_DIR, "data", "worker_state.json")
 
-DAILY_LIMIT = 4  # disparos máximos por dia
+DAILY_LIMIT = 4      # disparos máximos por dia
+MAX_VERIFY_TRIES = 15  # máximo de leads a testar antes de desistir
 
 MESSAGE_TEMPLATE = """\
 Olá, Doutor(a). Seu escritório {title} ainda perde horas decifrando planilhas financeiras e lidando com laudos periciais e processos confusos?
@@ -92,6 +93,28 @@ def print_status():
         print(f"   Slots disparados hoje: {slots_fired}")
 
 
+def _verify_whatsapp(number: str) -> bool:
+    """Verifica em tempo real se o número tem WhatsApp via /chat/check.
+    Em caso de erro na API, loga e retorna True (não bloqueia o envio).
+    """
+    try:
+        result = check_numbers([number])
+        # A API pode devolver a chave com ou sem código de país normalizado.
+        # Tenta a chave exata primeiro; depois busca por sufixo.
+        if number in result:
+            return bool(result[number])
+        # Comparação por sufixo (ex.: '85999999999' vs '5585999999999')
+        for key, val in result.items():
+            if number.endswith(key) or key.endswith(number):
+                return bool(val)
+        # Se a API não retornou o número de forma alguma, considera inválido
+        print(f"  ⚠️  /chat/check não retornou entrada para {number} — pulando")
+        return False
+    except Exception as exc:
+        print(f"  ⚠️  Falha em /chat/check para {number}: {exc} — tentando enviar mesmo assim")
+        return True  # fallback conservador: não bloqueia se a API falhar
+
+
 def send_one(force=False):
     init_db()
     state = load_state()
@@ -103,39 +126,57 @@ def send_one(force=False):
             sys.exit(0)
 
     with get_conn() as conn:
-        next_lead = get_next_to_send(conn)
+        for attempt in range(1, MAX_VERIFY_TRIES + 1):
+            next_lead = get_next_to_send(conn)
 
-        if next_lead is None:
-            print("⏸️  Nenhum lead pendente na fila. Campanha concluída ou verifique WhatsApp primeiro.")
-            sys.exit(2)  # exit 2 = sem leads (worker não conta como envio bem-sucedido)
+            if next_lead is None:
+                print("⏸️  Nenhum lead pendente na fila. Campanha concluída ou verifique WhatsApp primeiro.")
+                sys.exit(2)  # exit 2 = sem leads
 
-        number = next_lead["whatsapp_number"]
-        title  = (next_lead["title"] or "Desconhecido").strip()
-        lead_id = next_lead["id"]
+            number  = next_lead["whatsapp_number"]
+            title   = (next_lead["title"] or "Desconhecido").strip()
+            lead_id = next_lead["id"]
 
-        message = MESSAGE_TEMPLATE.format(title=title)
-        print(f"📤 Enviando para: {number} ({title})")
+            # ── Verificação em tempo real ──────────────────────────────────
+            print(f"🔍 [{attempt}/{MAX_VERIFY_TRIES}] Verificando WhatsApp: {number} ({title})")
+            if not _verify_whatsapp(number):
+                print(f"  ❌ Sem WhatsApp — marcando skip e testando próximo")
+                conn.execute(
+                    "UPDATE leads SET has_whatsapp = 0, skip = 1 WHERE id = ?",
+                    (lead_id,)
+                )
+                conn.commit()
+                continue  # pega próximo lead
 
-        success, response = send_text(number, message)
+            # ── Número válido — dispara ────────────────────────────────────
+            message = MESSAGE_TEMPLATE.format(title=title)
+            print(f"📤 Enviando para: {number} ({title})")
 
-        if success:
-            sent_at = datetime.datetime.now().isoformat(timespec="seconds")
-            mark_sent(conn, lead_id, sent_at)
-            conn.commit()
+            success, response = send_text(number, message)
 
-            state = increment_today(state)
-            save_state(state)
+            if success:
+                sent_at = datetime.datetime.now().isoformat(timespec="seconds")
+                mark_sent(conn, lead_id, sent_at)
+                conn.commit()
 
-            pending = conn.execute(
-                "SELECT COUNT(*) FROM leads WHERE has_whatsapp = 1 AND sent_at IS NULL AND skip = 0"
-            ).fetchone()[0]
+                state = increment_today(state)
+                save_state(state)
 
-            print(f"✅ Mensagem enviada com sucesso! ({sent_at})")
-            print(f"📊 Enviados hoje: {sent_today(state)} / {DAILY_LIMIT} | Restantes na fila: {pending}")
-        else:
-            err = response.get("error", str(response))
-            print(f"❌ Falha ao enviar para {number}: {err}")
-            sys.exit(1)
+                pending = conn.execute(
+                    "SELECT COUNT(*) FROM leads WHERE has_whatsapp = 1 AND sent_at IS NULL AND skip = 0"
+                ).fetchone()[0]
+
+                print(f"✅ Mensagem enviada com sucesso! ({sent_at})")
+                print(f"📊 Enviados hoje: {sent_today(state)} / {DAILY_LIMIT} | Restantes na fila: {pending}")
+                return  # disparo concluído — sai normalmente
+            else:
+                err = response.get("error", str(response))
+                print(f"❌ Falha ao enviar para {number}: {err}")
+                sys.exit(1)
+
+        # Esgotou MAX_VERIFY_TRIES sem encontrar número válido
+        print(f"⚠️  Testados {MAX_VERIFY_TRIES} leads consecutivos sem WhatsApp válido. Verifique o banco.")
+        sys.exit(2)
 
 
 if __name__ == "__main__":
