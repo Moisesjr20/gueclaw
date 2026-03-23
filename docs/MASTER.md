@@ -345,7 +345,7 @@ bash scripts/sync-skills.sh status
 
 - **`.github/workflows/sync-skills-from-vault.yml`** — gueclaw escuta `repository_dispatch: vault_skills_updated`
 - Quando o vault empurra mudanças nas skills, este workflow faz `sync pull` e commita automaticamente
-- **Pendente:** configurar `GUECLAW_TOKEN` secret em `meu-vault-obsidian > Settings > Secrets`
+- **Ativo:** `GUECLAW_TOKEN` secret configurado em `meu-vault-obsidian > Settings > Secrets` ✅
 
 ---
 
@@ -470,7 +470,7 @@ Status atualizado em 2026-03-23:
 | 2 | Schema SQLite documentado | Alta | ✅ Resolvido (seção 8 + ADR-0001) |
 | 3 | Algoritmo de skill routing | Alta | ✅ Resolvido (seção 3 + skill-routing.md) |
 | 4 | Guia de LLM providers | Alta | ✅ Resolvido (seção 7 + providers.md) |
-| 5 | GitHub Actions auto-sync (PAT) | Alta | ⏳ Pendente: criar secret `GUECLAW_TOKEN` em `meu-vault-obsidian > Settings > Secrets` |
+| 5 | GitHub Actions auto-sync (PAT) | Alta | ✅ `GUECLAW_TOKEN` secret criado + `notify-consumers.yml` no vault |
 | 6 | Estratégia de logging e errors | Média | ✅ Resolvido ([docs/architecture/logging.md](architecture/logging.md)) |
 | 7 | FluxoHub vs GueClaw — relação | Média | ✅ Resolvido ([docs/architecture/fluxohub-vs-gueclaw.md](architecture/fluxohub-vs-gueclaw.md)) |
 | 8 | Estratégia de testes de skills | Média | ✅ Resolvido ([docs/testing/skills-testing.md](testing/skills-testing.md)) |
