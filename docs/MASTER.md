@@ -470,14 +470,14 @@ Status atualizado em 2026-03-23:
 | 2 | Schema SQLite documentado | Alta | ✅ Resolvido (seção 8 + ADR-0001) |
 | 3 | Algoritmo de skill routing | Alta | ✅ Resolvido (seção 3 + skill-routing.md) |
 | 4 | Guia de LLM providers | Alta | ✅ Resolvido (seção 7 + providers.md) |
-| 5 | GitHub Actions auto-sync (PAT) | Alta | ⏳ Pendente: criar secret GUECLAW_TOKEN |
-| 6 | Estratégia de logging e errors | Média | ❌ Não documentado |
-| 7 | FluxoHub vs GueClaw — relação | Média | ❌ DOE/Entrega.md desatualizado |
-| 8 | Estratégia de testes de skills | Média | ❌ Não documentado |
-| 9 | Guia de contribuição (CONTRIBUTING.md) | Média | ❌ Não existe |
-| 10 | Compactação de memória (backlog) | Baixa | ❌ Feature pendente no código |
-| 11 | Debug API endpoints formais | Baixa | Parcial (`DOE/debug-api.md`) |
-| 12 | Nginx config / HTTPS webhook | Baixa | ❌ Não documentado |
+| 5 | GitHub Actions auto-sync (PAT) | Alta | ⏳ Pendente: criar secret `GUECLAW_TOKEN` em `meu-vault-obsidian > Settings > Secrets` |
+| 6 | Estratégia de logging e errors | Média | ✅ Resolvido ([docs/architecture/logging.md](architecture/logging.md)) |
+| 7 | FluxoHub vs GueClaw — relação | Média | ✅ Resolvido ([docs/architecture/fluxohub-vs-gueclaw.md](architecture/fluxohub-vs-gueclaw.md)) |
+| 8 | Estratégia de testes de skills | Média | ✅ Resolvido ([docs/testing/skills-testing.md](testing/skills-testing.md)) |
+| 9 | Guia de contribuição (CONTRIBUTING.md) | Média | ✅ Resolvido ([CONTRIBUTING.md](../CONTRIBUTING.md)) |
+| 10 | Compactação de memória (backlog) | Baixa | ❌ Feature pendente no código (não há `compactMemory()` em memory-manager) |
+| 11 | Debug API endpoints formais | Baixa | ✅ Resolvido ([docs/operations/debug-api.md](operations/debug-api.md)) |
+| 12 | Nginx config / HTTPS webhook | Baixa | ✅ Resolvido ([docs/operations/nginx-webhook.md](operations/nginx-webhook.md)) |
 
 ---
 
