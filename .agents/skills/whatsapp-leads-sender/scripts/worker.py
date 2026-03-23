@@ -3,6 +3,7 @@
 worker.py
 Daemon que dispara 1 mensagem de prospecção por slot horário:
   Slots: 9h, 12h, 15h, 18h (horário de Brasília / America/Sao_Paulo)
+  Dias:  segunda a sexta (sem disparos no fim de semana)
   Tolerância: até 4 minutos após o início do slot.
 
 Uso:
@@ -22,13 +23,16 @@ import subprocess
 from zoneinfo import ZoneInfo
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-SKILL_DIR = os.path.dirname(SCRIPT_DIR)
+SKILL_DIR  = os.path.dirname(SCRIPT_DIR)
 STATE_PATH = os.path.join(SKILL_DIR, "data", "worker_state.json")
 
 TZ = ZoneInfo("America/Sao_Paulo")
 
 # Horários dos slots (hora inteira, 24h)
 FIRE_HOURS = [9, 12, 15, 18]
+
+# Apenas dias úteis (0=segunda … 4=sexta)
+WEEKDAYS = {0, 1, 2, 3, 4}
 
 # Janela de tolerância em minutos após o início do slot
 TOLERANCE_MINUTES = 4
@@ -93,6 +97,11 @@ def fire_one_message():
 
 def check_and_fire():
     now = datetime.datetime.now(TZ)
+
+    # Só dispara em dias úteis (segunda-sexta)
+    if now.weekday() not in WEEKDAYS:
+        return
+
     state = load_state()
 
     for slot_hour in FIRE_HOURS:
@@ -123,8 +132,9 @@ def check_and_fire():
 def main():
     print(f"🤖 WhatsApp Leads Sender Worker iniciado!")
     print(f"   Slots de disparo: {FIRE_HOURS} (Brasília)")
-    print(f"   Tolerância: {TOLERANCE_MINUTES} minutos por slot")
-    print(f"   Estado: {STATE_PATH}")
+    print(f"   Dias:             segunda a sexta")
+    print(f"   Tolerância:       {TOLERANCE_MINUTES} minutos por slot")
+    print(f"   Estado:           {STATE_PATH}")
     print()
 
     if "--once" in sys.argv:

@@ -1,0 +1,48 @@
+# Este arquivo deve ser criado EM meu-vault-obsidian
+# Caminho: .github/workflows/notify-consumers.yml
+#
+# Quando skills são alteradas no vault, notifica todos os projetos
+# que usam essas skills para que eles façam o sync automaticamente.
+#
+# SETUP NECESSÁRIO no meu-vault-obsidian:
+#   1. Vá em Settings > Secrets and variables > Actions
+#   2. Adicione o secret: GUECLAW_TOKEN
+#      (Personal Access Token com permissão 'repo' no github.com/Moisesjr20/gueclaw)
+#
+# Copie este arquivo para: meu-vault-obsidian/.github/workflows/notify-consumers.yml
+
+name: Notificar projetos consumidores
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "GueClaw/skills/myskills/**"
+      - "GueClaw/skills/myagents/**"
+
+jobs:
+  notify-gueclaw:
+    name: Notificar gueclaw para sync
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Disparar sync no gueclaw
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.GUECLAW_TOKEN }}
+          repository: Moisesjr20/gueclaw
+          event-type: vault_skills_updated
+          client-payload: |
+            {
+              "triggered_by": "meu-vault-obsidian",
+              "commit": "${{ github.sha }}",
+              "ref": "${{ github.ref }}"
+            }
+
+      # Para adicionar mais projetos, duplique o step acima com o novo repo:
+      # - name: Notificar outro-projeto
+      #   uses: peter-evans/repository-dispatch@v3
+      #   with:
+      #     token: ${{ secrets.OUTRO_PROJETO_TOKEN }}
+      #     repository: Moisesjr20/outro-projeto
+      #     event-type: vault_skills_updated

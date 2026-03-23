@@ -6,11 +6,9 @@ Gera relatório completo da campanha de disparos WhatsApp.
 Uso:
     python3 report.py            → texto formatado para Telegram
     python3 report.py --json     → JSON puro (para automações)
-    python3 report.py --csv CAMINHO  → usa CSV alternativo
 
 Retorna código 0 sempre (relatório é informativo, não pode "falhar").
 """
-import csv
 import os
 import sys
 import json
@@ -22,30 +20,14 @@ except ImportError:
     ZoneInfo = None
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-SKILL_DIR = os.path.dirname(SCRIPT_DIR)
-DEFAULT_CSV = os.path.join(SKILL_DIR, "data", "leads.csv")
+SKILL_DIR  = os.path.dirname(SCRIPT_DIR)
 STATE_PATH = os.path.join(SKILL_DIR, "data", "worker_state.json")
+sys.path.insert(0, SCRIPT_DIR)
 
-WHATSAPP_COL = "Tem Whatsapp?"
-NUMBER_COL = "Whatsapp"
-SENT_COL = "Enviado"
-TITLE_COL = "title"
-CITY_COL = "city"
+from db_manager import init_db, get_conn, get_stats
 
 DAILY_LIMIT = 4
-FIRE_HOURS = [9, 12, 15, 18]
-
-
-def load_csv(path):
-    if not os.path.exists(path):
-        return []
-    try:
-        with open(path, newline="", encoding="utf-8-sig") as f:
-            reader = csv.DictReader(f, delimiter=";")
-            return list(reader)
-    except Exception as e:
-        print(f"Erro ao ler CSV: {e}", file=sys.stderr)
-        return []
+FIRE_HOURS  = [9, 12, 15, 18]
 
 
 def load_state():
@@ -74,16 +56,10 @@ def worker_is_running():
         return None  # indeterminado
 
 
-def build_stats(rows, state):
-    total = len(rows)
-    has_wpp = [r for r in rows if r.get(WHATSAPP_COL, "").lower() == "true"]
-    no_wpp = [r for r in rows if r.get(WHATSAPP_COL, "").lower() == "false"]
-    not_checked = [r for r in rows if not r.get(WHATSAPP_COL, "").strip()]
-    sent = [r for r in rows if r.get(SENT_COL, "").strip()
-            and r.get(SENT_COL, "").strip() not in ("sem_numero",)]
-    pending = [r for r in rows
-               if r.get(WHATSAPP_COL, "").lower() == "true"
-               and not r.get(SENT_COL, "").strip()]
+def build_stats(state):
+    init_db()
+    with get_conn() as conn:
+        db_stats = get_stats(conn)
 
     today = get_today()
     sent_today_count = 0
@@ -91,29 +67,6 @@ def build_stats(rows, state):
     if state.get("date") == today:
         sent_today_count = state.get("sent_count", 0)
         slots_fired = state.get("sent_slots", [])
-
-    # Last 10 sends
-    sent_records = []
-    for r in rows:
-        val = r.get(SENT_COL, "").strip()
-        if val and val != "sem_numero":
-            sent_records.append({
-                "title": r.get(TITLE_COL, "?"),
-                "number": r.get(NUMBER_COL, "?"),
-                "city": r.get(CITY_COL, ""),
-                "sent_at": val,
-            })
-    sent_records.sort(key=lambda x: x["sent_at"], reverse=True)
-    recent = sent_records[:10]
-
-    # Pending next 3
-    next_leads = []
-    for r in pending[:3]:
-        next_leads.append({
-            "title": r.get(TITLE_COL, "?"),
-            "number": r.get(NUMBER_COL, "?"),
-            "city": r.get(CITY_COL, ""),
-        })
 
     # Next slots today
     if ZoneInfo:
@@ -123,22 +76,23 @@ def build_stats(rows, state):
         now = datetime.datetime.now()
 
     unfired_slots = [h for h in FIRE_HOURS if h not in slots_fired]
-    next_slots = [f"{h:02d}:00" for h in unfired_slots if h > now.hour or (h == now.hour and now.minute <= 4)]
+    next_slots = [f"{h:02d}:00" for h in unfired_slots
+                  if h > now.hour or (h == now.hour and now.minute <= 4)]
 
     return {
-        "total": total,
-        "has_wpp": len(has_wpp),
-        "no_wpp": len(no_wpp),
-        "not_checked": len(not_checked),
-        "sent_total": len(sent),
-        "pending": len(pending),
-        "sent_today": sent_today_count,
-        "daily_limit": DAILY_LIMIT,
+        "total":             db_stats["total"],
+        "has_wpp":           db_stats["has_wpp"],
+        "no_wpp":            db_stats["no_wpp"],
+        "not_checked":       db_stats["not_checked"],
+        "sent_total":        db_stats["sent_total"],
+        "pending":           db_stats["pending"],
+        "sent_today":        sent_today_count,
+        "daily_limit":       DAILY_LIMIT,
         "slots_fired_today": slots_fired,
-        "next_slots_today": next_slots,
-        "recent_sends": recent,
-        "next_leads": next_leads,
-        "pct_sent": round(len(sent) / len(has_wpp) * 100, 1) if has_wpp else 0,
+        "next_slots_today":  next_slots,
+        "recent_sends":      db_stats["recent_sends"],
+        "next_leads":        db_stats["next_leads"],
+        "pct_sent":          db_stats["pct_sent"],
     }
 
 
@@ -148,7 +102,7 @@ def format_telegram(stats):
     lines.append("━━━━━━━━━━━━━━━━━━━━━")
     lines.append("")
     lines.append("📋 BASE DE LEADS")
-    lines.append(f"  Total no CSV:        {stats['total']}")
+    lines.append(f"  Total no banco:      {stats['total']}")
     lines.append(f"  ✅ Têm WhatsApp:      {stats['has_wpp']}")
     lines.append(f"  ❌ Sem WhatsApp:      {stats['no_wpp']}")
     if stats["not_checked"]:
@@ -195,16 +149,8 @@ def format_telegram(stats):
 
 
 def main():
-    csv_path = DEFAULT_CSV
-    if "--csv" in sys.argv:
-        idx = sys.argv.index("--csv")
-        if idx + 1 < len(sys.argv):
-            csv_path = sys.argv[idx + 1]
-
-    rows = load_csv(csv_path)
     state = load_state()
-
-    stats = build_stats(rows, state)
+    stats = build_stats(state)
 
     if "--json" in sys.argv:
         print(json.dumps(stats, indent=2, ensure_ascii=False))

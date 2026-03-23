@@ -1,0 +1,62 @@
+name: Sync Skills from Vault
+
+# Este workflow é acionado quando o meu-vault-obsidian envia uma notificação
+# via repository_dispatch (evento: vault_skills_updated)
+# Também pode ser rodado manualmente pelo GitHub Actions UI
+
+on:
+  repository_dispatch:
+    types: [vault_skills_updated]
+  workflow_dispatch:
+    inputs:
+      commit_message:
+        description: "Mensagem de commit (opcional)"
+        default: "chore: sync skills from vault"
+        required: false
+
+jobs:
+  sync-skills:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout gueclaw
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Clone vault (shallow)
+        run: |
+          git clone --depth 1 \
+            https://github.com/Moisesjr20/meu-vault-obsidian.git \
+            /tmp/vault
+
+      - name: Sync skills → .agents/skills
+        run: |
+          rsync -a --delete \
+            /tmp/vault/GueClaw/skills/myskills/ \
+            .agents/skills/
+          echo "Skills sincronizadas"
+
+      - name: Sync agents → .agents/agents
+        run: |
+          mkdir -p .agents/agents
+          rsync -a --delete \
+            /tmp/vault/GueClaw/skills/myagents/ \
+            .agents/agents/
+          echo "Agents sincronizados"
+
+      - name: Commit se houver mudanças
+        run: |
+          git config user.name  "GueClaw Bot"
+          git config user.email "bot@gueclaw.ai"
+          git add .agents/
+          MSG="${{ github.event.inputs.commit_message || 'chore: sync skills from vault' }}"
+          if git diff --staged --quiet; then
+            echo "Nenhuma mudança detectada – nada a commitar"
+          else
+            git commit -m "$MSG"
+            git push origin main
+            echo "Push realizado com sucesso"
+          fi

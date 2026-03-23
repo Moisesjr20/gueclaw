@@ -2,11 +2,12 @@
 name: self-improvement
 description: Create, modify, and improve agent skills. Allows the agent to extend its own capabilities by generating new skill files.
 metadata:
-  version: 1.1.0
+  version: 1.2.0
   author: GueClaw System
   category: meta
   tools:
     - file_operations
+    - vps_execute_command
 ---
 
 # Self-Improvement Skill
@@ -20,14 +21,23 @@ Permite ao GueClaw criar e modificar suas próprias skills dinamicamente. Use qu
 - O agente roda em `/opt/gueclaw-agent` na VPS
 - Skills ficam em `.agents/skills/<nome-da-skill>/SKILL.md`
 - A `file_operations` tool escreve **localmente no servidor** (`/opt/gueclaw-agent`)
-- **Skills criadas na VPS são perdidas no próximo deploy** (o deploy faz `git pull`)
-- Para persistir uma skill, o usuário deve fazer commit no repositório local e fazer deploy
+- **Skills criadas na VPS PERSISTEM** ao fazer push para o repositório `gueclaw` E para `meu-vault-obsidian`
+- O **repositório central de skills** é: `https://github.com/Moisesjr20/meu-vault-obsidian` (pasta `GueClaw/skills/myskills/`)
+- Outros projetos e a VPS recebem novas skills via `git pull` + `bash scripts/sync-skills.sh pull`
 
 ### Fluxo correto ao criar uma skill
 
 1. Criar o arquivo via `file_operations` na VPS (para usar imediatamente)
-2. Avisar o usuário que a skill ficará disponível até o próximo deploy
-3. Recomendar que o usuário salve o conteúdo localmente e faça commit
+2. **Persistir** executando o passo de push abaixo (obrigatório para não perder):
+   ```bash
+   cd /opt/gueclaw-agent
+   git add .agents/skills/<nome-da-skill>/
+   git commit -m "feat(<nome-da-skill>): adicionar nova skill"
+   git push origin main
+   bash scripts/sync-skills.sh push "feat(<nome-da-skill>): adicionar nova skill"
+   ```
+3. Confirmar ao usuário que a skill foi salva no gueclaw E no vault compartilhado
+4. Informar que outros projetos receberão a skill ao rodar: `bash scripts/sync-skills.sh pull`
 
 ---
 
