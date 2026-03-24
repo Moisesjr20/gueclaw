@@ -1,5 +1,6 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { z } from 'zod';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -93,17 +94,32 @@ export class MCPManager {
 
       this.clients.set(name, client);
 
-      const { tools } = await client.listTools();
-      for (const tool of tools) {
+      // Try strict listTools(); fall back to a lenient raw request if schema validation fails
+      // (some older MCP servers return inputSchema.type: "array" which zod rejects)
+      let rawTools: any[];
+      try {
+        const result = await client.listTools();
+        rawTools = result.tools as any[];
+      } catch (zodErr: any) {
+        if (!zodErr?.issues) throw zodErr; // re-throw non-ZodErrors
+        console.warn(`[MCPManager] ⚠️  ${name}: listTools() validation error — falling back to lenient parse`);
+        const lenientSchema = z.object({ tools: z.array(z.any()), nextCursor: z.string().optional() });
+        const fallback = await (client as any).request({ method: 'tools/list', params: {} }, lenientSchema);
+        rawTools = fallback.tools ?? [];
+      }
+
+      for (const tool of rawTools) {
+        const schema = tool.inputSchema ?? {};
         this.tools.push({
           serverName: name,
           name: `${name}__${tool.name}`,
           description: tool.description ?? '',
-          inputSchema: (tool.inputSchema as Record<string, any>) ?? {},
+          // Ensure inputSchema always has type "object" so downstream validation passes
+          inputSchema: { ...schema, type: 'object' },
         });
       }
 
-      console.log(`[MCPManager] ✅ ${name}: ${tools.length} tool(s)`);
+      console.log(`[MCPManager] ✅ ${name}: ${rawTools.length} tool(s)`);
     } catch (err: any) {
       console.warn(`[MCPManager] ⚠️  ${name}: failed to connect — ${err?.message ?? err}`);
     }
