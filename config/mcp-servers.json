@@ -13,15 +13,6 @@
       }
     },
 
-    "n8n-server": {
-      "command": "npx",
-      "args": ["-y", "@leonardsellem/n8n-mcp-server"],
-      "env": {
-        "N8N_API_URL": "${env:N8N_API_URL}/api/v1",
-        "N8N_API_KEY": "${env:N8N_API_KEY}"
-      }
-    },
-
     "playwright": {
       "command": "npx",
       "args": ["-y", "@playwright/mcp@latest", "--headless", "--browser", "chromium"]
