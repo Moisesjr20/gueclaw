@@ -1,0 +1,29 @@
+{
+  "servers": {
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem@2025.1.14",
+        "/opt/gueclaw-agent",
+        "/opt/obsidian-vault"
+      ]
+    },
+
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github@2025.1.9"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${env:GITHUB_CLASSIC}"
+      }
+    },
+
+    "memory": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-memory@2026.1.26"],
+      "env": {
+        "MEMORY_FILE_PATH": "${env:WORKSPACE_ROOT}/data/memory/mcp-memory.jsonl"
+      }
+    }
+  }
+}

@@ -15,10 +15,13 @@ import { MemoryWriteTool } from './tools/memory-write-tool';
 import { ReadSkillTool } from './tools/read-skill-tool';
 import { AnalyzeImageTool } from './tools/analyze-image-tool';
 import { AudioTool } from './tools/audio-tool';
+import { MCPManager } from './tools/mcp-manager';
+import { MCPTool } from './tools/mcp-tool';
 
 // Import services
 import { Heartbeat } from './services/heartbeat';
 import { TelegramNotifier } from './services/telegram-notifier';
+import * as path from 'path';
 
 /**
  * GueClaw Agent - Main Entry Point
@@ -37,7 +40,7 @@ class GueClaw {
     // Initialize LLM providers
     ProviderFactory.initialize();
 
-    // Register tools
+    // Register built-in tools
     this.registerTools();
 
     // Initialize Telegram bot
@@ -216,6 +219,19 @@ class GueClaw {
   public async start(): Promise<void> {
     try {
       console.log('🚀 Starting GueClaw Agent...');
+
+      // Initialize MCP servers and register their tools
+      const mcpConfigPath = path.resolve(
+        process.env.WORKSPACE_ROOT ?? process.cwd(),
+        'config/mcp-servers.json'
+      );
+      await MCPManager.getInstance().initialize(mcpConfigPath);
+      const mcpTools = MCPTool.buildAll();
+      if (mcpTools.length > 0) {
+        ToolRegistry.registerAll(mcpTools);
+        console.log(`🔌 MCP tools registered: ${mcpTools.map(t => t.name).join(', ')}`);
+      }
+
       console.log(`📡 Telegram polling started`);
       
       // Determine active provider
@@ -255,6 +271,7 @@ class GueClaw {
     console.log('\n🛑 Shutting down GueClaw Agent...');
     
     this.heartbeat?.stop();
+    await MCPManager.getInstance().shutdown();
     await this.bot.stop();
     DatabaseConnection.close();
     
