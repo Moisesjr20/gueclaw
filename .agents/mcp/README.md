@@ -18,15 +18,26 @@ mcp/
 
 ## Servers Ativos
 
-| Server | Pacote | Descrição | Status | Arquivo |
-|--------|--------|-----------|--------|---------|
-| `n8n-mcp-docs` | `n8n-mcp` | Documentação de 1.084 nodes n8n + 2.709 templates | ✅ Ativo | [n8n-mcp.md](servers/n8n-mcp.md) |
-| `n8n-mcp-full` | `n8n-mcp` | + gerenciamento de workflows (requer instância n8n) | 💤 Comentado | [n8n-mcp.md](servers/n8n-mcp.md) |
-| `n8n-mcp-server` | `@leonardsellem/n8n-mcp-server` | CRUD de workflows via API n8n | 💤 Comentado | [n8n-mcp-server.md](servers/n8n-mcp-server.md) |
-| `playwright` | `@playwright/mcp` | Browser automation via accessibility tree (MS oficial) | ✅ Ativo | [playwright-mcp.md](servers/playwright-mcp.md) |
-| `playwright-ea` | `@executeautomation/playwright-mcp-server` | Browser automation + screenshots + device emulation | ✅ Ativo | [playwright-ea.md](servers/playwright-ea.md) |
-| `memory` | `@modelcontextprotocol/server-memory` | Knowledge graph persistente entre sessões | ✅ Ativo | [memory.md](servers/memory.md) |
-| ~~inspector~~ | ~~inspector-apm/mcp-server~~ | ~~APM para PHP~~ | ⛔ Arquivado | [inspector-apm.md](servers/inspector-apm.md) |
+| Server | Pacote | Descrição | Status |
+|--------|--------|-----------|--------|
+| `n8n-mcp-docs` | `n8n-mcp` | Documentação de 1.084 nodes n8n + 2.709 templates | ✅ Ativo |
+| `n8n-mcp-full` | `n8n-mcp` | + gerenciamento de workflows (requer instância n8n) | 💤 Comentado |
+| `playwright` | `@playwright/mcp` | Browser automation via accessibility tree (MS oficial) | ✅ Ativo |
+| `playwright-ea` | `@executeautomation/playwright-mcp-server` | Browser automation + screenshots + device emulation | ✅ Ativo |
+| `memory` | `@modelcontextprotocol/server-memory` | Knowledge graph persistente entre sessões | ✅ Ativo |
+| `filesystem` | `@modelcontextprotocol/server-filesystem` | Acesso avançado a arquivos no workspace | ✅ Ativo |
+| `github` | `@modelcontextprotocol/server-github` | Gerenciar repos, issues, PRs, branches (token GITHUB_CLASSIC) | ✅ Ativo |
+| `brave-search` | `@modelcontextprotocol/server-brave-search` | Busca web via Brave API (requer BRAVE_API_KEY) | 💤 Comentado |
+| `tavily` | `tavily-mcp` | Busca web semântica com fontes (requer TAVILY_API_KEY) | 💤 Comentado |
+| `postgres` | `@modelcontextprotocol/server-postgres` | Conexão direta com PostgreSQL (requer DATABASE_URL) | 💤 Comentado |
+| `gmail` | `gmail-mcp-server` | Ler/enviar emails via OAuth Google (usa GOOGLE_WORK_*) | 💤 Comentado |
+| ~~inspector~~ | ~~inspector-apm/mcp-server~~ | ~~APM para PHP~~ | ⛔ Arquivado |
+
+## Importante: MCPs do VS Code ≠ Bot do Telegram
+
+Os servidores MCP configurados aqui são para o **VS Code Copilot** (rodam localmente via stdio).
+O **GueClaw bot no VPS** tem um sistema de tools próprio em `src/tools/` e **não tem cliente MCP**.
+Para o bot usar MCPs, seria necessário integrar o `@modelcontextprotocol/sdk` no `src/`.
 
 ## Como adicionar um server
 
