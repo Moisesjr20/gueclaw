@@ -18,26 +18,28 @@ mcp/
 
 ## Servers Ativos
 
-| Server | Pacote | Descrição | Status |
-|--------|--------|-----------|--------|
-| `n8n-mcp-docs` | `n8n-mcp` | Documentação de 1.084 nodes n8n + 2.709 templates | ✅ Ativo |
-| `n8n-mcp-full` | `n8n-mcp` | + gerenciamento de workflows (requer instância n8n) | 💤 Comentado |
-| `playwright` | `@playwright/mcp` | Browser automation via accessibility tree (MS oficial) | ✅ Ativo |
-| `playwright-ea` | `@executeautomation/playwright-mcp-server` | Browser automation + screenshots + device emulation | ✅ Ativo |
-| `memory` | `@modelcontextprotocol/server-memory` | Knowledge graph persistente entre sessões | ✅ Ativo |
-| `filesystem` | `@modelcontextprotocol/server-filesystem` | Acesso avançado a arquivos no workspace | ✅ Ativo |
-| `github` | `@modelcontextprotocol/server-github` | Gerenciar repos, issues, PRs, branches (token GITHUB_CLASSIC) | ✅ Ativo |
-| `brave-search` | `@modelcontextprotocol/server-brave-search` | Busca web via Brave API (requer BRAVE_API_KEY) | 💤 Comentado |
-| `tavily` | `tavily-mcp` | Busca web semântica com fontes (requer TAVILY_API_KEY) | 💤 Comentado |
-| `postgres` | `@modelcontextprotocol/server-postgres` | Conexão direta com PostgreSQL (requer DATABASE_URL) | 💤 Comentado |
-| `gmail` | `gmail-mcp-server` | Ler/enviar emails via OAuth Google (usa GOOGLE_WORK_*) | 💤 Comentado |
-| ~~inspector~~ | ~~inspector-apm/mcp-server~~ | ~~APM para PHP~~ | ⛔ Arquivado |
+| Server | Pacote | Descrição | VS Code | Bot VPS |
+|--------|--------|-----------|---------|---------|
+| `n8n-mcp-docs` | `n8n-mcp` | Documentação de 1.084 nodes n8n + 2.709 templates | ✅ | ❌ |
+| `n8n-mcp-full` | `n8n-mcp` | + gerenciamento de workflows (requer instância n8n) | ✅ | ✅ → `n8n` |
+| `n8n-mcp-server` | `@leonardsellem/n8n-mcp-server` | CRUD de workflows + webhook execution | ✅ | ✅ → `n8n-server` |
+| `playwright` | `@playwright/mcp` | Browser automation via accessibility tree (MS oficial) | ✅ | ✅ |
+| `playwright-ea` | `@executeautomation/playwright-mcp-server` | Browser automation + screenshots + device emulation | ✅ | ✅ |
+| `memory` | `@modelcontextprotocol/server-memory` | Knowledge graph persistente entre sessões | ✅ | ✅ |
+| `filesystem` | `@modelcontextprotocol/server-filesystem` | Acesso avançado a arquivos no workspace | ✅ | ✅ |
+| `github` | `@modelcontextprotocol/server-github` | Gerenciar repos, issues, PRs, branches (token GITHUB_CLASSIC) | ✅ | ✅ |
+| `brave-search` | `@modelcontextprotocol/server-brave-search` | Busca web via Brave API (requer BRAVE_API_KEY) | 💤 | ❌ |
+| `tavily` | `tavily-mcp` | Busca web semântica com fontes (requer TAVILY_API_KEY) | 💤 | ❌ |
+| `postgres` | `@modelcontextprotocol/server-postgres` | Conexão direta com PostgreSQL (requer DATABASE_URL) | 💤 | ❌ |
+| `gmail` | `gmail-mcp-server` | Ler/enviar emails via OAuth Google (usa GOOGLE_WORK_*) | 💤 | ❌ |
+| ~~inspector~~ | ~~inspector-apm/mcp-server~~ | ~~APM para PHP~~ | ⛔ | ⛔ |
 
-## Importante: MCPs do VS Code ≠ Bot do Telegram
+## VS Code vs Bot VPS
 
-Os servidores MCP configurados aqui são para o **VS Code Copilot** (rodam localmente via stdio).
-O **GueClaw bot no VPS** tem um sistema de tools próprio em `src/tools/` e **não tem cliente MCP**.
-Para o bot usar MCPs, seria necessário integrar o `@modelcontextprotocol/sdk` no `src/`.
+Os MCPs do VS Code e do Bot VPS são configurados separadamente:
+
+- **VS Code** → `.vscode/mcp.json` (roda localmente, processos stdio em background)
+- **Bot VPS** → `config/mcp-servers.json` (spawned pelo `MCPManager` em `/opt/gueclaw-agent`)
 
 ## Como adicionar um server
 
