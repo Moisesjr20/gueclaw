@@ -20,6 +20,9 @@ tmp/*
 logs/*
 !logs/.gitkeep
 
+# MCP memory — pode conter dados sensíveis de sessões anteriores
+data/memory/mcp-memory.jsonl
+
 # Skills generated/cached data (may contain private info)
 .agents/skills/*/data/*.json
 .agents/skills/*/data/*.csv

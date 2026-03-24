@@ -21,8 +21,9 @@ fi
 echo "🛑 Stopping PM2 process..."
 pm2 stop gueclaw-agent || true
 
-# Pull latest code from GitHub
+# Pull latest code from GitHub (stash local changes se houver)
 echo "📥 Pulling latest code from GitHub..."
+git stash --include-untracked 2>/dev/null || true
 git pull origin main
 
 # Install/update dependencies
