@@ -86,12 +86,22 @@ elseif ($Direction -eq "push") {
     New-Item -ItemType Directory -Force $dst | Out-Null
     Get-ChildItem $src | Where-Object { $_.Name -ne ".gitkeep" } | ForEach-Object {
         Copy-Item -Recurse -Force $_.FullName (Join-Path $dst $_.Name)
-        Write-Ok "Enviado: $($_.Name)"
+        Write-Ok "Enviado skill: $($_.Name)"
+    }
+
+    Write-Step "Copiando .agents/agents para vault/GueClaw/skills/myagents..."
+    $srcA = Join-Path $ROOT $LOCAL_AGENTS
+    $dstA = Join-Path $TMP_DIR $VAULT_AGENTS
+
+    New-Item -ItemType Directory -Force $dstA | Out-Null
+    Get-ChildItem $srcA | Where-Object { $_.Name -ne ".gitkeep" } | ForEach-Object {
+        Copy-Item -Recurse -Force $_.FullName (Join-Path $dstA $_.Name)
+        Write-Ok "Enviado agent: $($_.Name)"
     }
 
     Write-Step "Commitando e enviando para o vault..."
     Push-Location $TMP_DIR
-    git add "$VAULT_SKILLS" 2>&1 | Out-Null
+    git add "$VAULT_SKILLS" "$VAULT_AGENTS" 2>&1 | Out-Null
     $changed = (git diff --cached --name-only 2>&1 | Measure-Object -Line).Lines
     if ($changed -gt 0) {
         git commit -m $msg 2>&1 | Out-Null
