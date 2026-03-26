@@ -26,6 +26,15 @@ echo "📥 Pulling latest code from GitHub..."
 git stash --include-untracked 2>/dev/null || true
 git pull origin main
 
+# Sync Obsidian vault
+echo "📚 Syncing Obsidian vault..."
+if [ -d "/opt/obsidian-vault" ]; then
+  cd /opt/obsidian-vault && git pull origin main 2>&1 || echo "⚠️  Vault sync failed (continuing)"
+  cd /opt/gueclaw-agent
+else
+  echo "⚠️  /opt/obsidian-vault not found — skipping vault sync"
+fi
+
 # Install/update dependencies
 echo "📦 Installing dependencies..."
 npm install
