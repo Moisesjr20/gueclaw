@@ -28,6 +28,8 @@ data/memory/mcp-memory.jsonl
 .agents/skills/*/data/*.csv
 .agents/skills/*/data/*.db
 .agents/skills/*/data/*.sqlite
+# Explicitly exclude groups data (private WhatsApp group names/JIDs)
+.agents/skills/uazapi-groups/**/data/groups.json
 
 # IDE
 .vscode/
