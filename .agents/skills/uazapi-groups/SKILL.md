@@ -12,7 +12,7 @@ Skill para listar todos os grupos do WhatsApp conectado e armazenar a lista com 
 
 ```
 Base URL: https://kyrius.uazapi.com   (variável UAIZAPI_BASE_URL)
-Token:    ef81eb52-692d-4e31-b98e-c2c0d045013a  (variável UAIZAPI_TOKEN)
+Token:    ${UAIZAPI_TOKEN}  (variável UAIZAPI_TOKEN)
 ```
 
 Use sempre os valores das variáveis de ambiente. Não hardcode.
@@ -33,7 +33,7 @@ Use sempre os valores das variáveis de ambiente. Não hardcode.
 Use **`vps_execute_command`** com este comando exato (uma linha, sem quebras):
 
 ```
-curl -s -H 'token: ef81eb52-692d-4e31-b98e-c2c0d045013a' 'https://kyrius.uazapi.com/group/list' | python3 -c "import sys,json,datetime;d=json.load(sys.stdin);g=d.get('groups',[]);f=[{'name':x['Name'],'jid':x['JID'],'n':x.get('ParticipantCount',0)} for x in g];json.dump({'updated_at':datetime.datetime.utcnow().isoformat()+'Z','total':len(f),'groups':[{'name':x['name'],'jid':x['jid']} for x in f]},open('/opt/gueclaw-agent/.agents/skills/uazapi-groups/data/groups.json','w'),ensure_ascii=False,indent=2);[print(f'{i+1}. {x[\"name\"]} ({x[\"n\"]} membros) - {x[\"jid\"]}') for i,x in enumerate(f)];print(f'Total: {len(f)} grupos')"
+curl -s -H 'token: ${UAIZAPI_TOKEN}' 'https://kyrius.uazapi.com/group/list' | python3 -c "import sys,json,datetime;d=json.load(sys.stdin);g=d.get('groups',[]);f=[{'name':x['Name'],'jid':x['JID'],'n':x.get('ParticipantCount',0)} for x in g];json.dump({'updated_at':datetime.datetime.utcnow().isoformat()+'Z','total':len(f),'groups':[{'name':x['name'],'jid':x['jid']} for x in f]},open('/opt/gueclaw-agent/.agents/skills/uazapi-groups/data/groups.json','w'),ensure_ascii=False,indent=2);[print(f'{i+1}. {x[\"name\"]} ({x[\"n\"]} membros) - {x[\"jid\"]}') for i,x in enumerate(f)];print(f'Total: {len(f)} grupos')"
 ```
 
 > **Por que `vps_execute_command` e não `api_request`?**
@@ -91,7 +91,7 @@ Após executar o comando, apresente ao usuário:
 
 ```
 Base URL: https://kyrius.uazapi.com   (variável UAIZAPI_BASE_URL)
-Token:    ef81eb52-692d-4e31-b98e-c2c0d045013a  (variável UAIZAPI_TOKEN)
+Token:    ${UAIZAPI_TOKEN}  (variável UAIZAPI_TOKEN)
 ```
 
 Use sempre os valores das variáveis de ambiente. Não hardcode.
@@ -124,7 +124,7 @@ token: {UAIZAPI_TOKEN}
   "url": "https://kyrius.uazapi.com/group/list",
   "headers": {
     "Accept": "application/json",
-    "token": "ef81eb52-692d-4e31-b98e-c2c0d045013a"
+    "token": "${UAIZAPI_TOKEN}"
   }
 }
 ```
@@ -212,3 +212,4 @@ Após listar e salvar, apresente ao usuário:
 3. file_operations write → salvar groups.json
 4. Responder ao usuário com a lista formatada
 ```
+
