@@ -61,8 +61,10 @@ if ($Direction -eq "pull") {
 
     if (Test-Path $srcA) {
         New-Item -ItemType Directory -Force $dstA | Out-Null
-        Copy-Item -Recurse -Force "$srcA\*" $dstA
-        Write-Ok "Agents sincronizados"
+        Get-ChildItem $srcA | Where-Object { $_.Name -ne ".gitkeep" } | ForEach-Object {
+            Copy-Item -Recurse -Force $_.FullName (Join-Path $dstA $_.Name)
+            Write-Ok "Sincronizado agent: $($_.Name)"
+        }
     } else {
         Write-Warn "Pasta $VAULT_AGENTS não encontrada no vault"
     }

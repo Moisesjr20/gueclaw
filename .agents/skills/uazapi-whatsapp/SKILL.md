@@ -10,8 +10,8 @@ Skill para envio de mensagens e gerenciamento da instância WhatsApp via UazAPI.
 ## 🔑 Configuração desta Instância
 
 ```
-Base URL: https://kyrius.uazapi.com   (variável UAIZAPI_BASE_URL)
-Token:    ef81eb52-692d-4e31-b98e-c2c0d045013a  (variável UAIZAPI_TOKEN)
+Base URL: ${UAIZAPI_BASE_URL}   (ex: https://kyrius.uazapi.com)
+Token:    ${UAIZAPI_TOKEN}
 ```
 
 Leia os valores do ambiente — não hardcode. Use `api_request` com header `token: $UAIZAPI_TOKEN`.
