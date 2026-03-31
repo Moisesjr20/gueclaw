@@ -474,8 +474,8 @@ export class DebugAPI {
 
   public start(port: number = DEFAULT_PORT): Promise<void> {
     return new Promise((resolve, reject) => {
-      const server = this.app.listen(port, '127.0.0.1', () => {
-        console.log(`🔍 Debug API listening on http://127.0.0.1:${port}`);
+      const server = this.app.listen(port, '0.0.0.0', () => {
+        console.log(`🔍 Debug API listening on http://0.0.0.0:${port}`);
         resolve();
       });
       server.on('error', reject);
