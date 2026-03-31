@@ -1,5 +1,8 @@
 name: Deploy GueClaw → VPS
 
+# ⚠️ IMPORTANTE: Requer secret VPS_SSH_PRIVATE_KEY configurado no GitHub
+# Ver: docs/GITHUB-ACTIONS-SSH-SETUP.md
+
 on:
   push:
     branches: [main]
@@ -17,7 +20,7 @@ jobs:
         with:
           host: 147.93.69.211
           username: root
-          password: ${{ secrets.VPS_PASSWORD }}
+          key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
           port: 22
           script: |
             cat > /opt/gueclaw-agent/.env << 'ENVEOF'
@@ -115,7 +118,7 @@ jobs:
         with:
           host: 147.93.69.211
           username: root
-          password: ${{ secrets.VPS_PASSWORD }}
+          key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
           port: 22
           script: |
             cd /opt/gueclaw-agent
@@ -127,7 +130,7 @@ jobs:
         with:
           host: 147.93.69.211
           username: root
-          password: ${{ secrets.VPS_PASSWORD }}
+          key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
           port: 22
           script: |
             STATUS=$(pm2 jlist | python3 -c "
