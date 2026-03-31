@@ -224,11 +224,19 @@ ID: ${transaction.id}`);
             return this.error('Erro: CSV vazio ou formato inválido');
           }
 
-          // Mapear colunas (pt-BR e en)
+          // Normalizar strings: remove acentos, lowercase, underscores
+          const normalize = (str: string): string => {
+            return str
+              .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Remove acentos
+              .toLowerCase()
+              .replace(/\s+/g, '_'); // Espaços -> underscores
+          };
+
+          // Mapear colunas (pt-BR e en, case-insensitive)
           const mapColumn = (row: any, ...names: string[]): any => {
             for (const name of names) {
-              const lower = name.toLowerCase();
-              const key = Object.keys(row).find(k => k.toLowerCase() === lower);
+              const normalized = normalize(name);
+              const key = Object.keys(row).find(k => normalize(k) === normalized);
               if (key && row[key]) return row[key];
             }
             return undefined;
@@ -249,11 +257,24 @@ ID: ${transaction.id}`);
               const dateStr = mapColumn(row, 'data', 'date', 'Data', 'Date');
               const amountStr = mapColumn(row, 'valor', 'amount', 'Valor', 'Amount');
               const description = mapColumn(row, 'descricao', 'description', 'Descrição', 'Description');
-              const costCenter = mapColumn(row, 'categoria', 'cost_center', 'costCenter', 'Categoria', 'Centro de Custo');
-              const transactionType = mapColumn(row, 'tipo', 'type', 'Tipo', 'Type')?.toLowerCase();
-              const movementType = mapColumn(row, 'movimento', 'movement', 'Movimento', 'Movement')?.toLowerCase() || 'unico';
-              const installmentInfo = mapColumn(row, 'parcela', 'installment', 'Parcela', 'Installment');
-              const status = mapColumn(row, 'status', 'Status')?.toLowerCase().replace(/[^a-z_]/g, '') || 'realizado';
+              const costCenter = mapColumn(row, 'categoria', 'cost_center', 'costCenter', 'Categoria', 'Centro de Custo', 'centro de custo');
+              
+              // Normalizar valores de texto
+              const tipoRaw = mapColumn(row, 'tipo', 'type', 'Tipo', 'Type');
+              const transactionType = tipoRaw ? normalize(tipoRaw) : undefined;
+              
+              const movimentoRaw = mapColumn(row, 'movimento', 'movement', 'Movimento', 'Movement', 'tipo de movimentação', 'tipo_de_movimentacao');
+              let movementType = movimentoRaw ? normalize(movimentoRaw) : 'unico';
+              
+              // Se tipo de movimentação tem formato de parcela (ex: 6/10), extrair para installmentInfo
+              let installmentInfo = mapColumn(row, 'parcela', 'installment', 'Parcela', 'Installment');
+              if (movementType.includes('/') && !installmentInfo) {
+                installmentInfo = movementType;
+                movementType = 'parcela';
+              }
+              
+              const statusRaw = mapColumn(row, 'status', 'Status');
+              const status = statusRaw ? normalize(statusRaw) : 'realizado';
 
               // Validar campos obrigatórios
               if (!dateStr) {
