@@ -15,6 +15,7 @@ build/
 # Data and temporary files
 data/*.db
 data/*.sqlite
+data/github-token.json
 tmp/*
 !tmp/.gitkeep
 logs/*

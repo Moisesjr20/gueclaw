@@ -45,6 +45,7 @@
     "papaparse": "^5.4.1",
     "pdf-parse": "^1.1.1",
     "sharp": "^0.33.2",
+    "uuid": "^13.0.0",
     "winston": "^3.11.0",
     "zod": "^3.22.4"
   },
@@ -56,6 +57,7 @@
     "@types/papaparse": "^5.3.14",
     "@types/pdf-parse": "^1.1.4",
     "@types/supertest": "^7.2.0",
+    "@types/uuid": "^10.0.0",
     "@typescript-eslint/eslint-plugin": "^8.57.0",
     "@typescript-eslint/parser": "^8.57.0",
     "eslint": "^8.56.0",

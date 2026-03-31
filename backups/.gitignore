@@ -1,0 +1,10 @@
+# Backups criptografados (NÃO COMMITAR!)
+*.db
+*.db.aes
+*.db.gpg
+*.sqlite
+*.sqlite.aes
+*.sqlite.gpg
+
+# Manter apenas este arquivo
+!.gitkeep

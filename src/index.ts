@@ -15,6 +15,7 @@ import { MemoryWriteTool } from './tools/memory-write-tool';
 import { ReadSkillTool } from './tools/read-skill-tool';
 import { AnalyzeImageTool } from './tools/analyze-image-tool';
 import { AudioTool } from './tools/audio-tool';
+import { FinancialTool } from './tools/financial-tool';
 import { MCPManager } from './tools/mcp-manager';
 import { MCPTool } from './tools/mcp-tool';
 
@@ -122,6 +123,7 @@ class GueClaw {
       new ReadSkillTool(),
       new AnalyzeImageTool(),
       new AudioTool(),
+      new FinancialTool(),
     ]);
 
     console.log(`✅ Registered ${ToolRegistry.getAllNames().length} tools`);
