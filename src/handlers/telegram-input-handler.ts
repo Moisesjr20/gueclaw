@@ -297,6 +297,11 @@ export class TelegramInputHandler {
       markdown += `\n... (${parsed.data.length - 100} more rows)`;
     }
 
+    // Append JSON data for import_csv tool
+    markdown += '\n\n[CSV_JSON_DATA]\n';
+    markdown += JSON.stringify(parsed.data);
+    markdown += '\n[/CSV_JSON_DATA]';
+
     return markdown;
   }
 

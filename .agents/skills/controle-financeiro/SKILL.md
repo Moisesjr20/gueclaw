@@ -16,6 +16,37 @@ Esta skill permite o gerenciamento completo de finanças pessoais com **criptogr
 
 ## Core Capabilities
 
+---
+### ⚠️ INSTRUÇÕES CRÍTICAS - LEIA PRIMEIRO
+
+#### 🚫 REGRA #1: IMPORTAÇÃO CSV - NUNCA FAÇA LOOP
+
+Quando o usuário enviar um arquivo CSV (ou pedir para importar CSV), você **DEVE**:
+
+✅ **UMA ÚNICA** chamada `financial_operation` com `action="import_csv"`  
+❌ **NUNCA** fazer loop com múltiplas chamadas `action="create"` (limite: 15 iterações)
+
+**Exemplo correto:**
+```json
+{
+  "action": "import_csv",
+  "userId": "123456789",
+  "csvData": "[{\"data\":\"31/03/2026\",\"valor\":\"198\",\"descricao\":\"Emprestimo\"}, {...}, ...]"
+}
+```
+
+**Exemplo ERRADO (não faça!):**
+```json
+// ❌ Vai atingir limite de iterações em CSV com 17+ linhas
+{"action":"create", "amount":198, ...}  // linha 1
+{"action":"create", "amount":85, ...}   // linha 2
+... // 15 mais → ⚠️ max iterations reached
+```
+
+**Fluxo:** CSV recebido → extractCSV() parseia → 1x import_csv → concluído ✓
+
+---
+
 ### 1. Registrar Transações
 
 **Adicionar Entrada (Receita):**
@@ -109,7 +140,56 @@ Usuario: "Deletar a transação de R$ 45 do uber"
 
 ## Instructions
 
-### 🔄 CONVERSAÇÃO INTERATIVA - COLETAR DADOS FALTANTES
+### � REGRA CRÍTICA: IMPORTAÇÃO CSV
+
+**QUANDO receber um CSV com múltiplas linhas (2 ou mais transações):**
+- ✅ SEMPRE use `action: "import_csv"` com o parâmetro `csvData` (JSON array)
+- ❌ NUNCA faça loop de `action: "create"` individual
+- ⚠️ Um CSV com 17 linhas deve resultar em **UMA ÚNICA** chamada de `import_csv`, não 17 chamadas de `create`
+
+**DETECÇÃO: Como extrair dados do CSV?**
+
+O input virá assim:
+```
+Usuario: "importe esse csv"
+
+[Attached File: fin.csv]
+| data | valor | descrição | ... |
+| --- | --- | --- | --- |
+| 31/03/2026 | 198 | Emprestimo | ... |
+
+[CSV_JSON_DATA]
+[{"data":"31/03/2026","valor":"198","descrição":"Emprestimo"}, ...]
+[/CSV_JSON_DATA]
+```
+
+**PASSOS:**
+1. Identifique o marcador `[CSV_JSON_DATA]`
+2. Extraia TODO o conteúdo entre `[CSV_JSON_DATA]` e `[/CSV_JSON_DATA]`
+3. Passe esse JSON array como STRING no parâmetro `csvData`
+
+**Chamada correta:**
+```json
+{
+  "action": "import_csv",
+  "userId": "8227546813",
+  "csvData": "[{\"data\":\"31/03/2026\",\"valor\":\"198\",...}, ...]"
+}
+```
+```
+
+**NÃO faça isso:** ❌
+```json
+// ❌ ERRADO - vai atingir limite de iterações
+{"action":"create", ...}  // linha 1
+{"action":"create", ...}  // linha 2
+{"action":"create", ...}  // linha 3
+...
+```
+
+---
+
+### �🔄 CONVERSAÇÃO INTERATIVA - COLETAR DADOS FALTANTES
 
 **REGRA CRÍTICA:** Quando o usuário enviar dados incompletos, você DEVE perguntar o que está faltando ANTES de chamar a tool `financial_operation`. NUNCA invente ou assuma valores para campos obrigatórios.
 

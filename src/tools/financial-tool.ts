@@ -11,6 +11,8 @@ export class FinancialTool extends BaseTool {
   public readonly name = 'financial_operation';
   public readonly description = `Gerencia finanças pessoais com criptografia de dados sensíveis.
 
+⚠️ IMPORTANTE: Para CSV com 2+ linhas, SEMPRE use 'import_csv' (1 chamada) ao invés de loop com 'create'.
+
 Operações disponíveis:
 - "create": Criar transação (entrada/saída)
 - "import_csv": Importar múltiplas transações de um CSV
