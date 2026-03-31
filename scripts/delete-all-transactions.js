@@ -20,7 +20,7 @@ try {
   const db = new Database(DB_PATH);
   
   // Count existing transactions
-  const countStmt = db.prepare('SELECT COUNT(*) as count FROM financial_transactions WHERE userId = ?');
+  const countStmt = db.prepare('SELECT COUNT(*) as count FROM financial_transactions WHERE user_id = ?');
   const { count } = countStmt.get(userId);
   
   console.log(`📊 Found ${count} transactions for user ${userId}`);
@@ -31,7 +31,7 @@ try {
   }
   
   // Delete all transactions
-  const deleteStmt = db.prepare('DELETE FROM financial_transactions WHERE userId = ?');
+  const deleteStmt = db.prepare('DELETE FROM financial_transactions WHERE user_id = ?');
   const result = deleteStmt.run(userId);
   
   console.log(`✅ Deleted ${result.changes} transactions`);
