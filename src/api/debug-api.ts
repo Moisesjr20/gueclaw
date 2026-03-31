@@ -366,9 +366,10 @@ export class DebugAPI {
 
         const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
         const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+        const onlyRealized = req.query.onlyRealized === 'true'; // Optional filter, default false
 
         const repo = new FinancialRepository();
-        const result = repo.getBalance(userId, startDate, endDate, true);
+        const result = repo.getBalance(userId, startDate, endDate, onlyRealized);
         
         res.json({
           totalIncome: result.entradas,

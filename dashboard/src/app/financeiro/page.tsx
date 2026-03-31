@@ -4,10 +4,14 @@ import { useState } from 'react';
 import { apiFetch } from '@/lib/api';
 import type { FinancialBalance, FinancialTransaction, CostCenterReport } from '@/lib/api';
 import StatCard from '@/components/StatCard';
+import PasswordProtection from '@/components/PasswordProtection';
 import { TrendingUp, TrendingDown, Calendar } from 'lucide-react';
 
 // Hardcoded user ID (you can make this dynamic later)
 const USER_ID = '8227546813';
+
+// Password from environment variable (configure in Vercel)
+const FINANCIAL_PASSWORD = process.env.NEXT_PUBLIC_FINANCIAL_PASSWORD || 'financeiro2026';
 
 export default function FinanceiroPage() {
   const today = new Date();
@@ -44,13 +48,14 @@ export default function FinanceiroPage() {
   };
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div>
-          <h1 className="text-xl font-semibold text-[#e2eaf7]">Controle Financeiro</h1>
-          <p className="text-sm text-[#5c7a9e] mt-0.5">Resumo de entradas, saídas e saldo</p>
-        </div>
+    <PasswordProtection correctPassword={FINANCIAL_PASSWORD}>
+      <div className="space-y-8">
+        {/* Header */}
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div>
+            <h1 className="text-xl font-semibold text-[#e2eaf7]">Controle Financeiro</h1>
+            <p className="text-sm text-[#5c7a9e] mt-0.5">Resumo de entradas, saídas e saldo</p>
+          </div>
 
         {/* Date filters */}
         <div className="flex items-center gap-3">
@@ -202,6 +207,7 @@ export default function FinanceiroPage() {
       {balanceLoading && (
         <div className="text-sm text-[#5c7a9e]">Carregando dados financeiros...</div>
       )}
-    </div>
+      </div>
+    </PasswordProtection>
   );
 }
