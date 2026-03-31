@@ -5,6 +5,7 @@ import { execSync } from 'child_process';
 import Database from 'better-sqlite3';
 import { DatabaseConnection } from '../core/memory/database';
 import { TraceRepository } from './trace-repository';
+import { FinancialRepository } from '../core/memory/financial-repository';
 import { MemoryManager } from '../core/memory/memory-manager';
 import { SkillLoader } from '../core/skills/skill-loader';
 import { SkillRouter } from '../core/skills/skill-router';
@@ -347,6 +348,103 @@ export class DebugAPI {
         state.sent_slots = [];
         fs.writeFileSync(WORKER_STATE_PATH, JSON.stringify(state, null, 2));
         res.json({ ok: true, state });
+      } catch (err: any) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    // ──────────────────────────────────────────────────────────
+    // Financial — balance summary
+    // ──────────────────────────────────────────────────────────
+    this.app.get('/api/financial/balance', this.auth(), (req: Request, res: Response) => {
+      try {
+        const userId = req.query.userId as string;
+        if (!userId) {
+          res.status(400).json({ error: 'userId is required' });
+          return;
+        }
+
+        const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+        const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+
+        const repo = new FinancialRepository();
+        const result = repo.getBalance(userId, startDate, endDate, true);
+        
+        res.json({
+          totalIncome: result.entradas,
+          totalExpense: result.saidas,
+          balance: result.saldo,
+          period: startDate && endDate ? {
+            start: startDate.toISOString(),
+            end: endDate.toISOString()
+          } : undefined
+        });
+      } catch (err: any) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    // ──────────────────────────────────────────────────────────
+    // Financial — list transactions
+    // ──────────────────────────────────────────────────────────
+    this.app.get('/api/financial/transactions', this.auth(), (req: Request, res: Response) => {
+      try {
+        const userId = req.query.userId as string;
+        if (!userId) {
+          res.status(400).json({ error: 'userId is required' });
+          return;
+        }
+
+        const limit = Math.min(Number(req.query.limit) || 50, 500);
+        const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+        const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+        const transactionType = req.query.type as 'entrada' | 'saida' | undefined;
+        const status = req.query.status as 'realizado' | 'nao_realizado' | undefined;
+
+        const repo = new FinancialRepository();
+        const transactions = repo.findMany({ userId, startDate, endDate, transactionType, status }, limit);
+        res.json(transactions);
+      } catch (err: any) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    // ──────────────────────────────────────────────────────────
+    // Financial — report by cost center
+    // ──────────────────────────────────────────────────────────
+    this.app.get('/api/financial/report', this.auth(), (req: Request, res: Response) => {
+      try {
+        const userId = req.query.userId as string;
+        if (!userId) {
+          res.status(400).json({ error: 'userId is required' });
+          return;
+        }
+
+        const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+        const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+
+        const repo = new FinancialRepository();
+        const expenses = repo.getExpensesByCostCenter(userId, startDate, endDate);
+        
+        // Calculate total for percentages
+        const total = expenses.reduce((sum, item) => sum + item.total, 0);
+        
+        // Count transactions per cost center
+        const filter = { userId, startDate, endDate, transactionType: 'saida' as const };
+        const allTx = repo.findMany(filter, 999999);
+        const countMap = new Map<string, number>();
+        allTx.forEach(tx => {
+          countMap.set(tx.costCenter, (countMap.get(tx.costCenter) || 0) + 1);
+        });
+        
+        const report = expenses.map(item => ({
+          costCenter: item.costCenter,
+          totalExpense: item.total,
+          percentage: total > 0 ? (item.total / total) * 100 : 0,
+          transactionCount: countMap.get(item.costCenter) || 0
+        }));
+
+        res.json(report);
       } catch (err: any) {
         res.status(500).json({ error: err.message });
       }

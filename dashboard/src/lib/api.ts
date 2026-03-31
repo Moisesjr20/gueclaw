@@ -68,3 +68,67 @@ export interface LogTail {
   path: string;
   lines: string[];
 }
+
+export interface FinancialBalance {
+  totalIncome: number;
+  totalExpense: number;
+  balance: number;
+  period?: {
+    start: string;
+    end: string;
+  };
+}
+
+export interface FinancialTransaction {
+  id: string;
+  userId: string;
+  transactionDate: string;
+  amount: number;
+  description: string;
+  costCenter: string;
+  transactionType: 'entrada' | 'saida';
+  movementType: 'parcela' | 'unico' | 'mensal';
+  installmentInfo?: string;
+  status: 'realizado' | 'nao_realizado';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CostCenterReport {
+  costCenter: string;
+  totalExpense: number;
+  percentage: number;
+  transactionCount: number;
+}
+
+export interface FinancialBalance {
+  totalIncome: number;
+  totalExpense: number;
+  balance: number;
+  period?: {
+    start: string;
+    end: string;
+  };
+}
+
+export interface FinancialTransaction {
+  id: string;
+  userId: string;
+  transactionDate: string;
+  amount: number;
+  description: string;
+  costCenter: string;
+  transactionType: 'entrada' | 'saida';
+  movementType: 'parcela' | 'unico' | 'mensal';
+  installmentInfo?: string;
+  status: 'realizado' | 'nao_realizado';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CostCenterReport {
+  costCenter: string;
+  totalExpense: number;
+  percentage: number;
+  transactionCount: number;
+}

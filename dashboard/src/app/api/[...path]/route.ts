@@ -18,7 +18,7 @@ async function forward(req: NextRequest, pathParts: string[]): Promise<NextRespo
   let body: BodyInit | undefined;
 
   if (req.method !== 'GET' && req.method !== 'HEAD') {
-    try { body = await req.text(); headers['content-type'] = 'application/json'; } catch {}
+    try { body = await req.text(); headers['content-type'] = 'application/json'; } catch { /* ignore parse errors */ }
   }
 
   try {

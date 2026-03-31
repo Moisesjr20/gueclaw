@@ -1,10 +1,11 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Megaphone, MessageSquare, ScrollText } from 'lucide-react';
+import { LayoutDashboard, Megaphone, MessageSquare, ScrollText, Wallet } from 'lucide-react';
 
 const NAV = [
   { href: '/overview', label: 'Overview', icon: LayoutDashboard },
+  { href: '/financeiro', label: 'Finanças', icon: Wallet },
   { href: '/campaign', label: 'Campanha', icon: Megaphone },
   { href: '/conversations', label: 'Conversas', icon: MessageSquare },
   { href: '/logs', label: 'Logs', icon: ScrollText },
