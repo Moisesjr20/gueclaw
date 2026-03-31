@@ -13,6 +13,8 @@ export class FinancialTool extends BaseTool {
 
 Operações disponíveis:
 - "create": Criar transação (entrada/saída)
+- "import_csv": Importar múltiplas transações de um CSV
+- "export_csv": Exportar transações para formato CSV
 - "list": Listar transações com filtros
 - "balance": Consultar saldo e resumo
 - "report_by_cost_center": Relatório de gastos por categoria
@@ -24,48 +26,40 @@ Exemplos de uso:
 {
   "action": "create",
   "userId": "123456789",
-  "data": {
-    "transactionDate": "2026-03-31",
-    "amount": 5000,
-    "description": "Salário março",
-    "costCenter": "Renda",
-    "transactionType": "entrada",
-    "movementType": "unico",
-    "status": "realizado"
-  }
+  "transactionDate": "2026-03-31",
+  "amount": 5000,
+  "description": "Salário março",
+  "costCenter": "Renda",
+  "transactionType": "entrada",
+  "movementType": "unico",
+  "status": "realizado"
 }
 
 {
-  "action": "create",
+  "action": "import_csv",
   "userId": "123456789",
-  "data": {
-    "transactionDate": "2026-03-15",
-    "amount": 3000,
-    "description": "Notebook Dell",
-    "costCenter": "Eletrônicos",
-    "transactionType": "saida",
-    "movementType": "parcela",
-    "installmentInfo": "1/12",
-    "status": "realizado"
-  }
+  "csvData": "[{\"data\":\"2026-03-31\",\"valor\":\"5000\",\"descricao\":\"Salário\",\"categoria\":\"Renda\",\"tipo\":\"entrada\"}]"
+}
+
+{
+  "action": "export_csv",
+  "userId": "123456789",
+  "startDate": "2026-03-01",
+  "endDate": "2026-03-31"
 }
 
 {
   "action": "balance",
   "userId": "123456789",
-  "filters": {
-    "startDate": "2026-03-01",
-    "endDate": "2026-03-31"
-  }
+  "startDate": "2026-03-01",
+  "endDate": "2026-03-31"
 }
 
 {
   "action": "list",
   "userId": "123456789",
-  "filters": {
-    "transactionType": "saida",
-    "status": "realizado"
-  },
+  "transactionType": "saida",
+  "status": "realizado",
   "limit": 10
 }`;
 
@@ -78,12 +72,16 @@ Exemplos de uso:
         properties: {
           action: {
             type: 'string',
-            enum: ['create', 'list', 'balance', 'report_by_cost_center', 'update_status', 'update', 'delete'],
+            enum: ['create', 'import_csv', 'export_csv', 'list', 'balance', 'report_by_cost_center', 'update_status', 'update', 'delete'],
             description: 'Operação a realizar',
           },
           userId: {
             type: 'string',
             description: 'ID do usuário (Telegram user ID)',
+          },
+          csvData: {
+            type: 'string',
+            description: 'Dados CSV parseados (JSON array de objetos) para importação em lote',
           },
           transactionId: {
             type: 'string',
@@ -206,6 +204,159 @@ ${emoji} ${transaction.transactionType.toUpperCase()}
 ✓ Status: ${transaction.status}
 
 ID: ${transaction.id}`);
+        }
+
+        case 'import_csv': {
+          const { csvData } = args;
+          
+          if (!csvData) {
+            return this.error('Erro: csvData é obrigatório para importação');
+          }
+
+          let rows: any[];
+          try {
+            rows = typeof csvData === 'string' ? JSON.parse(csvData) : csvData;
+          } catch (e) {
+            return this.error('Erro: csvData inválido - deve ser um JSON array');
+          }
+
+          if (!Array.isArray(rows) || rows.length === 0) {
+            return this.error('Erro: CSV vazio ou formato inválido');
+          }
+
+          // Mapear colunas (pt-BR e en)
+          const mapColumn = (row: any, ...names: string[]): any => {
+            for (const name of names) {
+              const lower = name.toLowerCase();
+              const key = Object.keys(row).find(k => k.toLowerCase() === lower);
+              if (key && row[key]) return row[key];
+            }
+            return undefined;
+          };
+
+          const results = {
+            success: 0,
+            failed: 0,
+            errors: [] as string[],
+          };
+
+          for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const lineNum = i + 2; // +2 porque CSV tem header (linha 1) e começa em 1
+
+            try {
+              // Extrair campos
+              const dateStr = mapColumn(row, 'data', 'date', 'Data', 'Date');
+              const amountStr = mapColumn(row, 'valor', 'amount', 'Valor', 'Amount');
+              const description = mapColumn(row, 'descricao', 'description', 'Descrição', 'Description');
+              const costCenter = mapColumn(row, 'categoria', 'cost_center', 'costCenter', 'Categoria', 'Centro de Custo');
+              const transactionType = mapColumn(row, 'tipo', 'type', 'Tipo', 'Type')?.toLowerCase();
+              const movementType = mapColumn(row, 'movimento', 'movement', 'Movimento', 'Movement')?.toLowerCase() || 'unico';
+              const installmentInfo = mapColumn(row, 'parcela', 'installment', 'Parcela', 'Installment');
+              const status = mapColumn(row, 'status', 'Status')?.toLowerCase().replace(/[^a-z_]/g, '') || 'realizado';
+
+              // Validar campos obrigatórios
+              if (!dateStr) {
+                results.errors.push(`Linha ${lineNum}: campo 'data' obrigatório`);
+                results.failed++;
+                continue;
+              }
+              if (!amountStr) {
+                results.errors.push(`Linha ${lineNum}: campo 'valor' obrigatório`);
+                results.failed++;
+                continue;
+              }
+              if (!description) {
+                results.errors.push(`Linha ${lineNum}: campo 'descricao' obrigatório`);
+                results.failed++;
+                continue;
+              }
+              if (!costCenter) {
+                results.errors.push(`Linha ${lineNum}: campo 'categoria' obrigatório`);
+                results.failed++;
+                continue;
+              }
+              if (!transactionType || !['entrada', 'saida'].includes(transactionType)) {
+                results.errors.push(`Linha ${lineNum}: 'tipo' deve ser 'entrada' ou 'saida'`);
+                results.failed++;
+                continue;
+              }
+
+              // Parsear valor (aceita vírgula e ponto)
+              const amount = parseFloat(amountStr.toString().replace(',', '.'));
+              if (isNaN(amount) || amount <= 0) {
+                results.errors.push(`Linha ${lineNum}: valor '${amountStr}' inválido`);
+                results.failed++;
+                continue;
+              }
+
+              // Parsear data (aceita DD/MM/YYYY e YYYY-MM-DD)
+              let transactionDate: Date;
+              if (dateStr.includes('/')) {
+                const parts = dateStr.split('/');
+                if (parts.length === 3) {
+                  // DD/MM/YYYY
+                  const [day, month, year] = parts;
+                  transactionDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+                } else {
+                  throw new Error('Formato de data inválido');
+                }
+              } else {
+                transactionDate = new Date(dateStr);
+              }
+
+              if (isNaN(transactionDate.getTime())) {
+                results.errors.push(`Linha ${lineNum}: data '${dateStr}' inválida`);
+                results.failed++;
+                continue;
+              }
+
+              // Criar transação
+              const input: CreateFinancialTransactionInput = {
+                userId,
+                transactionDate,
+                amount,
+                description: description.toString(),
+                costCenter: costCenter.toString(),
+                transactionType: transactionType as 'entrada' | 'saida',
+                movementType: movementType as 'unico' | 'parcela' | 'mensal',
+                installmentInfo: installmentInfo?.toString(),
+                status: status === 'nao_realizado' ? 'nao_realizado' : 'realizado',
+              };
+
+              repo.create(input);
+              results.success++;
+
+            } catch (error: any) {
+              results.errors.push(`Linha ${lineNum}: ${error.message}`);
+              results.failed++;
+            }
+          }
+
+          // Montar resposta
+          let output = `📊 Importação CSV Concluída\n\n`;
+          output += `✅ Sucesso: ${results.success} transações\n`;
+          
+          if (results.failed > 0) {
+            output += `❌ Falhas: ${results.failed} linhas\n\n`;
+            output += `Erros encontrados:\n`;
+            results.errors.slice(0, 10).forEach(err => {
+              output += `• ${err}\n`;
+            });
+            if (results.errors.length > 10) {
+              output += `\n... e mais ${results.errors.length - 10} erros.`;
+            }
+          }
+
+          if (results.success > 0) {
+            const balance = repo.getBalance(userId);
+            output += `\n━━━━━━━━━━━━━━━━━━━━━━━\n`;
+            output += `📈 Total entradas: R$ ${balance.entradas.toFixed(2)}\n`;
+            output += `📉 Total saídas: R$ ${balance.saidas.toFixed(2)}\n`;
+            output += `💵 Saldo: R$ ${balance.saldo.toFixed(2)}`;
+          }
+
+          return this.success(output);
         }
 
         case 'list': {
@@ -344,6 +495,34 @@ ${balance.saldo >= 0 ? '✅ Saldo positivo' : '⚠️ Saldo negativo'}
           }
 
           return this.success('✅ Transação deletada com sucesso');
+        }
+
+        case 'export_csv': {
+          const filters: any = { userId };
+          if (startDate) filters.startDate = startDate;
+          if (endDate) filters.endDate = endDate;
+          if (transactionType) filters.transactionType = transactionType;
+          if (movementType) filters.movementType = movementType;
+          if (costCenter) filters.costCenter = costCenter;
+          if (status) filters.status = status;
+
+          const transactions = repo.findMany(filters, limit || 1000);
+
+          if (transactions.length === 0) {
+            return this.error('Nenhuma transação encontrada para exportar');
+          }
+
+          // Gerar CSV
+          let csv = 'data,valor,descricao,categoria,tipo,movimento,parcela,status\n';
+
+          transactions.forEach(t => {
+            const date = t.transactionDate.toISOString().split('T')[0]; // YYYY-MM-DD
+            const installment = t.installmentInfo || '';
+            
+            csv += `${date},${t.amount},${t.description},${t.costCenter},${t.transactionType},${t.movementType},${installment},${t.status}\n`;
+          });
+
+          return this.success(`📤 CSV gerado com sucesso!\n\n${transactions.length} transações exportadas.\n\n${csv}`);
         }
 
         default:

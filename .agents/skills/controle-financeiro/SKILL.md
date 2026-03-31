@@ -709,6 +709,187 @@ Total: R$ 2.845,00
 
 ## 🎯 Exemplos Avançados de Conversação Interativa
 
+### 📊 Importação em Lote via CSV
+
+O bot **aceita arquivos CSV** para importar múltiplas transações de uma vez.
+
+#### Formato CSV Esperado
+
+**Colunas obrigatórias:**
+- `data` ou `date` → Data no formato YYYY-MM-DD ou DD/MM/YYYY
+- `valor` ou `amount` → Valor numérico (use . para decimais)
+- `descricao` ou `description` → Descrição da transação
+- `categoria` ou `cost_center` → Centro de custo
+- `tipo` ou `type` → "entrada" ou "saida"
+
+**Colunas opcionais:**
+- `movimento` ou `movement` → "unico", "parcela", "mensal" (padrão: unico)
+- `parcela` ou `installment` → Ex: "1/12"
+- `status` → "realizado" ou "nao_realizado" (padrão: realizado)
+
+#### Exemplo de CSV Válido
+
+```csv
+data,valor,descricao,categoria,tipo,movimento,parcela,status
+2026-03-31,5000,Salário março,Renda,entrada,unico,,realizado
+2026-03-15,150.50,Supermercado Extra,Alimentação,saida,unico,,realizado
+2026-03-10,240,Notebook Dell,Eletrônicos,saida,parcela,1/12,realizado
+2026-03-20,80,Conta de luz,Contas Fixas,saida,unico,,realizado
+2026-03-25,99,Academia,Saúde,saida,mensal,,realizado
+2026-03-28,45.80,Uber,Transporte,saida,unico,,realizado
+```
+
+#### Como o Bot Processa CSV
+
+**Passo 1: Enviar o arquivo**
+```
+Usuario: [Anexa arquivo transacoes.csv no Telegram]
+
+Bot: "📊 Recebi um CSV com 6 linhas!
+
+Analisando colunas encontradas:
+✅ data
+✅ valor
+✅ descricao
+✅ categoria
+✅ tipo
+✅ movimento
+✅ parcela
+✅ status
+
+Encontrei 6 transações. Deseja importar todas?"
+```
+
+**Passo 2: Confirmação**
+```
+Usuario: "Sim, importa"
+
+Bot: [Processa linha por linha]
+📈 1/6: Salário março - R$ 5.000,00 ✅
+📉 2/6: Supermercado Extra - R$ 150,50 ✅
+📉 3/6: Notebook Dell (1/12) - R$ 240,00 ✅
+📉 4/6: Conta de luz - R$ 80,00 ✅
+📉 5/6: Academia (mensal) - R$ 99,00 ✅
+📉 6/6: Uber - R$ 45,80 ✅
+
+✅ Importação concluída!
+
+📊 Resumo:
+📈 Entradas: R$ 5.000,00 (1 transação)
+📉 Saídas: R$ 615,30 (5 transações)
+💵 Saldo líquido: +R$ 4.384,70
+```
+
+#### Validação Automática
+
+O bot verifica automaticamente:
+
+1. **Colunas obrigatórias presentes?**
+   - Se faltar alguma coluna crítica, avisa antes de importar
+
+2. **Valores numéricos válidos?**
+   - Ignora linhas com valores inválidos (avisa quais)
+
+3. **Datas no formato correto?**
+   - Aceita: YYYY-MM-DD, DD/MM/YYYY, DD-MM-YYYY
+
+4. **Tipos válidos?**
+   - Só aceita "entrada" ou "saida"
+
+#### Exemplo de CSV com Erro
+
+```
+Usuario: [Envia CSV com coluna "valor" faltando]
+
+Bot: "❌ Erro no CSV: Coluna obrigatória 'valor' não encontrada.
+
+Colunas encontradas: data, descricao, categoria, tipo
+
+Por favor, adicione a coluna 'valor' ou 'amount' e envie novamente."
+
+[NÃO importa nada até o CSV estar correto]
+```
+
+#### Exemplo de Linhas Parcialmente Inválidas
+
+```csv
+data,valor,descricao,categoria,tipo
+2026-03-31,5000,Salário,Renda,entrada
+2026-03-15,ABC,Supermercado,Alimentação,saida
+2026-03-10,150,Internet,Contas Fixas,saida
+```
+
+```
+Bot: "⚠️ Encontrei 1 linha com erro:
+
+❌ Linha 2: valor 'ABC' inválido (deve ser número)
+
+✅ 2 transações válidas encontradas.
+
+Deseja importar apenas as válidas e ignorar a linha com erro?"
+
+Usuario: "Sim"
+
+Bot: [Importa as 2 válidas]
+✅ 2 transações importadas com sucesso!
+⚠️ 1 linha ignorada por erro.
+```
+
+#### Template CSV para Download
+
+O bot pode gerar um template vazio:
+
+```
+Usuario: "Me envia um template de CSV para importar transações"
+
+Bot: [Gera e envia arquivo template-financeiro.csv]
+"📥 Template CSV para importação:
+
+Preencha as colunas e me envie de volta!
+
+Colunas obrigatórias:
+• data (YYYY-MM-DD)
+• valor (número)
+• descricao (texto)
+• categoria (texto)
+• tipo (entrada/saida)
+
+Colunas opcionais:
+• movimento (unico/parcela/mensal)
+• parcela (ex: 1/12)
+• status (realizado/nao_realizado)"
+```
+
+#### CSV Alternativo - Formato Excel Brasileiro
+
+Também aceita formato com `;` e vírgula para decimais:
+
+```csv
+data;valor;descricao;categoria;tipo
+31/03/2026;5000,00;Salário;Renda;entrada
+15/03/2026;150,50;Supermercado;Alimentação;saida
+```
+
+O bot detecta automaticamente e converte!
+
+#### Exportar para CSV
+
+O bot também pode exportar transações para CSV:
+
+```
+Usuario: "Exportar minhas transações de março em CSV"
+
+Bot: [Gera arquivo marco-2026.csv e envia]
+"📤 Arquivo gerado: marco-2026.csv
+
+📊 Contém 24 transações do período:
+📅 01/03/2026 a 31/03/2026
+
+Você pode editar no Excel e reimportar se precisar!"
+```
+
+---
+
 ### Cenário 1: Usuário Envia Apenas Valor
 
 ```
