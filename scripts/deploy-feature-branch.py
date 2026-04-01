@@ -20,7 +20,9 @@ if not ssh_key_path or not os.path.exists(ssh_key_path):
     print(f'ERROR: SSH key not found at {ssh_key_path}')
     sys.exit(1)
 
-branch = 'feature/skills-system-roi'
+# Allow specifying branch via command line, default to main
+import sys
+branch = sys.argv[1] if len(sys.argv) > 1 else 'main'
 
 print(f'🔌 Connecting to {vps_user}@{vps_host} using SSH key...')
 client = paramiko.SSHClient()

@@ -2,6 +2,7 @@ import axios, { AxiosInstance } from 'axios';
 import { ILLMProvider, CompletionOptions } from './base-provider';
 import { Message, LLMResponse } from '../../types';
 import { TelegramNotifier } from '../../services/telegram-notifier';
+import { costTracker } from '../../services/cost-tracker';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -478,7 +479,33 @@ export class GitHubCopilotOAuthProvider implements ILLMProvider {
       const response = await this.client.post('/chat/completions', payload);
 
       // Parse response
-      return this.parseResponse(response.data);
+      const llmResponse = this.parseResponse(response.data);
+
+      // Track cost (Copilot FREE, mas track usage para estatísticas)
+      try {
+        if (llmResponse.usage) {
+          const userId = (options as any)?.userId || 
+                        process.env.TELEGRAM_ALLOWED_USER_IDS?.split(',')[0] || 
+                        'system';
+          
+          await costTracker.trackLLMCall({
+            provider: 'github-copilot',
+            model: this.model,
+            userId,
+            operation: 'chat-completion',
+            usage: {
+              promptTokens: llmResponse.usage.promptTokens,
+              completionTokens: llmResponse.usage.completionTokens,
+              totalTokens: llmResponse.usage.totalTokens,
+            },
+          });
+        }
+      } catch (trackError) {
+        // Não falha o request se tracking falhar
+        console.warn('[CostTracker] Failed to track:', trackError);
+      }
+
+      return llmResponse;
 
     } catch (error: any) {
       const errMsg: string = error?.response?.data?.message || error?.message || String(error) || 'Unknown error';

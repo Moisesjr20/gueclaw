@@ -159,6 +159,7 @@ class GueClaw {
         `**Commands:**\n` +
         `/stats - Show agent statistics\n` +
         `/reload - Reload skills\n` +
+        `/cost - Show LLM usage and costs\n` +
         `/help - Show this message\n\n` +
         `Just send me a message and I'll help you!`,
         { parse_mode: 'Markdown' }
@@ -173,7 +174,8 @@ class GueClaw {
         `• \`/start\` - Welcome message\n` +
         `• \`/help\` - Show this help\n` +
         `• \`/stats\` - Show agent statistics\n` +
-        `• \`/reload\` - Reload skills (hot-reload)\n\n` +
+        `• \`/reload\` - Reload skills (hot-reload)\n` +
+        `• \`/cost [today|week|month]\` - Show LLM usage costs\n\n` +
         `**Supported File Types:**\n` +
         `• PDF documents\n` +
         `• CSV files\n` +
@@ -213,6 +215,44 @@ class GueClaw {
       this.controller.reloadSkills();
       const stats = this.controller.getStats();
       await ctx.reply(`✅ Reloaded! ${stats.skillsLoaded} skills available.`);
+    });
+
+    // Handle /cost command - Show LLM usage and costs
+    this.bot.command('cost', async (ctx) => {
+      const userId = ctx.from?.id.toString() || 'unknown';
+      const messageText = ctx.message?.text || '/cost';
+      const args = messageText.split(' ').slice(1);
+      const period = args[0] || 'today';
+
+      let summary;
+      let periodLabel: string;
+
+      switch (period.toLowerCase()) {
+        case 'week':
+        case 'semana':
+          summary = require('./services/cost-tracker').costTracker.getWeekCosts(userId);
+          periodLabel = 'Últimos 7 dias';
+          break;
+        case 'month':
+        case 'mes':
+        case 'mês':
+          summary = require('./services/cost-tracker').costTracker.getMonthCosts(userId);
+          periodLabel = 'Este mês';
+          break;
+        case 'today':
+        case 'hoje':
+        default:
+          summary = require('./services/cost-tracker').costTracker.getTodayCosts(userId);
+          periodLabel = 'Hoje';
+          break;
+      }
+
+      const message = require('./services/cost-tracker').costTracker.formatSummaryForTelegram(
+        summary,
+        periodLabel
+      );
+
+      await ctx.reply(message, { parse_mode: 'Markdown' });
     });
 
     // Handle errors
