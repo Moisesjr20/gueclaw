@@ -20,6 +20,7 @@ import { MCPManager } from './tools/mcp-manager';
 import { MCPTool } from './tools/mcp-tool';
 import { createSkillTool } from './tools/skill-tool';
 import { GrepTool } from './tools/grep-tool';
+import { GlobTool } from './tools/glob-tool';
 
 // Import services
 import { Heartbeat } from './services/heartbeat';
@@ -128,6 +129,7 @@ class GueClaw {
       new FinancialTool(),
       createSkillTool(), // SkillTool: LLM can invoke skills proactively
       new GrepTool(), // GrepTool: Fast regex search with ripgrep
+      new GlobTool(), // GlobTool: Fast file pattern matching
     ]);
 
     console.log(`✅ Registered ${ToolRegistry.getAllNames().length} tools`);
