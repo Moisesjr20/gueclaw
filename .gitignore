@@ -55,3 +55,8 @@ __pycache__/
 *$py.class
 *.so
 .Python
+
+# Third-party code under legal review
+# Claude Code repository - awaiting legal clearance
+claude-code/
+tmp/claude-code/
