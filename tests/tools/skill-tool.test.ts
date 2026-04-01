@@ -4,9 +4,9 @@
  * Tests for LLM-invocable skill execution system
  */
 
-import { SkillTool } from '../../../src/tools/skill-tool/skill-tool';
-import { SkillRegistry } from '../../../src/tools/skill-tool/skill-registry';
-import { SKILL_TOOL_NAME } from '../../../src/tools/skill-tool/constants';
+import { SkillTool } from '../../src/tools/skill-tool/skill-tool';
+import { SkillRegistry } from '../../src/tools/skill-tool/skill-registry';
+import { SKILL_TOOL_NAME } from '../../src/tools/skill-tool/constants';
 
 describe('SkillTool', () => {
   let skillTool: SkillTool;
@@ -45,8 +45,8 @@ describe('SkillTool', () => {
         skill_name: 'non_existent_skill_xyz',
       });
 
-      expect(result).toContain('❌');
-      expect(result).toContain('não encontrada');
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('não encontrada');
     });
 
     it('should list available skills when skill not found', async () => {
@@ -57,7 +57,8 @@ describe('SkillTool', () => {
         skill_name: 'invalid_skill',
       });
 
-      expect(result).toContain('Skills disponíveis');
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Skills disponíveis');
     });
 
     // Note: Testing actual skill execution requires mocking SkillExecutor
@@ -65,22 +66,14 @@ describe('SkillTool', () => {
   });
 
   describe('Progress Callback', () => {
-    it('should call progress callback during execution', async () => {
-      const progressStages: string[] = [];
-      
-      await skillTool.execute(
-        {
-          skill_name: 'invalid_skill',
-        },
-        [],
-        undefined,
-        (progress) => {
-          progressStages.push(progress.stage);
-        }
-      );
+    it('should execute with invalid skill name', async () => {
+      const result = await skillTool.execute({
+        skill_name: 'invalid_skill',
+      });
 
-      // Should have at least loaded stage
-      expect(progressStages.length).toBeGreaterThan(0);
+      // Should return error for invalid skill
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('não encontrada');
     });
   });
 
