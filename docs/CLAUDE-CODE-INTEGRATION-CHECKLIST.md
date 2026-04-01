@@ -44,13 +44,45 @@
 - `59bf7a9` - Phase 2.1: GrepTool implementation
 - `8373155` - Phase 2.2: GlobTool implementation
 - `b4d9c4d` - Phase 2.3: Cost Tracker implementation
+- `c212332` - Xquads-Squads integration analysis + action plan
 
 **Documentação:**
 - ✅ [DOE/phase-1b-completion-report.md](../DOE/phase-1b-completion-report.md) - Relatório técnico
-- ✅ [DOE/PROXIMO-PASSO.md](../DOE/PROXIMO-PASSO.md) - Guia do próximo passo
+- ✅ [DOE/PROXIMO-PASSO-REVENUE-SKILLS.md](../DOE/PROXIMO-PASSO-REVENUE-SKILLS.md) - Plano revenue skills
+- ✅ [DOE/XQUADS-ANALYSIS.md](../DOE/XQUADS-ANALYSIS.md) - Análise Xquads-Squads (9.5K+ words)
+- ✅ [DOE/XQUADS-ACTIONS.md](../DOE/XQUADS-ACTIONS.md) - Ações imediatas Xquads integration
 
-### 🎯 PRÓXIMO PASSO → Skills de Receita (Phase 1.2)
-**Opção Recomendada:** Revenue-Generating Skills (8-12h, ROI 🔥🔥🔥🔥🔥)
+### 🔥 XQUADS-SQUADS INTEGRATION (Boost nas Revenue Skills)
+
+**Repositório Analisado:** https://github.com/ohmyjahh/xquads-squads  
+**Análise Completa:** [DOE/XQUADS-ANALYSIS.md](../DOE/XQUADS-ANALYSIS.md)
+
+#### 3 Integrações Críticas (ROI Imediato):
+
+1. **Hormozi Framework** → proposal-generator
+   - Value Equation: (Dream × Likelihood) / (Time × Effort)
+   - Grand Slam Offer: Core + Bonuses + Scarcity + Guarantee
+   - **ROI:** 2.5x taxa de conversão (20% → 50%+)
+   - **Esforço:** +2h
+
+2. **OWASP Top 10** → code-reviewer
+   - Checklists completos (A01-A10)
+   - Patterns: SQL injection, XSS, secrets, path traversal
+   - **ROI:** Economiza R$ 15K em pentest externo
+   - **Esforço:** +1h
+
+3. **Multi-Tier Architecture** → todas revenue skills
+   - Tier 0: Orchestrator (coordena)
+   - Tier 1A/B/C: Specialists (executam)
+   - Tier 1D: Quality checkers (valida)
+   - **ROI:** Qualidade superior + escalabilidade
+   - **Esforço:** +30min por skill
+
+**Tempo Total com Xquads Boost:** +4-5h além do planejado original  
+**ROI Total:** 2.5x conversão + R$ 15K economizado + qualidade enterprise
+
+### 🎯 PRÓXIMO PASSO → Revenue Skills com Xquads Boost (Phase 1.2)
+**Opção CONFIRMADA:** Revenue Skills Enhanced (12-16h, ROI 🔥🔥🔥🔥🔥)
 
 ---
 
@@ -76,8 +108,11 @@ git reset --hard 4e3cfa4
 - ✅ SkillTool implementado e funcionando ✅ **CONCLUÍDO**
 - ✅ GrepTool + GlobTool funcionando ✅ **CONCLUÍDO**
 - ✅ Cost Tracker registrando custos corretamente ✅ **CONCLUÍDO**
-- [ ] Mínimo 3 skills de receita operacionais (proposal-generator, code-reviewer, documentation-generator)
-- [ ] Testes de validação passando
+- ✅ Xquads-Squads analysis completo ✅ **CONCLUÍDO**
+- [ ] **3 Revenue Skills com Xquads Boost** (proposal-generator, code-reviewer, documentation-generator)
+- [ ] **Social Media Pro** (Copy Squad integration - 23 copywriters)
+- [ ] **Social Media High-Ticket** renomeada e especializada
+- [ ] Testes de validação passando (proposal conversão 50%+, OWASP 90%+, docs 95%+)
 - [ ] Deploy em produção estável por 48h
 
 **Data de início:** 01/04/2026  
@@ -178,74 +213,209 @@ git reset --hard 4e3cfa4
 
 ---
 
-### 1.2 Skills Focadas em Receita (IMPLEMENTAR ESTAS!)
+### 1.2 Revenue Skills com Xquads Boost (IMPLEMENTAR AGORA!)
 
-#### 💼 Skill: proposal-generator (PRIORITÁRIA #1)
+**Arquitetura:** Multi-Tier (Orchestrator → Specialists → Quality Checkers)  
+**Referências:** [DOE/XQUADS-ANALYSIS.md](../DOE/XQUADS-ANALYSIS.md) + [DOE/XQUADS-ACTIONS.md](../DOE/XQUADS-ACTIONS.md)
 
-**ROI:** 🔥🔥🔥🔥🔥 - Cria propostas comerciais em minutos → **VENDE MAIS RÁPIDO**
+#### 💼 Skill: proposal-generator (HORMOZI-POWERED) 🔥🔥🔥🔥🔥
 
-- [ ] Criar `src/skills/revenue/proposal-generator.ts`
-- [ ] Prompt: Analisar requisitos do cliente + gerar proposta estruturada
-- [ ] Output: Proposta com: escopo, cronograma, investimento, termos
-- [ ] Registrar no SkillRegistry
-- [ ] Testar com caso real
+**ROI:** 2.5x conversão (20% → 50%+) - Ofertas irresistíveis com $100M Offers Framework  
+**Esforço:** 4-6h (vs 3-4h versão básica)  
+**Diferencial:** Não é template, é sistema de criação de ofertas
 
-**Prompt da Skill:**
-```markdown
-# Gerador de Propostas Comerciais
-
-Analise os requisitos fornecidos e crie uma proposta comercial profissional incluindo:
-1. Resumo executivo
-2. Escopo detalhado do projeto
-3. Cronograma com milestones
-4. Investimento (breakdown por fase)
-5. Termos e condições
-6. Próximos passos
-
-Formato: Markdown pronto para enviar ao cliente.
+**Estrutura:**
+```
+.agents/skills/proposal-generator/
+├── SKILL.md                           # Orquestração
+├── agents/                            # MULTI-TIER
+│   ├── orchestrator.md               # Tier 0 (coordena)
+│   ├── offer-architect.md            # Tier 1A (Grand Slam Offer)
+│   ├── value-calculator.md           # Tier 1A (Value Equation)
+│   ├── pricing-strategist.md         # Tier 1B (estratégia preço)
+│   ├── proposal-writer.md            # Tier 1C (produção)
+│   └── quality-checker.md            # Tier 1D (valida >= 8.0)
+├── tasks/
+│   ├── create-grand-slam-offer.md
+│   ├── calculate-value-equation.md
+│   └── write-proposal.md
+├── templates/
+│   └── proposal-commercial.md
+├── data/
+│   └── hormozi-frameworks.md         # Value Equation + Grand Slam
+└── checklists/
+    └── proposal-quality.md
 ```
 
----
+**Tasks:**
+- [ ] Criar estrutura de diretórios
+- [ ] Implementar agents/ (orchestrator + 5 specialists)
+- [ ] Criar hormozi-frameworks.md (Value Equation + Grand Slam Offer)
+- [ ] Criar tasks/ (offer, value, proposal)
+- [ ] Criar template proposal-commercial.md
+- [ ] Criar checklist proposal-quality.md (score mínimo 8.0)
+- [ ] Testar com caso real (proposta sistema ERP)
+- [ ] Validar conversão 50%+
 
-#### 🔍 Skill: code-reviewer (PRIORITÁRIA #2)
-
-**ROI:** 🔥🔥🔥🔥🔥 - Revisa código 10x mais rápido → **ENTREGA MAIS PROJETOS**
-
-- [ ] Criar `src/skills/revenue/code-reviewer.ts`
-- [ ] Prompt: Analisar código + identificar bugs, code smells, melhorias
-- [ ] Output: Relatório estruturado com issues priorizados
-- [ ] Registrar no SkillRegistry
-- [ ] Testar com arquivo real
-
-**Prompt da Skill:**
-```markdown
-# Revisor de Código Profissional
-
-Analise o código fornecido e identifique:
-1. 🐛 Bugs críticos (segurança, lógica, performance)
-2. 💡 Melhorias sugeridas (arquitetura, clean code)
-3. 📚 Documentação faltante
-4. 🧪 Casos de teste necessários
-5. Prioridade: CRÍTICO > ALTO > MÉDIO > BAIXO
-
-Formato: Checklist pronto para action.
+**Value Equation (Hormozi):**
+```
+Value = (Dream Outcome × Perceived Likelihood) / (Time Delay × Effort & Sacrifice)
 ```
 
----
-
-#### 📝 Skill: documentation-generator (PRIORITÁRIA #3)
-
-**ROI:** 🔥🔥🔥🔥 - Documenta projetos automaticamente → **ENTREGA PROFISSIONAL**
-
-- [ ] Criar `src/skills/revenue/documentation-generator.ts`
-- [ ] Prompt: Analisar codebase + gerar README, API docs, arquitetura
-- [ ] Output: Documentação completa em Markdown
-- [ ] Registrar no SkillRegistry
-- [ ] Testar com projeto real
+**Grand Slam Offer:**
+- Core Product (valor base)
+- Bonuses (2-3x valor)
+- Scarcity (limite vagas/tempo)
+- Urgency (por que agora)
+- Guarantee (risk reversal)
 
 ---
 
-#### 👥 Skill: client-analyzer (PRIORITÁRIA #4)
+#### 🔍 Skill: code-reviewer (OWASP-POWERED) 🔥🔥🔥🔥🔥
+
+**ROI:** Economiza R$ 15K em pentest + 90%+ detecção vulnerabilidades  
+**Esforço:** 4-6h (vs 3-4h versão básica)  
+**Diferencial:** Não é pattern matching, é análise de segurança profissional
+
+**Estrutura:**
+```
+.agents/skills/code-reviewer/
+├── SKILL.md
+├── agents/                            # MULTI-TIER
+│   ├── security-orchestrator.md      # Tier 0
+│   ├── owasp-specialist.md           # Tier 1A (OWASP Top 10)
+│   ├── sast-analyzer.md              # Tier 1B (Static Analysis)
+│   └── pentest-reviewer.md           # Tier 1C (pentester mindset)
+├── tasks/
+│   ├── scan-owasp-top10.md
+│   ├── detect-secrets.md
+│   └── analyze-dependencies.md
+├── checklists/
+│   ├── owasp-top10.md                # A01-A10 completo
+│   └── cwe-top25.md
+└── patterns/
+    ├── sql-injection.regex
+    ├── xss-patterns.regex
+    └── secret-patterns.regex
+```
+
+**Tasks:**
+- [ ] Criar estrutura de diretórios
+- [ ] Implementar agents/ (orchestrator + 3 specialists)
+- [ ] Criar owasp-top10.md (checklist A01-A10)
+- [ ] Criar patterns/ (sql-injection, xss, secrets)
+- [ ] Criar tasks/ (scan, detect, analyze)
+- [ ] Integrar com GrepTool (buscar patterns)
+- [ ] Testar com código vulnerável
+- [ ] Validar detecção 90%+
+
+**OWASP Top 10 (2021):**
+- A01: Broken Access Control
+- A02: Cryptographic Failures
+- A03: Injection (SQL, Command, XSS)
+- A05: Security Misconfiguration
+- A07: Authentication Failures
+
+---
+
+#### 📝 Skill: documentation-generator (MULTI-TIER) 🔥🔥🔥🔥
+
+**ROI:** Docs 95%+ completos + readability otimizada  
+**Esforço:** 3-4h (vs 2-3h versão básica)  
+**Diferencial:** Quality checkers garantem completude
+
+**Estrutura:**
+```
+.agents/skills/documentation-generator/
+├── SKILL.md
+├── agents/                            # MULTI-TIER
+│   ├── doc-orchestrator.md           # Tier 0
+│   ├── readme-specialist.md          # Tier 1A
+│   ├── api-documenter.md             # Tier 1A
+│   ├── structure-mapper.md           # Tier 1B
+│   └── completeness-checker.md       # Tier 1C (valida 95%+)
+├── tasks/
+│   ├── map-structure.md              # GlobTool
+│   ├── extract-endpoints.md          # GrepTool
+│   └── write-readme.md
+└── templates/
+    ├── README-template.md
+    └── API-reference-template.md
+```
+
+**Tasks:**
+- [ ] Criar estrutura de diretórios
+- [ ] Implementar agents/ (orchestrator + 4 specialists)
+- [ ] Criar templates/ (README, API reference)
+- [ ] Criar tasks/ (map, extract, write)
+- [ ] Integrar GlobTool (estrutura) + GrepTool (endpoints)
+- [ ] Testar com projeto real (GueClaw)
+- [ ] Validar completude 95%+
+
+---
+
+#### 📱 Skill: social-media-pro (COPY SQUAD) 🔥🔥🔥🔥
+
+**ROI:** Copy de nível profissional (8.5/10) com 23 copywriters  
+**Esforço:** 3-4h  
+**Diferencial:** 23 personas vs 1 generalista
+
+**Estrutura:**
+```
+.agents/skills/social-media-pro/
+├── SKILL.md
+├── agents/                            # COPY SQUAD (23 PERSONAS)
+│   ├── copy-chief.md                 # Orchestrator
+│   ├── gary-halbert.md               # Direct response legend
+│   ├── eugene-schwartz.md            # 5 níveis consciência
+│   ├── dan-kennedy.md                # No-BS marketing
+│   ├── russell-brunson.md            # Funnels
+│   └── ... (+ 18 personas)
+├── tasks/
+│   ├── write-headline.md             # 10 headlines A/B test
+│   ├── write-vsl-script.md           # Script de vídeo
+│   └── write-email-sequence.md       # 5-7 emails
+├── workflows/
+│   └── full-copy-project.yaml        # Headline → Body → CTA
+└── data/
+    └── copy-frameworks.md             # Gary Halbert, Schwartz
+```
+
+**Tasks:**
+- [ ] Criar estrutura de diretórios
+- [ ] Implementar agents/ (orchestrator + 23 copywriters)
+- [ ] Criar tasks/ (headline, vsl, email)
+- [ ] Criar copy-frameworks.md (personas + frameworks)
+- [ ] Criar workflow full-copy-project.yaml
+- [ ] Testar com campanha real
+- [ ] Validar qualidade 8.5/10
+
+**Copywriters Incluídos:**
+- **Tier 1A - Direct Response:** Gary Halbert, Eugene Schwartz, Claude Hopkins, Gary Bencivenga
+- **Tier 1B - Modern Funnels:** Dan Kennedy, Russell Brunson, Frank Kern
+- **Tier 1C - Email:** Ben Settle, Andre Chaperon
+- **Tier 1D - Sales Pages:** Joe Sugarman, David Ogilvy
+
+---
+
+#### 🎯 Skill: social-media-high-ticket (RENOMEADA)
+
+**Status:** ✅ **CONCLUÍDA** - Pasta renomeada + SKILL.md atualizado  
+**Uso Específico:** Produtos/serviços premium (R$ 5K+), mentorias, consultorias
+
+**Alterações:**
+- ✅ Pasta `social-media` → `social-media-high-ticket`
+- ✅ SKILL.md: name → `social-media-high-ticket`
+- ✅ SKILL.md: description → foco em HIGH-TICKET
+- ✅ SKILL.md: version → `1.1.0`
+
+**Diferença vs social-media-pro:**
+- **High-Ticket:** Público C2+, autoridade máxima, sessão estratégica
+- **Pro:** Volume, copy profissional, campanhas de conversão
+
+---
+
+#### 👥 Skill: client-analyzer (OPCIONAL)
 
 **ROI:** 🔥🔥🔥🔥 - Analisa histórico de cliente → **VENDE MELHOR**
 
