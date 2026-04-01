@@ -1,15 +1,20 @@
 import { SkillLoader } from './skill-loader';
 import { AgentLoop } from '../agent-loop/agent-loop';
+import { ForkedExecutor } from './forked-executor';
 import { ToolRegistry } from '../../tools/tool-registry';
 import { ILLMProvider } from '../providers/base-provider';
 import { ProviderFactory } from '../providers/provider-factory';
+import { SkillExecutionMode, ForkedExecutionOptions } from '../../types/skill';
 
 /**
  * Skill Executor - Executes a skill with the Agent Loop
+ * Supports both normal and forked execution modes
  */
 export class SkillExecutor {
   /**
    * Execute a skill with the given user input
+   * 
+   * @param mode - Execution mode: 'normal' (default) or 'forked' (isolated)
    */
   public static async execute(
     skillName: string,
@@ -17,10 +22,12 @@ export class SkillExecutor {
     conversationHistory: any[],
     useReasoning: boolean = false,
     extraContext?: string,
-    conversationId?: string
+    conversationId?: string,
+    mode: SkillExecutionMode = 'normal',
+    forkedOptions?: ForkedExecutionOptions
   ): Promise<string> {
     try {
-      console.log(`🎯 Executing skill: ${skillName}`);
+      console.log(`🎯 Executing skill: ${skillName} (mode: ${mode})`);
 
       // Load skill content
       const skillContent = SkillLoader.loadSkillContent(skillName);
@@ -76,6 +83,44 @@ Instruções adicionais:
 - Para perguntas simples que não precisam de ação: responda diretamente sem o formato estruturado
 `;
 
+      // FORK DECISION: Execute in isolated context if mode is 'forked'
+      if (mode === 'forked') {
+        console.log(`🔀 Using FORKED execution (isolated context)`);
+        
+        // Check feature flag
+        const forkedEnabled = process.env.ENABLE_FORKED_SKILLS === 'true';
+        if (!forkedEnabled) {
+          console.warn(`⚠️  ENABLE_FORKED_SKILLS=false, falling back to normal mode`);
+        } else {
+          // Execute in forked context
+          const forkedResult = await ForkedExecutor.execute(
+            skillName,
+            userInput,
+            conversationHistory,
+            provider,
+            systemPrompt,
+            {
+              ...forkedOptions,
+              useReasoning,
+              extraContext,
+              conversationId,
+            }
+          );
+
+          if (forkedResult.success) {
+            console.log(`✅ Forked execution completed: ${ForkedExecutor.getExecutionStats(forkedResult)}`);
+            return forkedResult.output;
+          } else {
+            console.error(`❌ Forked execution failed: ${forkedResult.error}`);
+            // Fall back to normal mode on error
+            console.log(`   Falling back to normal execution mode`);
+          }
+        }
+      }
+
+      // NORMAL EXECUTION (default or fallback from forked error)
+      console.log(`🔄 Using NORMAL execution (shared context)`);
+      
       // Initialize Agent Loop — pass blockedTools so the schema never exposes them
       const agentLoop = new AgentLoop(provider, conversationHistory, systemPrompt, extraContext, metadata?.blocked_tools, conversationId);
 

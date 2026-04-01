@@ -18,6 +18,7 @@ import { AudioTool } from './tools/audio-tool';
 import { FinancialTool } from './tools/financial-tool';
 import { MCPManager } from './tools/mcp-manager';
 import { MCPTool } from './tools/mcp-tool';
+import { createSkillTool } from './tools/skill-tool';
 
 // Import services
 import { Heartbeat } from './services/heartbeat';
@@ -124,6 +125,7 @@ class GueClaw {
       new AnalyzeImageTool(),
       new AudioTool(),
       new FinancialTool(),
+      createSkillTool(), // SkillTool: LLM can invoke skills proactively
     ]);
 
     console.log(`✅ Registered ${ToolRegistry.getAllNames().length} tools`);
