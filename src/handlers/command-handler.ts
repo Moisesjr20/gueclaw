@@ -5,6 +5,7 @@ import { MemoryManager } from '../core/memory/memory-manager';
 import { Heartbeat } from '../services/heartbeat';
 import { TelegramNotifier } from '../services/telegram-notifier';
 import { CostHandler } from './cost-handler';
+import { MCPCommandHandler } from './mcp-handler';
 
 const VERSION = process.env.npm_package_version || '2.3.0';
 const START_TIME = Date.now();
@@ -55,6 +56,10 @@ export class CommandHandler {
       case '/cost':
       case '/custo':
         await CostHandler.handle(ctx, input.userId, text);
+        return true;
+
+      case '/mcp':
+        await MCPCommandHandler.handle(ctx);
         return true;
 
       default:
@@ -119,6 +124,8 @@ export class CommandHandler {
       ``,
       `/limpar — Apaga o histórico desta conversa`,
       `/status — Mostra provider, memória e uptime`,
+      `/cost — Mostra custos de uso do LLM`,
+      `/mcp — Gerencia integração MCP (115+ tools)`,
       `/monitorar add &lt;tipo&gt; &lt;alvo&gt; [label] — Adiciona monitor`,
       `/monitorar remove &lt;id&gt; — Remove monitor`,
       `/monitorar list — Lista monitores ativos`,
