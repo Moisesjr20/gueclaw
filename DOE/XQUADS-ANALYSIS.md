@@ -107,10 +107,12 @@ squad-name/
 - Frameworks de copy básicos
 
 **Oportunidade:**
-- Integrar **23 personas de copywriters** do Xquads → **✅ 13/23 COMPLETOS (57%)** *(atualizado 2026-04-02)*
+- Integrar **23 personas de copywriters** do Xquads → **✅ 16/23 COMPLETOS (70%)** *(atualizado 2026-04-02)*
+  - ✅ **TIER 0 Foundational Legends (7/7 = 100%)**: Gary Halbert, Eugene Schwartz, Dan Kennedy, Joe Sugarman, Ben Settle, Russell Brunson, David Ogilvy
   - ✅ **TIER 1A Direct Response (5/5 = 100%)**: Claude Hopkins, Gary Bencivenga, John Carlton, Jay Abraham, Perry Marshall
-  - ✅ Tier 0: Gary Halbert, Eugene Schwartz, Dan Kennedy, Joe Sugarman, Ben Settle, Russell Brunson, David Ogilvy (7 lendários)
-  - 🔄 **PENDENTE (10 copywriters)**: Tier 1B Modern Funnels (3), Tier 1C Email (2), Tier 1D Traffic/Media (5)
+  - ✅ **TIER 1B Modern Funnels (3/3 = 100%)**: Frank Kern, Todd Brown, Ryan Deiss
+  - ✅ **TIER 1C Email Specialists (1/2 = 50%)**: Andre Chaperon ✅, Sabri Suby 🔄
+  - 🔄 **TIER 1D Traffic & Media Buyers (0/5 = 0%)**: Justin Brooke, Molly Pittman, Stefan Georgi, Jim Edwards, Josh Fechter - PENDENTE
 - ✅ Tasks específicas criadas: write-headline, write-vsl-script, write-email-sequence
 - 🔄 Workflows de revisão de copy (copy-review-cycle) - PENDENTE
 
