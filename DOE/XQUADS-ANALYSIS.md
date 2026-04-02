@@ -107,9 +107,12 @@ squad-name/
 - Frameworks de copy básicos
 
 **Oportunidade:**
-- Integrar **23 personas de copywriters** do Xquads
-- Adicionar tasks específicas: write-headline, write-vsl-script, write-email-sequence
-- Criar workflows de revisão de copy (copy-review-cycle)
+- Integrar **23 personas de copywriters** do Xquads → **✅ 13/23 COMPLETOS (57%)** *(atualizado 2026-04-02)*
+  - ✅ **TIER 1A Direct Response (5/5 = 100%)**: Claude Hopkins, Gary Bencivenga, John Carlton, Jay Abraham, Perry Marshall
+  - ✅ Tier 0: Gary Halbert, Eugene Schwartz, Dan Kennedy, Joe Sugarman, Ben Settle, Russell Brunson, David Ogilvy (7 lendários)
+  - 🔄 **PENDENTE (10 copywriters)**: Tier 1B Modern Funnels (3), Tier 1C Email (2), Tier 1D Traffic/Media (5)
+- ✅ Tasks específicas criadas: write-headline, write-vsl-script, write-email-sequence
+- 🔄 Workflows de revisão de copy (copy-review-cycle) - PENDENTE
 
 **Implementação Proposta:**
 
