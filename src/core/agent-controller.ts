@@ -1,5 +1,5 @@
 import { Context } from 'grammy';
-import { TelegramInput, NO_REPLY } from '../types';
+import { TelegramInput, NO_REPLY, Message } from '../types';
 import { TelegramInputHandler } from '../handlers/telegram-input-handler';
 import { TelegramOutputHandler } from '../handlers/telegram-output-handler';
 import { CommandHandler } from '../handlers/command-handler';
@@ -11,6 +11,7 @@ import { SkillExecutor } from '../core/skills/skill-executor';
 import { AgentLoop } from '../core/agent-loop/agent-loop';
 import { IdentityLoader } from '../utils/identity-loader';
 import { ProviderFactory } from '../core/providers/provider-factory';
+import { ContextCompressor } from '../services/context-compressor';
 import * as fs from 'fs';
 import pdfParse from 'pdf-parse';
 import * as Papa from 'papaparse';
@@ -23,12 +24,22 @@ export class AgentController {
   private memoryManager: MemoryManager;
   private skillRouter: SkillRouter;
   private availableSkills: any[];
+  private contextCompressor: ContextCompressor;
 
   constructor() {
     this.inputHandler = new TelegramInputHandler();
     this.memoryManager = new MemoryManager();
     this.skillRouter = new SkillRouter();
     this.availableSkills = [];
+
+    // Initialize context compressor with env config
+    const maxMessages = parseInt(process.env.CONTEXT_COMPACT_THRESHOLD || '30', 10);
+    this.contextCompressor = new ContextCompressor({
+      maxMessages,
+      recentMessagesWindow: parseInt(process.env.CONTEXT_RECENT_WINDOW || '10', 10),
+      initialMessagesKeep: parseInt(process.env.CONTEXT_INITIAL_KEEP || '2', 10),
+      strategy: (process.env.CONTEXT_COMPRESSION_STRATEGY as any) || 'sliding-window',
+    });
 
     // Load skills
     this.loadSkills();
@@ -265,51 +276,44 @@ export class AgentController {
   }
 
   /**
-   * Compact old messages if the conversation exceeds CONTEXT_COMPACT_THRESHOLD.
-   * Summarises messages beyond the active window using the LLM and stores the
-   * summary both on disk (PersistentMemory) and in the DB as a system message.
+   * Compact old messages if the conversation exceeds configured threshold.
+   * Uses the Context Compression service (Phase 3.1) for intelligent summarization.
    */
   private async compactIfNeeded(conversationId: string, userId: string): Promise<void> {
-    const threshold = parseInt(process.env.CONTEXT_COMPACT_THRESHOLD || '30', 10);
-    const total = this.memoryManager.countMessages(conversationId);
+    // Get all messages for this conversation
+    const messages = this.memoryManager.getAllMessages(conversationId);
 
-    if (total <= threshold) return;
+    if (messages.length === 0) return;
 
-    console.log(`🗜️  Compacting conversation (${total} msgs > threshold ${threshold})...`);
+    // Check if compression needed and compress
+    const { messages: compressed, result } = await this.contextCompressor.compressIfNeeded(messages);
 
-    const oldMessages = this.memoryManager.getOldMessages(conversationId);
-    if (oldMessages.length === 0) return;
+    if (!result.compressed) return;
 
-    // Build a plain-text transcript of the old messages
-    const transcript = oldMessages
-      .map(m => `[${m.role.toUpperCase()}]: ${m.content.substring(0, 500)}`)
-      .join('\n');
+    // Update memory with compressed messages
+    console.log(`🗜️  Updating conversation with compressed context...`);
 
-    const summarisationPrompt = [
-      { conversationId: 'compact', role: 'user' as const, content: `Resuma em português o seguinte trecho de conversa de forma concisa (máx. 400 palavras). Preserve fatos, decisões e contexto técnico importantes:\n\n${transcript}` },
-    ];
+    // Find which messages were removed (not in compressed set)
+    const compressedIds = new Set(compressed.map((m: Message) => m.id));
+    const removedIds = messages
+      .map((m: Message) => m.id)
+      .filter((id: string | undefined) => id && !compressedIds.has(id))
+      .filter(Boolean) as string[];
 
-    try {
-      const provider = ProviderFactory.getFastProvider();
-      const summaryResponse = await provider.generateCompletion(summarisationPrompt, {
-        temperature: 0.3,
-        maxTokens: 600,
-      });
-
-      const summary = summaryResponse.content.trim();
-
-      // Persist to disk
-      PersistentMemory.saveCompact(userId, summary);
-
-      // Replace old messages in DB with a compact summary system message
-      const ids = oldMessages.map(m => m.id).filter(Boolean) as string[];
-      this.memoryManager.deleteMessages(ids);
-      this.memoryManager.addCompactSummary(conversationId, summary);
-
-      console.log(`✅ Compaction done — removed ${ids.length} old messages`);
-    } catch (err: any) {
-      console.error('⚠️  Compaction failed (non-critical):', err.message);
+    // Delete old messages
+    if (removedIds.length > 0) {
+      this.memoryManager.deleteMessages(removedIds);
     }
+
+    // Add summary if needed (new message with summary)
+    if (result.summary) {
+      this.memoryManager.addCompactSummary(conversationId, result.summary);
+      
+      // Persist summary to disk for backup
+      PersistentMemory.saveCompact(userId, result.summary);
+    }
+
+    console.log(`✅ Compression complete: ${result.originalCount} → ${result.newCount} messages (saved ~${result.tokensSaved} tokens)`);
   }
 
   /**
