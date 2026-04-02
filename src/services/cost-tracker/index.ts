@@ -22,3 +22,8 @@ export {
   type TokenEstimate,
   type LLMUsage,
 } from './token-estimator';
+export {
+  CostAlerts,
+  costAlerts,
+  type CostAlertConfig,
+} from './cost-alerts';

@@ -47,6 +47,7 @@ export interface LLMResponse {
     promptTokens: number;
     completionTokens: number;
     totalTokens: number;
+    cachedTokens?: number; // Cost Tracker - Phase 2.3
   };
 }
 

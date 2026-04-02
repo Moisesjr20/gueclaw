@@ -1,6 +1,7 @@
 import axios, { AxiosInstance } from 'axios';
 import { ILLMProvider, CompletionOptions } from './base-provider';
 import { Message, LLMResponse } from '../../types';
+import { costTracker } from '../../services/cost-tracker';
 
 /**
  * DeepSeek Reasoner Provider - Extended reasoning model for complex programming tasks
@@ -49,7 +50,39 @@ export class DeepSeekReasonerProvider implements ILLMProvider {
       const response = await this.client.post('/chat/completions', payload);
 
       // Parse response
-      return this.parseResponse(response.data);
+      const llmResponse = this.parseResponse(response.data);
+
+      // Track cost (DeepSeek Reasoner é PAGO)
+      try {
+        if (llmResponse.usage) {
+          const userId = (options as any)?.userId || 
+                        process.env.TELEGRAM_ALLOWED_USER_IDS?.split(',')[0] || 
+                        'system';
+          
+          await costTracker.trackLLMCall({
+            provider: 'deepseek',
+            model: this.model,
+            userId,
+            operation: 'reasoning',
+            usage: {
+              promptTokens: llmResponse.usage.promptTokens,
+              completionTokens: llmResponse.usage.completionTokens,
+              totalTokens: llmResponse.usage.totalTokens,
+              cachedTokens: llmResponse.usage.cachedTokens || 0,
+            },
+          });
+
+          // Check daily cost alerts (async, não bloqueia)
+          const { costAlerts } = await import('../../services/cost-tracker');
+          costAlerts.checkDailyThreshold(userId).catch(err => {
+            console.warn('[CostAlerts] Check failed:', err);
+          });
+        }
+      } catch (trackError) {
+        console.warn('[CostTracker] Failed to track DeepSeek Reasoner:', trackError);
+      }
+
+      return llmResponse;
 
     } catch (error: any) {
       console.error('❌ DeepSeek Reasoner API error:', error.response?.data || error.message);

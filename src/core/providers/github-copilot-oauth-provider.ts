@@ -499,6 +499,12 @@ export class GitHubCopilotOAuthProvider implements ILLMProvider {
               totalTokens: llmResponse.usage.totalTokens,
             },
           });
+
+          // Check daily cost alerts (async, não bloqueia)
+          const { costAlerts } = await import('../../services/cost-tracker');
+          costAlerts.checkDailyThreshold(userId).catch(err => {
+            console.warn('[CostAlerts] Check failed:', err);
+          });
         }
       } catch (trackError) {
         // Não falha o request se tracking falhar

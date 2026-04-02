@@ -4,6 +4,7 @@ import { TelegramOutputHandler } from './telegram-output-handler';
 import { MemoryManager } from '../core/memory/memory-manager';
 import { Heartbeat } from '../services/heartbeat';
 import { TelegramNotifier } from '../services/telegram-notifier';
+import { CostHandler } from './cost-handler';
 
 const VERSION = process.env.npm_package_version || '2.3.0';
 const START_TIME = Date.now();
@@ -50,6 +51,11 @@ export class CommandHandler {
 
       case '/monitorar':
         return this.handleMonitorar(ctx, text);
+
+      case '/cost':
+      case '/custo':
+        await CostHandler.handle(ctx, input.userId, text);
+        return true;
 
       default:
         // Unknown command — let the LLM handle it naturally
