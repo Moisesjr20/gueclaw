@@ -12,6 +12,7 @@ import { AgentLoop } from '../core/agent-loop/agent-loop';
 import { IdentityLoader } from '../utils/identity-loader';
 import { ProviderFactory } from '../core/providers/provider-factory';
 import { ContextCompressor } from '../services/context-compressor';
+import { MemoryManagerService } from '../services/memory-extractor';
 import * as fs from 'fs';
 import pdfParse from 'pdf-parse';
 import * as Papa from 'papaparse';
@@ -25,6 +26,7 @@ export class AgentController {
   private skillRouter: SkillRouter;
   private availableSkills: any[];
   private contextCompressor: ContextCompressor;
+  private memoryExtractor: MemoryManagerService;
 
   constructor() {
     this.inputHandler = new TelegramInputHandler();
@@ -39,6 +41,14 @@ export class AgentController {
       recentMessagesWindow: parseInt(process.env.CONTEXT_RECENT_WINDOW || '10', 10),
       initialMessagesKeep: parseInt(process.env.CONTEXT_INITIAL_KEEP || '2', 10),
       strategy: (process.env.CONTEXT_COMPRESSION_STRATEGY as any) || 'sliding-window',
+    });
+
+    // Initialize memory extractor with env config
+    this.memoryExtractor = MemoryManagerService.getInstance({
+      minMessagesForExtraction: parseInt(process.env.MEMORY_EXTRACT_MIN_MESSAGES || '10', 10),
+      maxMessagesPerBatch: parseInt(process.env.MEMORY_EXTRACT_MAX_BATCH || '20', 10),
+      minConfidence: parseFloat(process.env.MEMORY_EXTRACT_MIN_CONFIDENCE || '0.7'),
+      autoExtractionEnabled: process.env.MEMORY_EXTRACT_ENABLED !== 'false',
     });
 
     // Load skills
@@ -168,6 +178,10 @@ export class AgentController {
       // Save assistant response to memory (skip NO_REPLY sentinel)
       if (response !== NO_REPLY) {
         this.memoryManager.addAssistantMessage(conversation.id, response);
+        
+        // Extract memories from conversation if conditions are met (Phase 3.2)
+        await this.extractMemoriesIfNeeded(conversation.id, input.userId);
+        
         // Send response
         await this.sendResponse(ctx, response);
       } else {
@@ -249,6 +263,12 @@ export class AgentController {
     // USER_ID so the LLM can pass it to memory_write tool
     parts.push(`USER_ID (use em chamadas à ferramenta memory_write): ${userId}`);
 
+    // Extracted memories (Phase 3.2 - Advanced Memory)
+    const extractedMemories = this.memoryExtractor.getContextEnrichment(userId, 10);
+    if (extractedMemories) {
+      parts.push(extractedMemories);
+    }
+
     // Persistent memory (MEMORY.md + today's log)
     const memory = PersistentMemory.read(userId);
     if (memory) {
@@ -314,6 +334,25 @@ export class AgentController {
     }
 
     console.log(`✅ Compression complete: ${result.originalCount} → ${result.newCount} messages (saved ~${result.tokensSaved} tokens)`);
+  }
+
+  /**
+   * Extract memories from conversation if conditions are met (Phase 3.2)
+   * Automatically extracts important context: preferences, decisions, facts, goals
+   */
+  private async extractMemoriesIfNeeded(conversationId: string, userId: string): Promise<void> {
+    try {
+      // Get all messages for this conversation
+      const messages = this.memoryManager.getAllMessages(conversationId);
+
+      if (messages.length === 0) return;
+
+      // Attempt extraction (service decides if conditions are met)
+      await this.memoryExtractor.extractIfNeeded(messages, userId, conversationId);
+    } catch (err) {
+      // Non-critical error - log but don't interrupt conversation
+      console.error('⚠️  Memory extraction failed (non-critical):', err);
+    }
   }
 
   /**

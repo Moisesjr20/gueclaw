@@ -6,6 +6,7 @@ import { Heartbeat } from '../services/heartbeat';
 import { TelegramNotifier } from '../services/telegram-notifier';
 import { CostHandler } from './cost-handler';
 import { MCPCommandHandler } from './mcp-handler';
+import { MemoryHandler } from './memory-handler';
 
 const VERSION = process.env.npm_package_version || '2.3.0';
 const START_TIME = Date.now();
@@ -60,6 +61,11 @@ export class CommandHandler {
 
       case '/mcp':
         await MCPCommandHandler.handle(ctx);
+        return true;
+
+      case '/memory':
+      case '/memoria':
+        await MemoryHandler.handle(ctx, input);
         return true;
 
       default:
