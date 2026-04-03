@@ -1,6 +1,7 @@
 import { Message } from '../../types';
 import { MemoryRepository } from './memory-repository';
 import { MemoryExtractor } from './memory-extractor';
+import { ProviderFactory } from '../../core/providers/provider-factory';
 import {
   ExtractedMemory,
   ExtractionResult,
@@ -19,6 +20,7 @@ export class MemoryManagerService {
   private static instance: MemoryManagerService;
   private repository: MemoryRepository;
   private extractor: MemoryExtractor | null;
+  private extractorInitialized: boolean;
   private config: MemoryExtractionConfig;
   private lastExtractionTime: Map<string, number>; // conversationId -> timestamp
 
@@ -26,21 +28,40 @@ export class MemoryManagerService {
     this.config = { ...DEFAULT_MEMORY_EXTRACTION_CONFIG, ...config };
     this.repository = new MemoryRepository();
     
-    // Only initialize extractor if auto-extraction is enabled (requires LLM provider)
+    // Lazy loading: Don't initialize extractor in constructor
+    // It will be initialized on first use when providers are ready
     this.extractor = null;
-    try {
-      if (this.config.autoExtractionEnabled) {
-        this.extractor = new MemoryExtractor(this.config);
-      }
-    } catch (err) {
-      console.warn('[MemoryManagerService] Failed to initialize extractor, auto-extraction disabled');
-      this.config.autoExtractionEnabled = false;
-    }
+    this.extractorInitialized = false;
     
     this.lastExtractionTime = new Map();
 
     // Schedule periodic cleanup of expired memories
     this.scheduleCleanup();
+  }
+
+  /**
+   * Ensure extractor is initialized (lazy loading)
+   * This allows providers to be ready before initialization
+   */
+  private ensureExtractorInitialized(): void {
+    if (this.extractorInitialized || !this.config.autoExtractionEnabled) {
+      return;
+    }
+
+    try {
+      const provider = ProviderFactory.getFastProvider();
+      if (provider) {
+        this.extractor = new MemoryExtractor(this.config, provider);
+        this.extractorInitialized = true;
+        console.log('✅ [MemoryManagerService] Extractor initialized successfully');
+      } else {
+        // Provider not ready yet, will retry on next call
+        console.log('⏳ [MemoryManagerService] Provider not ready, extractor initialization deferred');
+      }
+    } catch (err) {
+      console.warn('[MemoryManagerService] Failed to initialize extractor:', err);
+      this.config.autoExtractionEnabled = false;
+    }
   }
 
   /**
@@ -61,6 +82,9 @@ export class MemoryManagerService {
     userId: string,
     conversationId: string
   ): Promise<ExtractionResult | null> {
+    // Lazy initialization: ensure extractor is ready
+    this.ensureExtractorInitialized();
+
     // Check if auto-extraction is enabled and extractor is available
     if (!this.config.autoExtractionEnabled || !this.extractor) {
       return null;
