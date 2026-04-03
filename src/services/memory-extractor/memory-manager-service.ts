@@ -56,11 +56,12 @@ export class MemoryManagerService {
         console.log('✅ [MemoryManagerService] Extractor initialized successfully');
       } else {
         // Provider not ready yet, will retry on next call
-        console.log('⏳ [MemoryManagerService] Provider not ready, extractor initialization deferred');
+        // console.log('⏳ [MemoryManagerService] Provider not ready, extractor initialization deferred');
       }
     } catch (err) {
-      console.warn('[MemoryManagerService] Failed to initialize extractor:', err);
-      this.config.autoExtractionEnabled = false;
+      // Log error but allow retry on next call (don't disable permanently)
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      console.warn('[MemoryManagerService] Temporary error initializing extractor, will retry:', errorMessage);
     }
   }
 
