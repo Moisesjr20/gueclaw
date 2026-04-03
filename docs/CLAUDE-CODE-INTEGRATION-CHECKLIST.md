@@ -11,10 +11,12 @@
 ## 🎉 STATUS ATUAL
 
 **Versão em Produção:** ✅ **v3.1-beta**  
-**Branch Atual:** `feature/advanced-memory`  
+**Branch Atual:** `main`  
+**Commit Atual:** `ab54ce8` - feat(phase-3.2): Advanced Memory Extraction System  
+**Tag Atual:** `v3.1-beta`  
 **Fase Atual:** ✅ Fase 3.2 - Advanced Memory (COMPLETA)  
 **Progresso Total:** 🟢 **88% COMPLETO** (Fases 1.1, 1.2, 2.1-2.5, 3.1, 3.2)  
-**Deploy Status:** ⏳ Aguardando deploy VPS  
+**Deploy Status:** ⚠️ GitHub Actions failing (requer VPS_SSH_PRIVATE_KEY) - Deploy manual disponível  
 **Data da Última Implementação:** 03/04/2026
 
 ### ✅ FASE 1.1 - SISTEMA SKILLTOOL (COMPLETA)
