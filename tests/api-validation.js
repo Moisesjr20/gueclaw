@@ -5,7 +5,8 @@
 
 const axios = require('axios');
 
-const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:3022';
+const API_BASE_URL = process.env.API_BASE_URL || 'http://147.93.69.211:3742';
+const API_KEY = process.env.DASHBOARD_API_KEY || 'gc_dash_21965591_9af67ab57a794db2';
 const colors = {
   green: '\x1b[32m',
   red: '\x1b[31m',
@@ -25,12 +26,13 @@ async function testEndpoint(method, path, data = null, expectedStatus = 200) {
       method,
       url: `${API_BASE_URL}${path}`,
       timeout: 10000,
-      validateStatus: () => true // Accept all status codes
+      validateStatus: () => true, // Accept all status codes
+      headers: { 'x-api-key': API_KEY }
     };
 
     if (data) {
       config.data = data;
-      config.headers = { 'Content-Type': 'application/json' };
+      config.headers['Content-Type'] = 'application/json';
     }
 
     const response = await axios(config);
@@ -84,8 +86,8 @@ async function runTests() {
 
   // 1. Status & Health
   console.log(`\n${colors.yellow}[1/5] Status & Health Endpoints${colors.reset}`);
-  await testEndpoint('GET', '/api/status');
-  await testEndpoint('GET', '/api/config');
+  await testEndpoint('GET', '/api/health');
+  await testEndpoint('GET', '/api/stats');
 
   // 2. Skills
   console.log(`\n${colors.yellow}[2/5] Skills Endpoints${colors.reset}`);
@@ -98,8 +100,8 @@ async function runTests() {
 
   // 3. Executions
   console.log(`\n${colors.yellow}[3/5] Executions Endpoints${colors.reset}`);
-  await testEndpoint('GET', '/api/skills/executions');
   await testEndpoint('GET', '/api/skills/executions/recent');
+  await testEndpoint('GET', '/api/conversations');
 
   // 4. Chat
   console.log(`\n${colors.yellow}[4/5] Chat Endpoints${colors.reset}`);
@@ -113,8 +115,9 @@ async function runTests() {
   await testEndpoint('POST', '/api/chat', chatMessage, 201);
 
   // 5. Logs
-  console.log(`\n${colors.yellow}[5/5] Logs Endpoint${colors.reset}`);
-  await testEndpoint('GET', '/api/logs');
+  console.log(`\n${colors.yellow}[5/5] Logs & Monitoring Endpoints${colors.reset}`);
+  await testEndpoint('GET', '/api/logs/tail');
+  await testEndpoint('GET', '/api/pm2/status');
 
   // Results Summary
   console.log(`\n${colors.blue}═══════════════════════════════════════════${colors.reset}`);
