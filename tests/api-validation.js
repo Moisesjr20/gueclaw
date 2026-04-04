@@ -25,7 +25,7 @@ async function testEndpoint(method, path, data = null, expectedStatus = 200) {
     const config = {
       method,
       url: `${API_BASE_URL}${path}`,
-      timeout: 10000,
+      timeout: 30000, // Increased to 30s for LLM calls
       validateStatus: () => true, // Accept all status codes
       headers: { 'x-api-key': API_KEY }
     };
@@ -107,10 +107,10 @@ async function runTests() {
   console.log(`\n${colors.yellow}[4/5] Chat Endpoints${colors.reset}`);
   await testEndpoint('GET', '/api/chat/messages/test-conversation');
   
-  // Test send message (POST)
+  // Test send message (POST) - simple message to avoid long LLM processing
   const chatMessage = {
-    message: 'Test message from API validation',
-    conversationId: 'api-test-' + Date.now()
+    message: 'ping',
+    userId: 'api-test'
   };
   await testEndpoint('POST', '/api/chat', chatMessage, 201);
 
