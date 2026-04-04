@@ -174,6 +174,113 @@ export class DebugAPI {
       }
     });
 
+    // ──────────────────────────────────────────────────────────
+    // Chat — get messages for web interface
+    // ──────────────────────────────────────────────────────────
+    this.app.get('/api/chat/messages/:id', this.auth(), (req: Request, res: Response) => {
+      try {
+        const db = DatabaseConnection.getInstance();
+        const convId = String(req.params.id);
+        const rows = db.prepare(`
+          SELECT 
+            m.id, 
+            m.role, 
+            m.content, 
+            m.timestamp as created_at,
+            m.metadata
+          FROM messages m
+          WHERE m.conversation_id = ?
+          ORDER BY m.timestamp ASC
+        `).all(convId) as any[];
+
+        // Get traces to identify tools used
+        const traces = this.traceRepo.getByConversation(convId);
+        const messageTraces = new Map<string, any[]>();
+        
+        traces.forEach(trace => {
+          const msgId = `${convId}-${trace.iteration}`;
+          if (!messageTraces.has(msgId)) {
+            messageTraces.set(msgId, []);
+          }
+          if (trace.toolName) {
+            messageTraces.get(msgId)!.push(trace.toolName);
+          }
+        });
+
+        const formatted = rows.map((r, idx) => {
+          const msgId = `${convId}-${idx}`;
+          const tools = messageTraces.get(msgId) || [];
+          const metadata = r.metadata ? JSON.parse(r.metadata) : {};
+          
+          return {
+            id: r.id,
+            role: r.role,
+            content: r.content,
+            created_at: r.created_at,
+            tool_calls: tools.length > 0 ? Array.from(new Set(tools)) : undefined,
+            skill_used: metadata.skill_name || undefined,
+          };
+        });
+
+        res.json(formatted);
+      } catch (err: any) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    // ──────────────────────────────────────────────────────────
+    // Chat — send message (web interface)
+    // ──────────────────────────────────────────────────────────
+    this.app.post('/api/chat', this.auth(), async (req: Request, res: Response) => {
+      const { userId = 'dashboard-user', message, provider: providerName } = req.body as { 
+        userId?: string; 
+        message: string;
+        provider?: string;
+      };
+      
+      if (!message || typeof message !== 'string') {
+        return res.status(400).json({ error: 'message is required' });
+      }
+
+      const startMs = Date.now();
+      try {
+        const conversation = this.memoryManager.getConversation(userId, providerName || 'dashboard');
+        this.memoryManager.addUserMessage(conversation.id, message);
+        const history = this.memoryManager.getRecentMessages(conversation.id);
+
+        const enrichment = this.buildEnrichment(userId);
+        const skillName = await this.skillRouter.route(message, this.availableSkills);
+        let response: string;
+
+        if (skillName && SkillLoader.skillExists(skillName)) {
+          response = await SkillExecutor.executeAuto(skillName, message, history, enrichment, conversation.id);
+        } else {
+          const provider = ProviderFactory.getFastProvider();
+          const agentLoop = new AgentLoop(provider, history, undefined, enrichment, undefined, conversation.id);
+          response = await agentLoop.run(message);
+        }
+
+        if (response !== NO_REPLY) {
+          this.memoryManager.addAssistantMessage(conversation.id, response);
+        }
+
+        const traces = this.traceRepo.getByConversation(conversation.id);
+        const durationMs = Date.now() - startMs;
+
+        res.json({
+          conversationId: conversation.id,
+          userId,
+          skillRouted: skillName || null,
+          response: response === NO_REPLY ? '[NO_REPLY - delivered via tool]' : response,
+          durationMs,
+          iterations: traces.length > 0 ? Math.max(...traces.map(t => t.iteration)) : 0,
+          trace: traces.slice(-10), // Last 10 traces only
+        });
+      } catch (err: any) {
+        res.status(500).json({ error: err.message, durationMs: Date.now() - startMs });
+      }
+    });
+
     // Simulate a message (bypasses Telegram, returns full diagnostic)
     this.app.post('/api/simulate', this.auth(), async (req: Request, res: Response) => {
       const { userId = 'debug-user', input } = req.body as { userId?: string; input: string };
