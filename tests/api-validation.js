@@ -94,9 +94,9 @@ async function runTests() {
   await testEndpoint('GET', '/api/skills');
   await testEndpoint('GET', '/api/skills/files/proposal-generator');
   
-  // Test save skill (POST)
-  const skillContent = '# Test Skill\n\nThis is a test.';
-  await testEndpoint('POST', '/api/skills/files/test-skill', { content: skillContent });
+  // Test save skill (POST) - use existing skill
+  const skillContent = '# Proposal Generator\n\nUpdated via API test.';
+  await testEndpoint('POST', '/api/skills/files/proposal-generator', { content: skillContent });
 
   // 3. Executions
   console.log(`\n${colors.yellow}[3/5] Executions Endpoints${colors.reset}`);

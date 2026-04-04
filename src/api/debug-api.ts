@@ -267,7 +267,7 @@ export class DebugAPI {
         const traces = this.traceRepo.getByConversation(conversation.id);
         const durationMs = Date.now() - startMs;
 
-        res.json({
+        res.status(201).json({
           conversationId: conversation.id,
           userId,
           skillRouted: skillName || null,
@@ -566,30 +566,32 @@ export class DebugAPI {
         const db = DatabaseConnection.getInstance();
         const limit = Math.min(Number(req.query.limit) || 10, 50);
         
+        // Get timestamp from 1 hour ago
+        const oneHourAgo = Math.floor(Date.now() / 1000) - 3600;
+        
         const rows = db.prepare(`
           SELECT 
             se.id,
             se.skill_name,
             se.success,
             se.execution_time_ms as duration_ms,
-            se.created_at as started_at,
+            datetime(se.timestamp, 'unixepoch') as started_at,
             CASE WHEN se.success = 1 THEN 'success' ELSE 'error' END as status,
-            GROUP_CONCAT(DISTINCT et.tool_name) as tools_used
+            se.user_id
           FROM skill_executions se
-          LEFT JOIN execution_traces et ON et.conversation_id = se.conversation_id
-          WHERE se.created_at >= datetime('now', '-1 hour')
-          GROUP BY se.id
-          ORDER BY se.created_at DESC
+          WHERE se.timestamp >= ?
+          ORDER BY se.timestamp DESC
           LIMIT ?
-        `).all(limit);
+        `).all(oneHourAgo, limit);
 
         const formatted = rows.map((row: any) => ({
           id: row.id.toString(),
           skill_name: row.skill_name,
           status: row.status,
           started_at: row.started_at,
-          duration_ms: row.duration_ms,
-          tools_used: row.tools_used ? row.tools_used.split(',').filter(Boolean) : [],
+          duration_ms: row.duration_ms || 0,
+          user_id: row.user_id,
+          tools_used: [], // TODO: join with execution_traces if needed
         }));
 
         res.json(formatted);
