@@ -451,6 +451,134 @@ export class DebugAPI {
       }
     });
 
+    // ──────────────────────────────────────────────────────────
+    // Skills — recent executions (for workflows visualization)
+    // ──────────────────────────────────────────────────────────
+    this.app.get('/api/skills/executions/recent', this.auth(), (req: Request, res: Response) => {
+      try {
+        const db = DatabaseConnection.getInstance();
+        const limit = Math.min(Number(req.query.limit) || 10, 50);
+        
+        const rows = db.prepare(`
+          SELECT 
+            se.id,
+            se.skill_name,
+            se.success,
+            se.execution_time_ms as duration_ms,
+            se.created_at as started_at,
+            CASE WHEN se.success = 1 THEN 'success' ELSE 'error' END as status,
+            GROUP_CONCAT(DISTINCT et.tool_name) as tools_used
+          FROM skill_executions se
+          LEFT JOIN execution_traces et ON et.conversation_id = se.conversation_id
+          WHERE se.created_at >= datetime('now', '-1 hour')
+          GROUP BY se.id
+          ORDER BY se.created_at DESC
+          LIMIT ?
+        `).all(limit);
+
+        const formatted = rows.map((row: any) => ({
+          id: row.id.toString(),
+          skill_name: row.skill_name,
+          status: row.status,
+          started_at: row.started_at,
+          duration_ms: row.duration_ms,
+          tools_used: row.tools_used ? row.tools_used.split(',').filter(Boolean) : [],
+        }));
+
+        res.json(formatted);
+      } catch (err: any) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    // ──────────────────────────────────────────────────────────
+    // Skills — get file content (for editor)
+    // ──────────────────────────────────────────────────────────
+    this.app.get('/api/skills/files/:skillName', this.auth(), (req: Request, res: Response) => {
+      try {
+        const { skillName } = req.params;
+        const skillPath = path.resolve(__dirname, `../../.agents/skills/${skillName}/SKILL.md`);
+        
+        if (!fs.existsSync(skillPath)) {
+          return res.status(404).json({ error: 'Skill file not found' });
+        }
+
+        const content = fs.readFileSync(skillPath, 'utf8');
+        
+        res.json({
+          name: skillName,
+          path: `.agents/skills/${skillName}/SKILL.md`,
+          content,
+          language: 'markdown',
+        });
+      } catch (err: any) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    // ──────────────────────────────────────────────────────────
+    // Skills — save file content (for editor)
+    // ──────────────────────────────────────────────────────────
+    this.app.post('/api/skills/files/:skillName', this.auth(), (req: Request, res: Response) => {
+      try {
+        const { skillName } = req.params;
+        const { content } = req.body;
+        
+        if (!content || typeof content !== 'string') {
+          return res.status(400).json({ error: 'content is required' });
+        }
+
+        const skillPath = path.resolve(__dirname, `../../.agents/skills/${skillName}/SKILL.md`);
+        
+        if (!fs.existsSync(skillPath)) {
+          return res.status(404).json({ error: 'Skill file not found' });
+        }
+
+        // Backup before overwriting
+        const backupPath = skillPath + '.backup.' + Date.now();
+        fs.copyFileSync(skillPath, backupPath);
+
+        fs.writeFileSync(skillPath, content, 'utf8');
+        
+        res.json({
+          ok: true,
+          path: `.agents/skills/${skillName}/SKILL.md`,
+          backup: backupPath,
+        });
+      } catch (err: any) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    // ──────────────────────────────────────────────────────────
+    // Skills — execute skill (for testing in editor)
+    // ──────────────────────────────────────────────────────────
+    this.app.post('/api/skills/execute', this.auth(), async (req: Request, res: Response) => {
+      try {
+        const { skill, input } = req.body;
+        
+        if (!skill || !input) {
+          return res.status(400).json({ error: 'skill and input are required' });
+        }
+
+        const startMs = Date.now();
+        
+        // Execute skill with empty conversation history
+        const result = await SkillExecutor.execute(skill, input, []);
+        const durationMs = Date.now() - startMs;
+
+        res.json({
+          ok: true,
+          skill,
+          result,
+          durationMs,
+          timestamp: new Date().toISOString(),
+        });
+      } catch (err: any) {
+        res.status(500).json({ error: err.message, stack: err.stack });
+      }
+    });
+
   }
 
   private buildEnrichment(userId: string): string {
