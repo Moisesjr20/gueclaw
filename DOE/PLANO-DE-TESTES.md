@@ -326,6 +326,8 @@ node tests/database-validation.js
 - **B6:** SQL query error (created_at → timestamp) ✅ Fixed
 - **B7:** Status code missing (POST /api/chat) ✅ Fixed
 - **B8:** Timeout baixo (10s → 30s) ✅ Fixed
+- **B12:** Telegram Markdown parse error em `/mcp <server>` commands ✅ **Fixed (06/04) - commit f7832b9**
+- **B13:** Skill `documentation-generator` excede MAX_ITERATIONS ✅ **Fixed (06/04) - MAX_ITERATIONS 15→30**
 
 **Ações Necessárias:**
 1. ✅ Corrigir bugs B5-B8 (CONCLUÍDO)
@@ -383,36 +385,40 @@ node tests/database-validation.js
 
 ## 💬 **2.1 Testes via Telegram**
 
-### **2.1.1 Comandos Básicos**
+### **2.1.1 Comandos Básicos** ✅
 
 **Abrir:** WhatsApp/Telegram com GueClaw Bot
 
-- [ ] `/start` → Recebe mensagem de boas-vindas
-- [ ] `/help` → Lista todos comandos disponíveis
-- [ ] `/status` → Mostra status do sistema
-- [ ] Enviar mensagem livre → Bot responde coerentemente
+- [x] `/start` → Recebe mensagem de boas-vindas ✅
+- [x] `/help` → Lista todos comandos disponíveis ✅
+- [x] `/status` → Mostra status do sistema ✅
+- [x] Enviar mensagem livre → Bot responde coerentemente ✅
 
 **Critérios de Sucesso:**
 - ✅ Todos comandos respondem em < 5s
 - ✅ Mensagens formatadas corretamente (Markdown)
 - ✅ Sem erros ou timeouts
 
+**Resultado:** ✅ **APROVADO** (06/04/2026)
+
 ---
 
-### **2.1.2 Comando /cost**
+### **2.1.2 Comando /cost** ✅
 
 **Teste de Cost Tracking**
 
-- [ ] `/cost` → Mostra resumo de gastos (dia atual)
-- [ ] `/cost week` → Mostra gastos da semana
-- [ ] `/cost month` → Mostra gastos do mês
-- [ ] `/cost reset` → Reseta contadores (confirmar antes)
+- [x] `/cost` → Mostra resumo de gastos (dia atual) ✅
+- [x] `/cost week` → Mostra gastos da semana ✅
+- [x] `/cost month` → Mostra gastos do mês ✅
+- [x] `/cost reset` → Reseta contadores (confirmar antes) ✅
 
 **Validações:**
 - ✅ Valores calculados corretamente
 - ✅ Formatação de moeda brasileira (R$)
 - ✅ Breakdown por provider (GitHub Copilot, DeepSeek)
 - ✅ Tokens e custo por skill mostrados
+
+**Resultado:** ✅ **APROVADO** (06/04/2026)
 
 **Exemplo de resposta esperada:**
 ```
@@ -430,21 +436,29 @@ node tests/database-validation.js
 
 ---
 
-### **2.1.3 Comando /mcp**
+### **2.1.3 Comando /mcp** ✅
 
 **Teste de MCP Servers**
 
-- [ ] `/mcp` → Lista todos servidores MCP conectados
-- [ ] `/mcp list` → Mostra status de cada servidor
-- [ ] `/mcp github` → Testa GitHub MCP (listar repos)
-- [ ] `/mcp n8n` → Testa n8n MCP (listar workflows)
-- [ ] `/mcp filesystem` → Testa Filesystem MCP (ler arquivo)
+- [x] `/mcp` → Lista todos servidores MCP conectados ✅
+- [x] `/mcp list` → Mostra status de cada servidor ✅ **CORRIGIDO**
+- [x] `/mcp github` → Testa GitHub MCP (listar repos) ✅
+- [x] `/mcp n8n` → Testa n8n MCP (listar workflows) ✅ **CORRIGIDO**
+- [x] `/mcp filesystem` → Testa Filesystem MCP (ler arquivo) ✅ **CORRIGIDO**
 
 **Validações:**
-- ✅ Lista mostra 5+ servidores
-- ✅ Status indica "conectado" ou "desconectado"
-- ✅ Teste individual retorna dados reais
-- ✅ Erros reportados claramente se MCP offline
+- ✅ Lista mostra 7 servidores (128 tools total)
+- ✅ Status indica "conectado"
+- ✅ Comandos individuais funcionam (bug B12 corrigido)
+- ✅ `/mcp github` funciona (26 tools listados corretamente)
+
+**Bug Corrigido:**
+- **B12** 🟡 Médio | Erro Telegram API: "Can't parse entities" ✅ **Fixed (06/04)**
+  - **Solução:** Escapar underscores em nomes de tools (`read\_file`, `n8n\_audit\_instance`)
+  - **Commit:** f7832b9
+  - **Arquivo:** src/handlers/mcp-handler.ts
+
+**Resultado:** ✅ **APROVADO** (100% funcional após correção)
 
 **Exemplo de resposta esperada:**
 ```
@@ -461,35 +475,44 @@ Total: 115 tools disponíveis
 
 ---
 
-### **2.1.4 Testes de Skills**
+### **2.1.4 Testes de Skills** ✅
 
 **Testar 5 skills principais via Telegram**
 
-#### **Skill 1: proposal-generator**
-- [ ] Enviar: "Crie uma proposta comercial para sistema de gestão financeira, cliente: Empresa XYZ, investimento R$ 15.000"
-- [ ] **Esperado:** Proposta completa em Markdown, seções (problema, solução, entrega, investimento, garantia), cálculo de ROI
+#### **Skill 1: proposal-generator** ✅
+- [x] Enviar: "Crie uma proposta comercial para sistema de gestão financeira, cliente: Empresa XYZ, investimento R$ 15.000"
+- [x] **Esperado:** Proposta completa em Markdown, seções (problema, solução, entrega, investimento, garantia), cálculo de ROI ✅
 
-#### **Skill 2: code-reviewer**
-- [ ] Enviar: "Revise este código: [colar snippet de código TypeScript]"
-- [ ] **Esperado:** Análise de qualidade, sugestões de melhoria, boas práticas, security checks
+#### **Skill 2: code-reviewer** ✅
+- [x] Enviar: "Revise este código: [colar snippet de código TypeScript]"
+- [x] **Esperado:** Análise de qualidade, sugestões de melhoria, boas práticas, security checks ✅
 
-#### **Skill 3: documentation-generator**
-- [ ] Enviar: "Documente o arquivo src/skills/skill-router.ts"
-- [ ] **Esperado:** README.md gerado, descrição de funções, exemplos de uso
+#### **Skill 3: documentation-generator** ✅
+- [x] Enviar: "Documente o arquivo src/skills/skill-router.ts"
+- [x] **Esperado:** README.md gerado, descrição de funções, exemplos de uso ✅ **CORRIGIDO**
+- **Estava:** "I reached the maximum number of reasoning steps" (MAX_ITERATIONS=15)
+- **Agora:** Funciona com MAX_ITERATIONS=30
 
-#### **Skill 4: seo-expert**
-- [ ] Enviar: "Analise o SEO do site www.exemplo.com.br"
-- [ ] **Esperado:** Relatório de Core Web Vitals, sugestões de otimização, keywords
+#### **Skill 4: seo-expert** ✅
+- [x] Enviar: "Analise o SEO do site www.exemplo.com.br"
+- [x] **Esperado:** Relatório de Core Web Vitals, sugestões de otimização, keywords ✅
 
-#### **Skill 5: social-media-pro**
-- [ ] Enviar: "Crie 3 posts para Instagram sobre lançamento de produto SaaS"
-- [ ] **Esperado:** 3 posts com copy persuasiva, hashtags, call-to-action
+#### **Skill 5: social-media-pro** ✅
+- [x] Enviar: "Crie 3 posts para Instagram sobre lançamento de produto SaaS"
+- [x] **Esperado:** 3 posts com copy persuasiva, hashtags, call-to-action ✅
+
+**Bug Corrigido:**
+- **B13** 🟡 Médio | Skill `documentation-generator` excedia limites ✅ **Fixed (06/04)**
+  - **Solução:** MAX_ITERATIONS aumentado de 15 para 30
+  - **Arquivo:** .env (local + VPS)
 
 **Critérios de Sucesso:**
-- ✅ Todas skills executam sem erro
+- ✅ 5/5 skills executam sem erro (100%)
 - ✅ Respostas com qualidade > 8/10
 - ✅ Formato correto (Markdown, estrutura esperada)
 - ✅ Tempo de execução < 30s para skills complexas
+
+**Resultado:** ✅ **APROVADO** (100% funcionando após correção)
 
 ---
 
@@ -873,7 +896,9 @@ x] 1.1 Testes Unitários - ✅ (134/134 passing - 100%)
 | B8 | 🟡 Médio | Timeout baixo para LLM (10s → 30s) | ✅ Fixed (04/04) |
 | B9 | 🟡 Médio | GitHub Actions SSH key inválida (26 runs failed) | ⏳ Fixing (aguarda run #46) |
 | B10 | 🟢 Baixo | Backup automático não configurado | 📋 Backlog v3.2 |
-| B11 | 🟢 Baixo | Monitoring de erros parcial | 📋 Backlog v3.2
+| B11 | 🟢 Baixo | Monitoring de erros parcial | 📋 Backlog v3.2 |
+| B12 | 🟡 Médio | Telegram Markdown parse error em `/mcp <server>` | ✅ Fixed (06/04) - commit f7832b9 |
+| B13 | 🟡 Médio | Skill `documentation-generator` excede MAX_ITERATIONS | ✅ Fixed (06/04) - 15→30 |
 - [ ] 1.5 Testes de Segurança - ✅❌ (X/13 OK)
 - [ x] Corrigir bugs críticos (B5, B6) ✅
 2. [x] Corrigir bugs médios (B7, B8) ✅
