@@ -142,7 +142,9 @@ export class MCPCommandHandler {
       const sep = tool.name.indexOf('__');
       const shortName = sep > -1 ? tool.name.slice(sep + 2) : tool.name;
 
-      response += `**${shortName}**\n`;
+      // Escape underscores for Telegram Markdown (fix bug B12)
+      const escapedName = shortName.replace(/_/g, '\\_');
+      response += `**${escapedName}**\n`;
 
       if (tool.description) {
         response += `${tool.description}\n`;
