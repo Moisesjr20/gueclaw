@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const VPS_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://147.93.69.211:3001';
+const VPS_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://147.93.69.211:3742';
 
 export async function GET(
   request: NextRequest,
