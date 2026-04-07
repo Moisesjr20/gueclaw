@@ -3,15 +3,15 @@
 import { useState, useEffect } from 'react';
 import useSWR from 'swr';
 import { 
-  DocumentIcon, 
-  CodeBracketIcon, 
-  PhotoIcon,
-  ArrowDownTrayIcon,
-  MagnifyingGlassIcon,
-  FolderIcon,
-  CalendarIcon,
-  ArrowPathIcon
-} from '@heroicons/react/24/outline';
+  FileText, 
+  Code, 
+  Image,
+  Download,
+  Search,
+  FolderOpen,
+  Calendar,
+  RefreshCw
+} from 'lucide-react';
 
 interface FileItem {
   name: string;
@@ -32,14 +32,14 @@ const getFileIcon = (type: string) => {
     case 'txt':
     case 'md':
     case 'csv':
-      return CodeBracketIcon;
+      return Code;
     case 'pdf':
-      return DocumentIcon;
+      return FileText;
     case 'png':
     case 'jpg':
-      return PhotoIcon;
+      return Image;
     default:
-      return DocumentIcon;
+      return FileText;
   }
 };
 
@@ -113,7 +113,7 @@ export default function FilesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-            <FolderIcon className="w-8 h-8 text-cyan-400" />
+            <FolderOpen className="w-8 h-8 text-cyan-400" />
             Repositório de Arquivos
           </h1>
           <p className="text-gray-400 mt-1">
@@ -125,7 +125,7 @@ export default function FilesPage() {
           className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg 
                      transition-colors flex items-center gap-2 text-white"
         >
-          <ArrowPathIcon className="w-5 h-5" />
+          <RefreshCw className="w-5 h-5" />
           Atualizar
         </button>
       </div>
@@ -162,7 +162,7 @@ export default function FilesPage() {
       <div className="flex flex-col md:flex-row gap-4">
         {/* Search */}
         <div className="flex-1 relative">
-          <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
             type="text"
             placeholder="Buscar arquivos..."
@@ -198,7 +198,7 @@ export default function FilesPage() {
         </div>
       ) : filteredFiles.length === 0 ? (
         <div className="bg-white/5 backdrop-blur-sm rounded-xl p-12 border border-white/10 text-center">
-          <FolderIcon className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+          <FolderOpen className="w-16 h-16 text-gray-600 mx-auto mb-4" />
           <p className="text-gray-400">
             {searchTerm || selectedType !== 'all' 
               ? 'Nenhum arquivo encontrado com os filtros selecionados'
@@ -254,7 +254,7 @@ export default function FilesPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-gray-400 text-sm">
                         <div className="flex items-center gap-2">
-                          <CalendarIcon className="w-4 h-4" />
+                          <Calendar className="w-4 h-4" />
                           {file.modified}
                         </div>
                       </td>
@@ -274,7 +274,7 @@ export default function FilesPage() {
                                    text-green-400 rounded-lg transition-colors inline-flex 
                                    items-center gap-2 text-sm"
                         >
-                          <ArrowDownTrayIcon className="w-4 h-4" />
+                          <Download className="w-4 h-4" />
                           Baixar
                         </button>
                       </td>

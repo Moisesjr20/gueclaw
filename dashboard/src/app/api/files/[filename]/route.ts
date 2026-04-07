@@ -4,10 +4,10 @@ const VPS_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://147.93.69.211:37
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { filename: string } }
+  { params }: { params: Promise<{ filename: string }> }
 ) {
   try {
-    const filename = params.filename;
+    const { filename } = await params;
     const isPreview = request.nextUrl.searchParams.get('preview') === 'true';
 
     const response = await fetch(
