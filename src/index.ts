@@ -21,6 +21,7 @@ import { MCPTool } from './tools/mcp-tool';
 import { createSkillTool } from './tools/skill-tool';
 import { GrepTool } from './tools/grep-tool';
 import { GlobTool } from './tools/glob-tool';
+import { SaveToRepositoryTool } from './tools/save-to-repository-tool';
 
 // Import services
 import { Heartbeat } from './services/heartbeat';
@@ -130,6 +131,7 @@ class GueClaw {
       createSkillTool(), // SkillTool: LLM can invoke skills proactively
       new GrepTool(), // GrepTool: Fast regex search with ripgrep
       new GlobTool(), // GlobTool: Fast file pattern matching
+      new SaveToRepositoryTool(), // Save files to centralized repository
     ]);
 
     console.log(`✅ Registered ${ToolRegistry.getAllNames().length} tools`);

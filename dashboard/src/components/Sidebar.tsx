@@ -1,13 +1,14 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Megaphone, MessageSquare, ScrollText, Wallet, Workflow, FileCode, MessageCircle } from 'lucide-react';
+import { LayoutDashboard, Megaphone, MessageSquare, ScrollText, Wallet, Workflow, FileCode, MessageCircle, FolderOpen } from 'lucide-react';
 
 const NAV = [
   { href: '/overview', label: 'Overview', icon: LayoutDashboard },
   { href: '/chat', label: 'Chat', icon: MessageCircle },
   { href: '/workflows', label: 'Workflows', icon: Workflow },
   { href: '/editor', label: 'Editor', icon: FileCode },
+  { href: '/files', label: 'Arquivos', icon: FolderOpen },
   { href: '/financeiro', label: 'Finanças', icon: Wallet },
   { href: '/campaign', label: 'Campanha', icon: Megaphone },
   { href: '/conversations', label: 'Conversas', icon: MessageSquare },

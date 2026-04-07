@@ -688,6 +688,108 @@ export class DebugAPI {
       }
     });
 
+    // ──────────────────────────────────────────────────────────
+    // Files Repository — list all files
+    // ──────────────────────────────────────────────────────────
+    this.app.get('/api/files', this.auth(), (_req: Request, res: Response) => {
+      try {
+        const filesDir = '/opt/gueclaw-data/files';
+        
+        if (!fs.existsSync(filesDir)) {
+          return res.json([]);
+        }
+
+        const files = fs.readdirSync(filesDir)
+          .filter(f => !f.startsWith('.'))
+          .map(filename => {
+            const filePath = path.join(filesDir, filename);
+            const stats = fs.statSync(filePath);
+            const ext = path.extname(filename).slice(1).toLowerCase();
+            
+            // Format size
+            let sizeFormatted = '';
+            if (stats.size < 1024) {
+              sizeFormatted = `${stats.size} B`;
+            } else if (stats.size < 1024 * 1024) {
+              sizeFormatted = `${(stats.size / 1024).toFixed(1)} KB`;
+            } else {
+              sizeFormatted = `${(stats.size / (1024 * 1024)).toFixed(2)} MB`;
+            }
+
+            // Determine type
+            const typeMap: Record<string, string> = {
+              html: 'html',
+              json: 'json',
+              txt: 'txt',
+              md: 'md',
+              csv: 'csv',
+              pdf: 'pdf',
+              png: 'png',
+              jpg: 'jpg',
+              jpeg: 'jpg',
+            };
+            const type = typeMap[ext] || 'other';
+
+            return {
+              name: filename,
+              path: filePath,
+              size: stats.size,
+              sizeFormatted,
+              modified: stats.mtime.toLocaleString('pt-BR'),
+              type,
+            };
+          })
+          .sort((a, b) => b.size - a.size); // Sort by date, newest first
+
+        res.json(files);
+      } catch (err: any) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    // ──────────────────────────────────────────────────────────
+    // Files Repository — serve/download specific file
+    // ──────────────────────────────────────────────────────────
+    this.app.get('/api/files/:filename', this.auth(), (req: Request, res: Response) => {
+      try {
+        const filename = String(req.params.filename);
+        const filesDir = '/opt/gueclaw-data/files';
+        const filePath = path.join(filesDir, filename);
+
+        // Security: prevent path traversal
+        if (!filePath.startsWith(filesDir)) {
+          return res.status(403).json({ error: 'Access denied' });
+        }
+
+        if (!fs.existsSync(filePath)) {
+          return res.status(404).json({ error: 'File not found' });
+        }
+
+        // Determine content type
+        const ext = path.extname(filename).toLowerCase();
+        const contentTypeMap: Record<string, string> = {
+          '.html': 'text/html',
+          '.json': 'application/json',
+          '.txt': 'text/plain',
+          '.md': 'text/markdown',
+          '.csv': 'text/csv',
+          '.pdf': 'application/pdf',
+          '.png': 'image/png',
+          '.jpg': 'image/jpeg',
+          '.jpeg': 'image/jpeg',
+        };
+        const contentType = contentTypeMap[ext] || 'application/octet-stream';
+
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+        
+        const fileStream = fs.createReadStream(filePath);
+        fileStream.pipe(res);
+      } catch (err: any) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
   }
 
   private buildEnrichment(userId: string): string {
