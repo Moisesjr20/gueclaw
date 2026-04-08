@@ -62,8 +62,42 @@ DO NOT use for temporary files or internal data.
     try {
       const { filename, content, description } = args;
 
-      if (!filename || !content) {
-        throw new Error('filename and content are required');
+      // Detailed validation with specific error messages
+      // This prevents LLM from looping by giving precise guidance
+      if (!filename && !content) {
+        throw new Error(
+          'Missing required parameters: filename and content.\n\n' +
+          'You must provide:\n' +
+          '- filename: Name of the file with extension (e.g., "carrossel-vendas.html")\n' +
+          '- content: The file content as a string\n\n' +
+          'Example:\n' +
+          '{\n' +
+          '  "filename": "report.html",\n' +
+          '  "content": "<html>...</html>"\n' +
+          '}'
+        );
+      }
+      
+      if (!filename) {
+        throw new Error(
+          'Missing required parameter: filename.\n\n' +
+          'You provided content but forgot to include the filename.\n' +
+          'Add a filename with extension, for example:\n' +
+          '{\n' +
+          '  "filename": "carrossel-dados.html",\n' +
+          '  "content": ' + JSON.stringify(content?.substring(0, 50) || '') + '...\n' +
+          '}'
+        );
+      }
+      
+      if (!content) {
+        throw new Error(
+          'Missing required parameter: content.\n\n' +
+          `You provided filename="${filename}" but the content parameter is empty.\n` +
+          'The content parameter must contain the actual file data as a string.\n\n' +
+          'If you already generated the content in a previous step, include it in this tool call.\n' +
+          'DO NOT call this tool again without content - that will fail the same way.'
+        );
       }
 
       // Sanitize filename (prevent path traversal)
