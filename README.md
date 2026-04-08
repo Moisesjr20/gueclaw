@@ -445,6 +445,59 @@ Para descobrir seu Telegram ID:
 2. Adicione o ID no `.env`
 3. Reinicie o agente
 
+### Autenticação do Dashboard ✨ NOVO
+
+O dashboard requer senha para acesso (substituiu a restrição de IP):
+
+```env
+# Senha em base64 para acessar o dashboard
+DASHBOARD_PASSWORD_HASH=R3VlQ2xhdzIwMjZAU2VjdXJl
+```
+
+**Senha padrão:** `GueClaw2026@Secure`
+
+**Como trocar a senha:**
+```bash
+# Gerar novo hash
+node scripts/generate-password-hash.js "MinhaSenhaForte@123"
+
+# Copiar o hash para .env e Vercel
+# Redeploy: cd dashboard && vercel --prod
+```
+
+**Vantagens sobre IP whitelist:**
+- ✅ Acesso de qualquer lugar (celular, trabalho, viagem)
+- ✅ Funciona com IP dinâmico e CGNAT
+- ✅ Mais seguro com senha forte
+- ✅ Auditável (logs de acesso)
+
+> 📖 **Guia completo:** [docs/security/AUTH-MIGRATION.md](docs/security/AUTH-MIGRATION.md)
+
+### Varredura de Segurança Diária ✨ NOVO
+
+Análise automática da VPS todos os dias às 6h da manhã:
+
+**O que é verificado:**
+- ✅ Portas abertas e inesperadas
+- ✅ Tentativas de invasão (failed logins)
+- ✅ Status dos containers Docker
+- ✅ Uso de CPU, memória e disco
+- ✅ Atualizações de segurança pendentes
+- ✅ Status da API GueClaw
+
+**Instalação:**
+```powershell
+# Windows PowerShell
+npm run security:install:test
+
+# Ou manual
+.\scripts\install-security-audit.ps1 -TestNow
+```
+
+Relatórios são enviados automaticamente via Telegram.
+
+> 📖 **Guia de instalação:** [docs/security/QUICKSTART-SECURITY.md](docs/security/QUICKSTART-SECURITY.md)
+
 ### Credenciais VPS
 
 Configure SSH key ao invés de senha:

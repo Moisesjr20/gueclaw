@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { LayoutDashboard, Megaphone, MessageSquare, ScrollText, Wallet, Workflow, FileCode, MessageCircle, FolderOpen } from 'lucide-react';
+import LogoutButton from './LogoutButton';
 
 const NAV = [
   { href: '/overview', label: 'Overview', icon: LayoutDashboard },
@@ -47,6 +48,11 @@ export default function Sidebar() {
           );
         })}
       </nav>
+
+      {/* Logout Button */}
+      <div className="px-3 pb-3">
+        <LogoutButton />
+      </div>
 
       {/* Footer */}
       <div className="px-5 py-4 border-t border-[rgba(59,130,246,0.12)] text-xs text-[#3b5270]">

@@ -21,7 +21,12 @@
     "debug:logs": "node scripts/debug-api.js logs",
     "debug:tunnel": "node scripts/debug-api.js tunnel",
     "debug:stats": "node scripts/debug-api.js stats",
-    "debug:conversations": "node scripts/debug-api.js conversations"
+    "debug:conversations": "node scripts/debug-api.js conversations",
+    "security:test": "python3 scripts/test-security-audit.py",
+    "security:audit": "python3 scripts/security-audit-vps.py",
+    "security:install": "powershell -ExecutionPolicy Bypass -File scripts/install-security-audit.ps1",
+    "security:install:test": "powershell -ExecutionPolicy Bypass -File scripts/install-security-audit.ps1 -TestNow",
+    "password:generate": "node scripts/generate-password-hash.js"
   },
   "keywords": [
     "ai-agent",
