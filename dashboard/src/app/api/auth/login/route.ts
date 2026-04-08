@@ -20,14 +20,25 @@ export async function POST(request: NextRequest) {
     
     if (!expectedHash) {
       console.error('⚠️ DASHBOARD_PASSWORD_HASH não configurado no .env');
+      console.error('Environment:', process.env.NODE_ENV, process.env.VERCEL_ENV);
       return NextResponse.json(
-        { error: 'Configuração de autenticação inválida' },
+        { error: 'Configuração de autenticação inválida. DASHBOARD_PASSWORD_HASH não encontrado.' },
         { status: 500 }
       );
     }
     
     // Converte a senha fornecida para base64
     const passwordHash = Buffer.from(password).toString('base64');
+    
+    // Debug logs (remover em produção final)
+    console.log('🔐 Login attempt:', {
+      env: process.env.NODE_ENV,
+      vercel_env: process.env.VERCEL_ENV,
+      hasExpectedHash: !!expectedHash,
+      expectedHashLength: expectedHash?.length,
+      providedHashLength: passwordHash.length,
+      match: passwordHash === expectedHash
+    });
     
     // Valida senha
     if (passwordHash !== expectedHash) {
