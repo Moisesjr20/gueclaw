@@ -40,3 +40,45 @@ Interpret creatively and make unexpected choices that feel genuinely designed fo
 **IMPORTANT**: Match implementation complexity to the aesthetic vision. Maximalist designs need elaborate code with extensive animations and effects. Minimalist or refined designs need restraint, precision, and careful attention to spacing, typography, and subtle details. Elegance comes from executing the vision well.
 
 Remember: Claude is capable of extraordinary creative work. Don't hold back, show what can truly be created when thinking outside the box and committing fully to a distinctive vision.
+
+---
+
+## 🗂️ Salvando Código HTML (OBRIGATÓRIO)
+
+**Quando criar interfaces/páginas web completas, SEMPRE salve no repositório:**
+
+### 1️⃣ Use `save_to_repository`
+
+```json
+{
+  "filename": "nome-descritivo.html",
+  "content": "<!DOCTYPE html>...código completo...",
+  "description": "Interface [tipo] para [propósito] - estilo [aesthetic]"
+}
+```
+
+**Nomenclatura:**
+- `landing-page-produto.html`
+- `dashboard-analytics.html`
+- `portfolio-designer.html`
+
+### 2️⃣ Verificar se foi salvo
+
+```bash
+ls -lah /opt/gueclaw-data/files/nome-do-arquivo.html
+```
+
+### 3️⃣ Reportar ao usuário
+
+```
+✅ Interface criada com sucesso!
+
+📄 Arquivo: dashboard-analytics.html
+📏 Tamanho: 45.2 KB
+🎨 Estilo: Brutalist Minimalism
+💾 Localização: /opt/gueclaw-data/files/
+
+🌐 Acesse via Dashboard → Arquivos
+```
+
+**Path do repositório:** `/opt/gueclaw-data/files/`

@@ -171,3 +171,67 @@ Cards 7–8: Prova social + CTA
 4. **Respeite o nível de consciência** — não venda para quem ainda não sabe que tem problema
 5. **O hook decide tudo** — se o primeiro frame não para o scroll, o restante não importa
 6. **Adapte o tom ao nicho** — coaching usa linguagem de transformação; consultoria B2B usa linguagem de resultado
+
+---
+
+## 🗂️ Salvando Arquivos HTML (OBRIGATÓRIO)
+
+**SEMPRE que criar um arquivo HTML (carrossel, landing page, etc), você DEVE:**
+
+### 1️⃣ Salvar usando `save_to_repository`
+
+```json
+{
+  "filename": "carrossel-nome-descritivo.html",
+  "content": "<html>...conteúdo completo...</html>",
+  "description": "Carrossel high-ticket sobre [tema] para [público]"
+}
+```
+
+**Regras de nomenclatura:**
+- Use kebab-case: `carrossel-analise-dados.html`
+- Inclua tipo + tema: `landing-page-mentoria-premium.html`
+- Sem espaços, acentos ou caracteres especiais
+
+### 2️⃣ SEMPRE Verificar se foi salvo
+
+**Após usar save_to_repository, OBRIGATORIAMENTE execute:**
+
+```bash
+ls -lah /opt/gueclaw-data/files/[nome-exato-do-arquivo].html
+```
+
+Se o comando retornar "No such file", o arquivo NÃO foi criado. Tente novamente.
+
+### 3️⃣ Reportar ao usuário com informações EXATAS
+
+✅ **Formato correto da resposta:**
+
+```
+🎯 Carrossel HIGH-TICKET criado com sucesso!
+
+📄 Arquivo: carrossel-analise-dados.html
+📏 Tamanho: 11.2 KB
+📍 Localização: Repositório de Arquivos (/opt/gueclaw-data/files/)
+
+🌐 Como acessar:
+1. Abra o Dashboard Web do GueClaw
+2. Vá na aba "Arquivos"
+3. Localize: carrossel-analise-dados.html
+4. Clique para visualizar no navegador ou baixar
+
+💡 O arquivo está salvo e pronto para uso!
+```
+
+❌ **NUNCA diga:**
+- "Arquivo salvo no repositório" (sem especificar nome exato)
+- "Arquivo criado com sucesso" (sem verificar)
+- Nome de arquivo diferente do que foi realmente salvo
+
+### 4️⃣ Path do repositório
+
+**Localização fixa:** `/opt/gueclaw-data/files/`
+
+Se o usuário perguntar "onde está o arquivo?", este é o caminho na VPS.
+
+---

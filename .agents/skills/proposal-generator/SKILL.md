@@ -79,6 +79,10 @@ avatar_cliente:
    ↓
 3. Chamar pricing-strategist (define preço ótimo)
    ↓
+4. SALVAR proposta no repositório com save_to_repository
+   ↓
+5. VERIFICAR arquivo foi criado (ls -lah /opt/gueclaw-data/files/)
+   ↓
 4. Chamar proposal-writer (escreve proposta)
    ↓
 5. Chamar quality-checker (valida >= 8.0)

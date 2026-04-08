@@ -56,6 +56,24 @@ This skill provides comprehensive VPS management capabilities. It enables GueCla
 - Search and find files
 - Archive and compress
 
+### 🗂️ File Repository (IMPORTANTE)
+
+**Localização do repositório de arquivos:** `/opt/gueclaw-data/files/`
+
+Qualquer arquivo criado que o usuário precise acessar depois DEVE ser salvo usando a tool `save_to_repository`.
+
+**Tipos de arquivo para salvar no repositório:**
+- HTML (carrosséis, landing pages, páginas web)
+- JSON (exports, dados estruturados)
+- CSV (relatórios, planilhas)
+- TXT/MD (documentos, notas)
+- Qualquer arquivo que o usuário precise visualizar/baixar depois
+
+**NÃO salvar no repositório:**
+- Configurações internas (.env, configs do sistema)
+- Logs temporários
+- Arquivos de cache
+
 ### 5. Monitoring & Diagnostics
 
 - CPU, memory, disk usage
@@ -133,7 +151,33 @@ Parameters:
   command: journalctl -u [service_name] -n 50 --no-pager
 ```
 
-### File Operations
+### File Repository Operations
+
+**SEMPRE que criar um arquivo que o usuário precisa acessar, use save_to_repository:**
+
+```
+Action: save_to_repository
+Parameters:
+  filename: nome-do-arquivo.html
+  content: <conteúdo completo do arquivo>
+  description: Descrição clara do que contém
+```
+
+**Verificar se arquivo foi salvo:**
+```
+Action: vps_execute_command
+Parameters:
+  command: ls -lah /opt/gueclaw-data/files/nome-do-arquivo.html
+```
+
+**Listar todos arquivos do repositório:**
+```
+Action: vps_execute_command
+Parameters:
+  command: ls -lah /opt/gueclaw-data/files/
+```
+
+### File Operations (Internas)
 
 **Read configuration file:**
 ```

@@ -4,7 +4,7 @@ import { BaseTool } from './base-tool';
 import { ToolDefinition } from '../core/providers/base-provider';
 import { ToolResult } from '../types';
 
-const FILES_DIR = '/opt/gueclaw-data/files';
+const FILES_DIR = process.env.FILES_REPOSITORY_PATH || '/opt/gueclaw-data/files';
 
 // Ensure directory exists
 if (!fs.existsSync(FILES_DIR)) {
