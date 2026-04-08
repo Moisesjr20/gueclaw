@@ -69,7 +69,7 @@ export class AgentLoop {
         const options: CompletionOptions = {
           systemPrompt: this.systemPrompt,
           temperature: 0.7,
-          maxTokens: 4096,
+          maxTokens: 16384, // Increased from 4096 to support large HTML/file generation
         };
 
         // Add tools if provider supports them
