@@ -19,7 +19,6 @@ import subprocess
 from datetime import datetime
 from pathlib import Path
 import requests
-import paramiko
 from typing import Dict, List, Tuple
 
 # Configurações da VPS
@@ -31,12 +30,19 @@ VPS_SSH_KEY = os.getenv('VPS_SSH_KEY_PATH', r'C:\Users\kyriu\.ssh\gueclaw_vps')
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 TELEGRAM_USER_ID = os.getenv('TELEGRAM_ALLOWED_USER_IDS', '').split(',')[0]
 
+# Detecta se está rodando localmente na VPS
+IS_LOCAL = sys.platform == 'linux' and (
+    os.path.exists('/opt/gueclaw-agent') or 
+    Path.cwd().as_posix().startswith('/opt/gueclaw-agent')
+)
+
 
 class SecurityAuditor:
     """Auditor de segurança da VPS"""
     
     def __init__(self):
         self.ssh = None
+        self.is_local = IS_LOCAL
         self.report = {
             'timestamp': datetime.now().isoformat(),
             'vps': VPS_HOST,
@@ -47,8 +53,16 @@ class SecurityAuditor:
         }
     
     def connect_vps(self) -> bool:
-        """Conecta à VPS via SSH"""
+        """Conecta à VPS via SSH (ou detecta execução local)"""
+        
+        # Se está rodando localmente na VPS, não precisa SSH
+        if self.is_local:
+            print(f"✅ Executando localmente na VPS (modo local)")
+            return True
+        
+        # Conecta remotamente via SSH
         try:
+            import paramiko
             print(f"🔐 Conectando à VPS {VPS_USER}@{VPS_HOST}...")
             
             self.ssh = paramiko.SSHClient()
@@ -65,17 +79,36 @@ class SecurityAuditor:
             print("✅ Conectado à VPS com sucesso")
             return True
             
+        except ImportError:
+            print("⚠️ Paramiko não disponível - usando modo local")
+            self.is_local = True
+            return True
         except Exception as e:
             print(f"❌ Erro ao conectar: {e}")
             self.report['alerts'].append(f"Falha ao conectar à VPS: {str(e)}")
             return False
     
     def exec_command(self, command: str) -> Tuple[str, str, int]:
-        """Executa comando na VPS e retorna stdout, stderr e código de saída"""
+        """Executa comando na VPS (local ou remoto) e retorna stdout, stderr e código de saída"""
         try:
+            # Execução local (diretamente na VPS)
+            if self.is_local:
+                result = subprocess.run(
+                    command,
+                    shell=True,
+                    capture_output=True,
+                    text=True,
+                    timeout=30
+                )
+                return result.stdout, result.stderr, result.returncode
+            
+            # Execução remota via SSH
             stdin, stdout, stderr = self.ssh.exec_command(command, timeout=30)
             exit_code = stdout.channel.recv_exit_status()
             return stdout.read().decode('utf-8'), stderr.read().decode('utf-8'), exit_code
+            
+        except subprocess.TimeoutExpired:
+            return '', 'Command timeout', 124
         except Exception as e:
             return '', str(e), 1
     
