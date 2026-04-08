@@ -15,6 +15,10 @@ export class AgentLoop {
   private maxIterations: number;
   private blockedTools: Set<string>;
   private trackedConversationId?: string;
+  
+  // Loop detection: Track failed tool call attempts to prevent infinite retries
+  private toolCallAttempts: Map<string, number>;
+  private readonly MAX_TOOL_ATTEMPTS = 3;
 
   constructor(
     provider: ILLMProvider,
@@ -35,6 +39,7 @@ export class AgentLoop {
     this.maxIterations = parseInt(process.env.MAX_ITERATIONS || '5', 10);
     this.blockedTools = new Set(blockedTools ?? []);
     this.trackedConversationId = conversationId;
+    this.toolCallAttempts = new Map();
   }
 
   /**
@@ -208,6 +213,19 @@ export class AgentLoop {
   }
 
   /**
+   * Create unique key for tracking tool call attempts
+   * Format: toolName:normalized_args_hash
+   */
+  private getToolCallKey(toolName: string, args: any): string {
+    // For filename-based tools, use filename as key
+    // For other tools, use stringified args
+    const keyData = args.filename 
+      ? `${toolName}:${args.filename}` 
+      : `${toolName}:${JSON.stringify(args)}`;
+    return keyData;
+  }
+
+  /**
    * Execute tool calls and add results to conversation history
    */
   private async executeToolCalls(toolCalls: ToolCall[], iteration: number = 0): Promise<void> {
@@ -249,13 +267,61 @@ export class AgentLoop {
           continue;
         }
 
+        // Check for loop detection BEFORE executing
+        const toolKey = this.getToolCallKey(toolName, toolArgs);
+        const attemptCount = this.toolCallAttempts.get(toolKey) || 0;
+        
+        if (attemptCount >= this.MAX_TOOL_ATTEMPTS) {
+          const errorMsg = (
+            `❌ LOOP DETECTED: Tool "${toolName}" has failed ${attemptCount} times with the same arguments.\n\n` +
+            `This indicates a repeated error pattern. DO NOT call this tool again with the same parameters.\n\n` +
+            `**What went wrong:**\n` +
+            `You tried calling ${toolName} ${attemptCount} times and it failed each time.\n\n` +
+            `**What to do instead:**\n` +
+            `1. If this is save_to_repository: Ensure you include BOTH filename AND content parameters\n` +
+            `2. If generating content: Check that the content variable is not empty\n` +
+            `3. Try a completely different approach to accomplish the task\n` +
+            `4. If unsure, explain to the user what you tried and ask for clarification\n\n` +
+            `**DO NOT retry this exact same tool call.**`
+          );
+          
+          console.error(`   🔁 ${errorMsg}`);
+          
+          this.conversationHistory.push({
+            conversationId: 'temp',
+            role: 'tool',
+            content: errorMsg,
+            metadata: { toolName, toolCallId: toolCall.id, loopDetected: true },
+          });
+          
+          // Record loop detection event
+          if (this.trackedConversationId) {
+            try {
+              TraceRepository.getInstance().addTrace({
+                conversationId: this.trackedConversationId,
+                iteration,
+                toolName,
+                toolArgs: JSON.stringify(toolArgs),
+                toolResult: 'LOOP_DETECTED',
+              });
+            } catch { /* non-critical */ }
+          }
+          
+          continue; // Skip execution, move to next tool
+        }
+
         // Execute the tool
         const result = await tool.execute(toolArgs);
 
         if (result.success) {
           console.log(`   ✅ Success: ${result.output.substring(0, 100)}${result.output.length > 100 ? '...' : ''}`);
+          // Reset attempt counter on success
+          this.toolCallAttempts.delete(toolKey);
         } else {
           console.error(`   ❌ Failed: ${result.error}`);
+          // Increment attempt counter on failure
+          this.toolCallAttempts.set(toolKey, attemptCount + 1);
+          console.log(`   🔁 Attempt ${attemptCount + 1}/${this.MAX_TOOL_ATTEMPTS} for this tool call`);
         }
 
         // Add tool result to history
