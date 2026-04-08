@@ -18,7 +18,19 @@ async function forward(req: NextRequest, pathParts: string[]): Promise<NextRespo
   let body: BodyInit | undefined;
 
   if (req.method !== 'GET' && req.method !== 'HEAD') {
-    try { body = await req.text(); headers['content-type'] = 'application/json'; } catch { /* ignore parse errors */ }
+    try { 
+      // Get body as text and validate it's valid JSON
+      const bodyText = await req.text();
+      if (bodyText) {
+        // Try to parse to validate JSON
+        JSON.parse(bodyText);
+        body = bodyText;
+        headers['content-type'] = 'application/json';
+      }
+    } catch (err) {
+      console.error('Failed to parse request body:', err);
+      return NextResponse.json({ error: 'Invalid JSON in request body' }, { status: 400 });
+    }
   }
 
   try {
@@ -27,11 +39,12 @@ async function forward(req: NextRequest, pathParts: string[]): Promise<NextRespo
       headers,
       body,
       cache: 'no-store',
-      signal: AbortSignal.timeout(15_000),
+      signal: AbortSignal.timeout(30_000), // Increased timeout for LLM
     });
     const data = await upstream.json();
     return NextResponse.json(data, { status: upstream.status });
   } catch (err: any) {
+    console.error('Proxy error:', err.message);
     return NextResponse.json({ error: err.message }, { status: 502 });
   }
 }
