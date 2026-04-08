@@ -104,6 +104,44 @@ export class AgentLoop {
 
         // Check if we have tool calls
         if (response.toolCalls && response.toolCalls.length > 0) {
+          
+          // Early maxTurns check: Abort BEFORE executing tools if at max iterations
+          // This prevents wasting resources on tool execution when we can't process results
+          if (iteration >= this.maxIterations) {
+            const attemptedTools = response.toolCalls
+              .map(tc => tc.function.name)
+              .join(', ');
+            
+            console.warn(`⚠️ Max iterations (${this.maxIterations}) reached - cannot execute pending tool calls`);
+            console.warn(`   Attempted tools: ${attemptedTools}`);
+            
+            // Record max_iterations event
+            if (this.trackedConversationId) {
+              try {
+                TraceRepository.getInstance().addTrace({
+                  conversationId: this.trackedConversationId,
+                  iteration,
+                  toolName: 'MAX_ITERATIONS_ABORT',
+                  toolArgs: JSON.stringify({ attemptedTools }),
+                  toolResult: 'Aborted due to max iterations limit',
+                });
+              } catch { /* non-critical */ }
+            }
+            
+            finalResponse = (
+              `I apologize, but I reached the maximum number of reasoning steps (${this.maxIterations}) ` +
+              `before completing the task.\n\n` +
+              `**What I was trying to do:**\n` +
+              `I wanted to execute: ${attemptedTools}\n\n` +
+              `**What you can do:**\n` +
+              `1. Try breaking the task into smaller, more specific steps\n` +
+              `2. Provide more details or clarify what you need\n` +
+              `3. If this is a complex task, consider asking for just one part at a time\n\n` +
+              `**Technical details:** The agent is limited to ${this.maxIterations} iterations to prevent infinite loops.`
+            );
+            break;
+          }
+          
           // Add the assistant message with tool_calls to history BEFORE executing
           this.conversationHistory.push({
             conversationId: 'temp',
