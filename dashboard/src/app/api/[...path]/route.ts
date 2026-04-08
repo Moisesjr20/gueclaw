@@ -7,8 +7,24 @@ const API_URL = process.env.GUECLAW_API_URL ?? '';
 const API_KEY = process.env.GUECLAW_API_KEY ?? '';
 
 async function forward(req: NextRequest, pathParts: string[]): Promise<NextResponse> {
+  // Debug: log environment
+  console.log('[Proxy Debug]', {
+    hasApiUrl: !!API_URL,
+    hasApiKey: !!API_KEY,
+    apiUrlPreview: API_URL?.substring(0, 20) + '...',
+    method: req.method,
+    path: pathParts.join('/'),
+  });
+  
   if (!API_URL) {
-    return NextResponse.json({ error: 'GUECLAW_API_URL not configured' }, { status: 503 });
+    return NextResponse.json({ 
+      error: 'GUECLAW_API_URL not configured',
+      debug: {
+        env: process.env.VERCEL_ENV,
+        hasApiUrl: !!API_URL,
+        hasApiKey: !!API_KEY,
+      }
+    }, { status: 503 });
   }
   const path = pathParts.join('/');
   const search = req.nextUrl.search ?? '';
