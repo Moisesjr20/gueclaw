@@ -30,22 +30,36 @@ async function forward(req: NextRequest, pathParts: string[]): Promise<NextRespo
   const search = req.nextUrl.search ?? '';
   const url = `${API_URL}/api/${path}${search}`;
 
-  const headers: HeadersInit = { 'x-api-key': API_KEY };
+  const headers: HeadersInit = { 
+    'x-api-key': API_KEY,
+    'content-type': 'application/json',
+  };
   let body: BodyInit | undefined;
 
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     try { 
-      // Get body as text and validate it's valid JSON
-      const bodyText = await req.text();
-      if (bodyText) {
-        // Try to parse to validate JSON
-        JSON.parse(bodyText);
-        body = bodyText;
-        headers['content-type'] = 'application/json';
+      // Clone request to read body multiple times if needed
+      const clonedReq = req.clone();
+      const bodyText = await clonedReq.text();
+      
+      if (bodyText && bodyText.trim()) {
+        // Validate JSON
+        try {
+          const parsed = JSON.parse(bodyText);
+          // Re-stringify to ensure clean JSON
+          body = JSON.stringify(parsed);
+          console.log('[Proxy] Body validated:', { length: body.length, preview: body.substring(0, 100) });
+        } catch (parseErr) {
+          console.error('[Proxy] Invalid JSON:', bodyText);
+          return NextResponse.json({ 
+            error: 'Invalid JSON in request body',
+            received: bodyText.substring(0, 100),
+          }, { status: 400 });
+        }
       }
-    } catch (err) {
-      console.error('Failed to parse request body:', err);
-      return NextResponse.json({ error: 'Invalid JSON in request body' }, { status: 400 });
+    } catch (err: any) {
+      console.error('[Proxy] Body read error:', err.message);
+      return NextResponse.json({ error: 'Failed to read request body' }, { status: 400 });
     }
   }
 
