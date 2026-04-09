@@ -4,6 +4,13 @@ import { ToolRegistry } from '../../tools/tool-registry';
 import { IdentityLoader } from '../../utils/identity-loader';
 import { TraceRepository } from '../../api/trace-repository';
 import { ToolAnalytics } from '../../utils/tool-analytics';
+import { 
+  AgentLoopState, 
+  createInitialState, 
+  updateState, 
+  StateTransition,
+  getStateSummary 
+} from '../../types/agent-state';
 
 /**
  * Agent Loop - ReAct Pattern Implementation
@@ -24,6 +31,9 @@ export class AgentLoop {
   // Recovery counter: Track max_output_tokens truncation attempts
   private maxOutputTokensRecoveryCount: number = 0;
   private readonly MAX_OUTPUT_TOKENS_RECOVERY_LIMIT = 3;
+  
+  // State tracking: Monitor iterations and transitions
+  private state: AgentLoopState;
 
   constructor(
     provider: ILLMProvider,
@@ -45,6 +55,7 @@ export class AgentLoop {
     this.blockedTools = new Set(blockedTools ?? []);
     this.trackedConversationId = conversationId;
     this.toolCallAttempts = new Map();
+    this.state = createInitialState();
   }
 
   /**
@@ -58,6 +69,10 @@ export class AgentLoop {
     const analytics = ToolAnalytics.getInstance();
     const queryChainId = analytics.initQueryChain(this.trackedConversationId);
     console.log(`📊 Analytics initialized | Chain: ${queryChainId.slice(0, 8)}`);
+    
+    // Reset state for new execution
+    this.state = createInitialState();
+    this.state = updateState(this.state, StateTransition.INIT);
 
     // Add user message to history
     this.conversationHistory.push({
@@ -71,8 +86,10 @@ export class AgentLoop {
 
     while (iteration < this.maxIterations) {
       iteration++;
+      this.state.turnCount++;
+      this.state = updateState(this.state, StateTransition.ITERATION_START);
       analytics.incrementDepth();
-      console.log(`\n🔁 Iteration ${iteration}/${this.maxIterations} | Depth: ${analytics.getQueryDepth()}`);
+      console.log(`\n🔁 Iteration ${iteration}/${this.maxIterations} | Depth: ${analytics.getQueryDepth()} | Turn: ${this.state.turnCount}`);
 
       try {
         // Get available tools — respect blockedTools list
@@ -93,6 +110,9 @@ export class AgentLoop {
           options.tools = tools;
           options.toolChoice = 'auto';
         }
+
+        // Transition to LLM thinking
+        this.state = updateState(this.state, StateTransition.LLM_THINKING);
 
         const response = await this.provider.generateCompletion(
           this.conversationHistory,
@@ -119,6 +139,9 @@ export class AgentLoop {
           // Early maxTurns check: Abort BEFORE executing tools if at max iterations
           // This prevents wasting resources on tool execution when we can't process results
           if (iteration >= this.maxIterations) {
+            // Transition to max iterations reached
+            this.state = updateState(this.state, StateTransition.MAX_ITERATIONS_REACHED);
+            
             const attemptedTools = response.toolCalls
               .map(tc => tc.function.name)
               .join(', ');
@@ -189,6 +212,8 @@ export class AgentLoop {
           if (response.content === NO_REPLY) {
             console.log('🔕 NO_REPLY received — response already delivered via tool');
             finalResponse = NO_REPLY;
+            // Transition to success
+            this.state = updateState(this.state, StateTransition.SUCCESS);
             break;
           }
 
@@ -204,18 +229,24 @@ export class AgentLoop {
 
           // Reset recovery counter on successful completion
           this.maxOutputTokensRecoveryCount = 0;
+          
+          // Transition to success
+          this.state = updateState(this.state, StateTransition.SUCCESS);
 
           console.log('\n✅ Agent Loop completed successfully');
           break;
         }
 
         if (response.finishReason === 'length') {
+          // Transition to truncation detected
+          this.state = updateState(this.state, StateTransition.TRUNCATION_DETECTED);
           this.maxOutputTokensRecoveryCount++;
           
           console.warn(`⚠️  Response truncated due to length limit (attempt ${this.maxOutputTokensRecoveryCount}/${this.MAX_OUTPUT_TOKENS_RECOVERY_LIMIT})`);
           
           // Check if we've exceeded recovery limit
           if (this.maxOutputTokensRecoveryCount >= this.MAX_OUTPUT_TOKENS_RECOVERY_LIMIT) {
+            this.state = updateState(this.state, StateTransition.ERROR);
             console.error('❌ Max output tokens recovery limit reached');
             
             // Record recovery limit event
@@ -249,6 +280,9 @@ export class AgentLoop {
             role: 'assistant',
             content: response.content,
           });
+          
+          // Transition to recovery attempt
+          this.state = updateState(this.state, StateTransition.RECOVERY_ATTEMPT);
           
           this.conversationHistory.push({
             conversationId: 'temp',
@@ -289,6 +323,15 @@ export class AgentLoop {
         break;
 
       } catch (error: any) {
+        // Transition to error state
+        this.state = updateState(this.state, StateTransition.ERROR);
+        this.state.consecutiveErrors++;
+        this.state.lastError = {
+          toolName: 'SYSTEM',
+          error: error.message,
+          iteration
+        };
+        
         console.error(`❌ Error in iteration ${iteration}:`, error.message);
         
         if (iteration >= this.maxIterations) {
@@ -307,9 +350,14 @@ export class AgentLoop {
 
     // Check if max iterations reached
     if (iteration >= this.maxIterations && !finalResponse) {
+      this.state = updateState(this.state, StateTransition.MAX_ITERATIONS_REACHED);
       console.warn('⚠️  Max iterations reached without final answer');
       finalResponse = 'I apologize, but I reached the maximum number of reasoning steps without completing the task. The task may be too complex or require clarification. Please try breaking it down into smaller steps.';
     }
+
+    // Log state summary before returning
+    console.log('\n📊 Agent Loop State Summary:');
+    console.log(getStateSummary(this.state));
 
     return finalResponse;
   }
@@ -375,6 +423,10 @@ export class AgentLoop {
         const attemptCount = this.toolCallAttempts.get(toolKey) || 0;
         
         if (attemptCount >= this.MAX_TOOL_ATTEMPTS) {
+          // Transition to loop detected
+          this.state = updateState(this.state, StateTransition.LOOP_DETECTED);
+          this.state.consecutiveErrors++;
+          
           const errorMsg = (
             `❌ LOOP DETECTED: Tool "${toolName}" has failed ${attemptCount} times with the same arguments.\n\n` +
             `This indicates a repeated error pattern. DO NOT call this tool again with the same parameters.\n\n` +
@@ -413,12 +465,21 @@ export class AgentLoop {
           continue; // Skip execution, move to next tool
         }
 
+        // Transition to tool execution
+        this.state = updateState(this.state, StateTransition.TOOL_EXECUTION);
+        this.state.totalToolExecutions++;
+
         // Execute the tool with timing
         const startTime = Date.now();
         const result = await tool.execute(toolArgs);
         const duration = Date.now() - startTime;
 
         if (result.success) {
+          // Transition to success and update metrics
+          this.state = updateState(this.state, StateTransition.TOOL_SUCCESS);
+          this.state.totalToolDuration += duration;
+          this.state.consecutiveErrors = 0; // Reset error counter
+          
           console.log(`   ✅ Success: ${result.output.substring(0, 100)}${result.output.length > 100 ? '...' : ''}`);
           // Reset attempt counter on success
           this.toolCallAttempts.delete(toolKey);
@@ -437,6 +498,15 @@ export class AgentLoop {
             metadata: result.metadata,
           });
         } else {
+          // Transition to failure and update metrics
+          this.state = updateState(this.state, StateTransition.TOOL_FAILURE);
+          this.state.consecutiveErrors++;
+          this.state.lastError = {
+            toolName,
+            error: result.error || 'Unknown error',
+            iteration
+          };
+          
           console.error(`   ❌ Failed: ${result.error}`);
           // Increment attempt counter on failure
           this.toolCallAttempts.set(toolKey, attemptCount + 1);
