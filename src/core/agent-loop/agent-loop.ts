@@ -3,6 +3,7 @@ import { Message, AgentAction, ToolCall, NO_REPLY } from '../../types';
 import { ToolRegistry } from '../../tools/tool-registry';
 import { IdentityLoader } from '../../utils/identity-loader';
 import { TraceRepository } from '../../api/trace-repository';
+import { ToolAnalytics } from '../../utils/tool-analytics';
 
 /**
  * Agent Loop - ReAct Pattern Implementation
@@ -53,6 +54,11 @@ export class AgentLoop {
     console.log('\n🔄 Starting Agent Loop (ReAct Pattern)');
     console.log(`📝 User Input: ${userInput.substring(0, 100)}${userInput.length > 100 ? '...' : ''}`);
 
+    // Initialize analytics query chain
+    const analytics = ToolAnalytics.getInstance();
+    const queryChainId = analytics.initQueryChain(this.trackedConversationId);
+    console.log(`📊 Analytics initialized | Chain: ${queryChainId.slice(0, 8)}`);
+
     // Add user message to history
     this.conversationHistory.push({
       conversationId: 'temp',
@@ -65,7 +71,8 @@ export class AgentLoop {
 
     while (iteration < this.maxIterations) {
       iteration++;
-      console.log(`\n🔁 Iteration ${iteration}/${this.maxIterations}`);
+      analytics.incrementDepth();
+      console.log(`\n🔁 Iteration ${iteration}/${this.maxIterations} | Depth: ${analytics.getQueryDepth()}`);
 
       try {
         // Get available tools — respect blockedTools list
@@ -348,6 +355,7 @@ export class AgentLoop {
 
         // Get the tool from registry
         const tool = ToolRegistry.get(toolName);
+        const analytics = ToolAnalytics.getInstance();
 
         if (!tool) {
           const errorMsg = `Tool "${toolName}" not found in registry`;
@@ -405,18 +413,54 @@ export class AgentLoop {
           continue; // Skip execution, move to next tool
         }
 
-        // Execute the tool
+        // Execute the tool with timing
+        const startTime = Date.now();
         const result = await tool.execute(toolArgs);
+        const duration = Date.now() - startTime;
 
         if (result.success) {
           console.log(`   ✅ Success: ${result.output.substring(0, 100)}${result.output.length > 100 ? '...' : ''}`);
           // Reset attempt counter on success
           this.toolCallAttempts.delete(toolKey);
+          
+          // Log successful execution to analytics
+          analytics.logToolExecution({
+            toolName,
+            conversationId: this.trackedConversationId,
+            iteration,
+            args: toolArgs,
+            result: {
+              success: true,
+              output: result.output.substring(0, 500), // Truncate for log size
+            },
+            duration,
+            metadata: result.metadata,
+          });
         } else {
           console.error(`   ❌ Failed: ${result.error}`);
           // Increment attempt counter on failure
           this.toolCallAttempts.set(toolKey, attemptCount + 1);
           console.log(`   🔁 Attempt ${attemptCount + 1}/${this.MAX_TOOL_ATTEMPTS} for this tool call`);
+          
+          // Log failed execution to analytics
+          analytics.logToolExecution({
+            toolName,
+            conversationId: this.trackedConversationId,
+            iteration,
+            args: toolArgs,
+            result: {
+              success: false,
+              error: result.error,
+            },
+            duration,
+            metadata: result.metadata,
+          });
+          
+          // Also log as error event with full context
+          analytics.logError(toolName, result.error || 'Unknown error', iteration, toolArgs, {
+            attemptCount: attemptCount + 1,
+            maxAttempts: this.MAX_TOOL_ATTEMPTS,
+          });
         }
 
         // Add tool result to history
