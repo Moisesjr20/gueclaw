@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { z } from 'zod';
 import { BaseTool } from './base-tool';
 import { ToolDefinition } from '../core/providers/base-provider';
 import { ToolResult } from '../types';
@@ -10,6 +11,24 @@ const FILES_DIR = process.env.FILES_REPOSITORY_PATH || '/opt/gueclaw-data/files'
 if (!fs.existsSync(FILES_DIR)) {
   fs.mkdirSync(FILES_DIR, { recursive: true });
 }
+
+// Zod schema for validation
+const SaveToRepositorySchema = z.object({
+  filename: z.string()
+    .min(1, 'Filename cannot be empty')
+    .regex(/\.[a-zA-Z0-9]+$/, 'Filename must have a file extension (e.g., .html, .json, .txt)')
+    .describe('Name of the file with extension'),
+  
+  content: z.string()
+    .min(1, 'Content cannot be empty. If you generated content, include it in this tool call.')
+    .describe('Content of the file (text or base64 for binaries)'),
+  
+  description: z.string()
+    .optional()
+    .describe('Optional description of what this file contains'),
+}).strict(); // strict() prevents extra properties
+
+type SaveToRepositoryArgs = z.infer<typeof SaveToRepositorySchema>;
 
 /**
  * Tool for saving files to the centralized repository
@@ -60,50 +79,19 @@ DO NOT use for temporary files or internal data.
 
   public async execute(args: any): Promise<ToolResult> {
     try {
-      const { filename, content, description } = args;
-
-      // Detailed validation with specific error messages
-      // This prevents LLM from looping by giving precise guidance
-      if (!filename && !content) {
-        throw new Error(
-          'Missing required parameters: filename and content.\n\n' +
-          'You must provide:\n' +
-          '- filename: Name of the file with extension (e.g., "carrossel-vendas.html")\n' +
-          '- content: The file content as a string\n\n' +
-          'Example:\n' +
-          '{\n' +
-          '  "filename": "report.html",\n' +
-          '  "content": "<html>...</html>"\n' +
-          '}'
-        );
-      }
-      
-      if (!filename) {
-        throw new Error(
-          'Missing required parameter: filename.\n\n' +
-          'You provided content but forgot to include the filename.\n' +
-          'Add a filename with extension, for example:\n' +
-          '{\n' +
-          '  "filename": "carrossel-dados.html",\n' +
-          '  "content": ' + JSON.stringify(content?.substring(0, 50) || '') + '...\n' +
-          '}'
-        );
-      }
-      
-      if (!content) {
-        throw new Error(
-          'Missing required parameter: content.\n\n' +
-          `You provided filename="${filename}" but the content parameter is empty.\n` +
-          'The content parameter must contain the actual file data as a string.\n\n' +
-          'If you already generated the content in a previous step, include it in this tool call.\n' +
-          'DO NOT call this tool again without content - that will fail the same way.'
-        );
-      }
+      // Validate with Zod schema - throws formatted error if invalid
+      const validated = this.validateWithZod(args, SaveToRepositorySchema);
+      const { filename, content, description } = validated;
 
       // Sanitize filename (prevent path traversal)
       const safeName = path.basename(filename);
       if (safeName !== filename) {
-        throw new Error('Invalid filename (path traversal attempt)');
+        throw new Error(
+          'Invalid filename: Path traversal attempt detected.\n\n' +
+          `You provided: "${filename}"\n` +
+          `Expected: "${safeName}"\n\n` +
+          'Use only the filename without directory paths.'
+        );
       }
 
       // Check if file already exists

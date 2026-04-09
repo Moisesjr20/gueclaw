@@ -1,5 +1,7 @@
 import { ToolDefinition } from '../core/providers/base-provider';
 import { ToolResult } from '../types';
+import { z, ZodSchema } from 'zod';
+import { formatZodValidationError, isZodError } from '../utils/zod-validation';
 
 /**
  * Base class for all tools
@@ -19,7 +21,25 @@ export abstract class BaseTool {
   public abstract execute(args: Record<string, any>): Promise<ToolResult>;
 
   /**
-   * Validate tool arguments
+   * Validate tool arguments using Zod schema (optional, recommended)
+   * @param args - Arguments to validate
+   * @param schema - Zod schema for validation
+   * @returns Validated and typed arguments
+   * @throws Error with formatted message if validation fails
+   */
+  protected validateWithZod<T>(args: Record<string, any>, schema: ZodSchema<T>): T {
+    try {
+      return schema.parse(args);
+    } catch (error) {
+      if (isZodError(error)) {
+        throw new Error(formatZodValidationError(this.name, error));
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Validate tool arguments (legacy, prefer validateWithZod)
    */
   protected validate(args: Record<string, any>, required: string[]): void {
     for (const field of required) {
