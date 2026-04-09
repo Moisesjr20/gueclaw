@@ -19,6 +19,10 @@ export class AgentLoop {
   // Loop detection: Track failed tool call attempts to prevent infinite retries
   private toolCallAttempts: Map<string, number>;
   private readonly MAX_TOOL_ATTEMPTS = 3;
+  
+  // Recovery counter: Track max_output_tokens truncation attempts
+  private maxOutputTokensRecoveryCount: number = 0;
+  private readonly MAX_OUTPUT_TOKENS_RECOVERY_LIMIT = 3;
 
   constructor(
     provider: ILLMProvider,
@@ -191,14 +195,67 @@ export class AgentLoop {
             content: finalResponse,
           });
 
+          // Reset recovery counter on successful completion
+          this.maxOutputTokensRecoveryCount = 0;
+
           console.log('\n✅ Agent Loop completed successfully');
           break;
         }
 
         if (response.finishReason === 'length') {
-          console.warn('⚠️  Response truncated due to length limit');
-          finalResponse = response.content + '\n\n[Response was truncated due to length limit]';
-          break;
+          this.maxOutputTokensRecoveryCount++;
+          
+          console.warn(`⚠️  Response truncated due to length limit (attempt ${this.maxOutputTokensRecoveryCount}/${this.MAX_OUTPUT_TOKENS_RECOVERY_LIMIT})`);
+          
+          // Check if we've exceeded recovery limit
+          if (this.maxOutputTokensRecoveryCount >= this.MAX_OUTPUT_TOKENS_RECOVERY_LIMIT) {
+            console.error('❌ Max output tokens recovery limit reached');
+            
+            // Record recovery limit event
+            if (this.trackedConversationId) {
+              try {
+                TraceRepository.getInstance().addTrace({
+                  conversationId: this.trackedConversationId,
+                  iteration,
+                  toolName: 'MAX_OUTPUT_TOKENS_RECOVERY_EXCEEDED',
+                  toolResult: `Failed after ${this.MAX_OUTPUT_TOKENS_RECOVERY_LIMIT} attempts`,
+                });
+              } catch { /* non-critical */ }
+            }
+            
+            finalResponse = (
+              response.content +
+              '\n\n---\n' +
+              `⚠️ **Response Truncated**: The response exceeded token limits even after ${this.MAX_OUTPUT_TOKENS_RECOVERY_LIMIT} retry attempts.\n\n` +
+              '**What you can do:**\n' +
+              '1. Ask me to break this into smaller parts\n' +
+              '2. Request a summary instead of full details\n' +
+              '3. Focus on a specific aspect of your question\n\n' +
+              '**Technical details:** The response was too long for a single message even with extended token limits.'
+            );
+            break;
+          }
+          
+          // Add partial response to history and retry with guidance
+          this.conversationHistory.push({
+            conversationId: 'temp',
+            role: 'assistant',
+            content: response.content,
+          });
+          
+          this.conversationHistory.push({
+            conversationId: 'temp',
+            role: 'user',
+            content: (
+              '[System Recovery]: Your previous response was truncated due to length limits. ' +
+              `This is retry attempt ${this.maxOutputTokensRecoveryCount}/${this.MAX_OUTPUT_TOKENS_RECOVERY_LIMIT}. ` +
+              'Please continue from where you left off, or provide a more concise response. ' +
+              'If the full content is essential, consider breaking it into multiple parts.'
+            ),
+          });
+          
+          console.log(`🔄 Retrying with recovery guidance (attempt ${this.maxOutputTokensRecoveryCount})`);
+          continue; // Retry instead of breaking
         }
 
         if (response.finishReason === 'error') {
