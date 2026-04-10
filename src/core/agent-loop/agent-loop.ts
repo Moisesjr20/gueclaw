@@ -12,6 +12,8 @@ import {
   StateTransition,
   getStateSummary 
 } from '../../types/agent-state';
+import { ToolOrchestrator } from './tool-orchestrator';
+import { ToolUseContext } from '../../types/query-state';
 
 /**
  * Agent Loop - ReAct Pattern Implementation
