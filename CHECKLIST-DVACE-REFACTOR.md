@@ -64,7 +64,7 @@
 ## 📋 FASE 2: Query Loop Refatorado (dvace-style)
 
 ### 2.1 Criar Estado da Query
-- [ ] **Arquivo:** `src/types/query-state.ts`
+- [x] **Arquivo:** `src/types/query-state.ts`
   ```typescript
   type QueryState = {
     messages: Message[]
@@ -74,9 +74,9 @@
     toolExecutions: ToolExecution[]   // Histórico de execuções
   }
   ```
-  - [ ] Definir `QueryState` type
-  - [ ] Definir `Continue` type (enum ou union: 'tool_use' | 'end_turn' | 'max_turns')
-  - [ ] Definir `ToolExecution` type (tool, input, output, timestamp, success)
+  - [x] Definir `QueryState` type
+  - [x] Definir `Continue` type (enum ou union: 'tool_use' | 'end_turn' | 'max_turns')
+  - [x] Definir `ToolExecution` type (tool, input, output, timestamp, success)
 
 ### 2.2 Refatorar Agent Loop Principal
 - [ ] **Arquivo:** `src/core/agent-loop/agent-loop.ts`
@@ -98,11 +98,11 @@
   - [ ] Adicionar `state.transition` tracking em cada iteração
 
 ### 2.3 Validação Forçada de Tool-Use
-- [ ] **Arquivo:** `src/core/agent-loop/tool-use-validator.ts`
-  - [ ] Função `validateToolUseSequence(state: QueryState): boolean`
-  - [ ] Regra: Se última mensagem do assistente tem `tool_use`, próxima DEVE ser `tool_result`
-  - [ ] Regra: Se `tool_calls.length > 0`, `toolExecutions.length` deve crescer
-  - [ ] Lançar erro se sequência `tool_use` → `end_turn` sem `tool_result`
+- [x] **Arquivo:** `src/core/agent-loop/tool-use-validator.ts`
+  - [x] Função `validateToolUseSequence(state: QueryState): boolean`
+  - [x] Regra: Se última mensagem do assistente tem `tool_use`, próxima DEVE ser `tool_result`
+  - [x] Regra: Se `tool_calls.length > 0`, `toolExecutions.length` deve crescer
+  - [x] Lançar erro se sequência `tool_use` → `end_turn` sem `tool_result`
 
 ### 2.4 Tool Execution Logging
 - [ ] **Arquivo:** `src/utils/tool-analytics.ts` (atualizar)

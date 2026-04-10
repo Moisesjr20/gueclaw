@@ -4,6 +4,7 @@ import { ToolRegistry } from '../../tools/tool-registry';
 import { IdentityLoader } from '../../utils/identity-loader';
 import { TraceRepository } from '../../api/trace-repository';
 import { ToolAnalytics } from '../../utils/tool-analytics';
+import { TaskTracker } from '../task-tracker';
 import { 
   AgentLoopState, 
   createInitialState, 
@@ -120,6 +121,18 @@ export class AgentLoop {
         );
 
         console.log(`💭 Thought: ${response.content.substring(0, 100)}${response.content.length > 100 ? '...' : ''}`);
+
+        // Detect multi-phase promises before finishing
+        const promiseDetection = TaskTracker.detectMultiPhasePromise(response.content);
+        if (promiseDetection.detected && this.trackedConversationId) {
+          const tracker = TaskTracker.getInstance();
+          const task = tracker.createTask(
+            this.trackedConversationId,
+            'Tarefa multi-fase detectada',
+            promiseDetection.phases
+          );
+          console.log(`📋 Multi-phase task detected: ${task.id} (${promiseDetection.phases.length} phases)`);
+        }
 
         // Record trace for this iteration (thought + finish reason)
         if (this.trackedConversationId) {

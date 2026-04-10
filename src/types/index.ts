@@ -100,6 +100,9 @@ export interface TelegramInput {
 export * from './command-types';
 export * from './agent-state';
 
+// Query State Types (DVACE Architecture - Phase 2.1)
+export * from './query-state';
+
 export interface AgentAction {
   thought: string;
   action?: string;
