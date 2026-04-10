@@ -392,199 +392,191 @@ export class AgentLoop {
 
   /**
    * Execute tool calls and add results to conversation history
+   * Refactored to use ToolOrchestrator (DVACE Phase 3)
    */
   private async executeToolCalls(toolCalls: ToolCall[], iteration: number = 0): Promise<void> {
     console.log(`🔧 Executing ${toolCalls.length} tool call(s)...`);
-
+    
+    const analytics = ToolAnalytics.getInstance();
+    
+    // Separate tool calls that are in loop detection state
+    const validToolCalls: ToolCall[] = [];
+    const loopDetectedCalls: ToolCall[] = [];
+    
     for (const toolCall of toolCalls) {
-      try {
-        const toolName = toolCall.function.name;
-        const toolArgs = toolCall.function.arguments;
-        
-        console.log(`   → ${toolName}(${JSON.stringify(toolArgs).substring(0, 50)}...)`);
-
-        // Reject if tool is blocked for this skill
-        if (this.blockedTools.has(toolName)) {
-          const errorMsg = `Tool "${toolName}" is not allowed in this context.`;
-          console.warn(`   🚫 Blocked tool call attempt: ${toolName}`);
-          this.conversationHistory.push({
-            conversationId: 'temp',
-            role: 'tool',
-            content: `Error: ${errorMsg} Use an alternative tool.`,
-            metadata: { toolName, toolCallId: toolCall.id },
+      const toolName = toolCall.function.name;
+      const toolArgs = toolCall.function.arguments;
+      const toolKey = this.getToolCallKey(toolName, toolArgs);
+      const attemptCount = this.toolCallAttempts.get(toolKey) || 0;
+      
+      if (attemptCount >= this.MAX_TOOL_ATTEMPTS) {
+        loopDetectedCalls.push(toolCall);
+      } else {
+        validToolCalls.push(toolCall);
+      }
+    }
+    
+    // Handle loop-detected tools first
+    for (const toolCall of loopDetectedCalls) {
+      const toolName = toolCall.function.name;
+      const toolArgs = toolCall.function.arguments;
+      const toolKey = this.getToolCallKey(toolName, toolArgs);
+      const attemptCount = this.toolCallAttempts.get(toolKey) || 0;
+      
+      // Transition to loop detected
+      this.state = updateState(this.state, StateTransition.LOOP_DETECTED);
+      this.state.consecutiveErrors++;
+      
+      const errorMsg = (
+        `❌ LOOP DETECTED: Tool "${toolName}" has failed ${attemptCount} times with the same arguments.\n\n` +
+        `This indicates a repeated error pattern. DO NOT call this tool again with the same parameters.\n\n` +
+        `**What went wrong:**\n` +
+        `You tried calling ${toolName} ${attemptCount} times and it failed each time.\n\n` +
+        `**What to do instead:**\n` +
+        `1. If this is save_to_repository: Ensure you include BOTH filename AND content parameters\n` +
+        `2. If generating content: Check that the content variable is not empty\n` +
+        `3. Try a completely different approach to accomplish the task\n` +
+        `4. If unsure, explain to the user what you tried and ask for clarification\n\n` +
+        `**DO NOT retry this exact same tool call.**`
+      );
+      
+      console.error(`   🔁 ${errorMsg}`);
+      
+      this.conversationHistory.push({
+        conversationId: 'temp',
+        role: 'tool',
+        content: errorMsg,
+        metadata: { toolName, toolCallId: toolCall.id, loopDetected: true },
+      });
+      
+      // Record loop detection event
+      if (this.trackedConversationId) {
+        try {
+          TraceRepository.getInstance().addTrace({
+            conversationId: this.trackedConversationId,
+            iteration,
+            toolName,
+            toolArgs: JSON.stringify(toolArgs),
+            toolResult: 'LOOP_DETECTED',
           });
-          continue;
-        }
-
-        // Get the tool from registry
-        const tool = ToolRegistry.get(toolName);
-        const analytics = ToolAnalytics.getInstance();
-
-        if (!tool) {
-          const errorMsg = `Tool "${toolName}" not found in registry`;
-          console.error(`   ❌ ${errorMsg}`);
-          
-          this.conversationHistory.push({
-            conversationId: 'temp',
-            role: 'tool',
-            content: `Error: ${errorMsg}`,
-            metadata: { toolName, toolCallId: toolCall.id },
-          });
-          continue;
-        }
-
-        // Check for loop detection BEFORE executing
-        const toolKey = this.getToolCallKey(toolName, toolArgs);
-        const attemptCount = this.toolCallAttempts.get(toolKey) || 0;
-        
-        if (attemptCount >= this.MAX_TOOL_ATTEMPTS) {
-          // Transition to loop detected
-          this.state = updateState(this.state, StateTransition.LOOP_DETECTED);
-          this.state.consecutiveErrors++;
-          
-          const errorMsg = (
-            `❌ LOOP DETECTED: Tool "${toolName}" has failed ${attemptCount} times with the same arguments.\n\n` +
-            `This indicates a repeated error pattern. DO NOT call this tool again with the same parameters.\n\n` +
-            `**What went wrong:**\n` +
-            `You tried calling ${toolName} ${attemptCount} times and it failed each time.\n\n` +
-            `**What to do instead:**\n` +
-            `1. If this is save_to_repository: Ensure you include BOTH filename AND content parameters\n` +
-            `2. If generating content: Check that the content variable is not empty\n` +
-            `3. Try a completely different approach to accomplish the task\n` +
-            `4. If unsure, explain to the user what you tried and ask for clarification\n\n` +
-            `**DO NOT retry this exact same tool call.**`
-          );
-          
-          console.error(`   🔁 ${errorMsg}`);
-          
-          this.conversationHistory.push({
-            conversationId: 'temp',
-            role: 'tool',
-            content: errorMsg,
-            metadata: { toolName, toolCallId: toolCall.id, loopDetected: true },
-          });
-          
-          // Record loop detection event
-          if (this.trackedConversationId) {
-            try {
-              TraceRepository.getInstance().addTrace({
-                conversationId: this.trackedConversationId,
-                iteration,
-                toolName,
-                toolArgs: JSON.stringify(toolArgs),
-                toolResult: 'LOOP_DETECTED',
-              });
-            } catch { /* non-critical */ }
-          }
-          
-          continue; // Skip execution, move to next tool
-        }
-
-        // Transition to tool execution
-        this.state = updateState(this.state, StateTransition.TOOL_EXECUTION);
+        } catch { /* non-critical */ }
+      }
+    }
+    
+    // Early return if no valid tools to execute
+    if (validToolCalls.length === 0) {
+      return;
+    }
+    
+    // Create context for ToolOrchestrator
+    const context: ToolUseContext = {
+      userId: this.trackedConversationId || 'unknown',
+      conversationId: this.trackedConversationId || 'default',
+      blockedTools: Array.from(this.blockedTools),
+    };
+    
+    // Execute ALL valid tools via orchestrator (DVACE guarantee: NO skipping)
+    const orchestrator = new ToolOrchestrator(context);
+    const executions = await orchestrator.runTools(validToolCalls, iteration);
+    
+    // Process each execution result
+    for (const execution of executions) {
+      const toolName = execution.tool;
+      const toolArgs = execution.input;
+      const toolKey = this.getToolCallKey(toolName, toolArgs);
+      
+      // Find corresponding toolCall for toolCallId
+      const toolCall = validToolCalls.find(tc => tc.function.name === toolName);
+      const toolCallId = toolCall?.id || 'unknown';
+      
+      // Update state based on execution result
+      if (execution.success) {
+        // Transition to success and update metrics
+        this.state = updateState(this.state, StateTransition.TOOL_SUCCESS);
+        this.state.totalToolDuration += execution.duration;
         this.state.totalToolExecutions++;
-
-        // Execute the tool with timing
-        const startTime = Date.now();
-        const result = await tool.execute(toolArgs);
-        const duration = Date.now() - startTime;
-
-        if (result.success) {
-          // Transition to success and update metrics
-          this.state = updateState(this.state, StateTransition.TOOL_SUCCESS);
-          this.state.totalToolDuration += duration;
-          this.state.consecutiveErrors = 0; // Reset error counter
-          
-          console.log(`   ✅ Success: ${result.output.substring(0, 100)}${result.output.length > 100 ? '...' : ''}`);
-          // Reset attempt counter on success
-          this.toolCallAttempts.delete(toolKey);
-          
-          // Log successful execution to analytics
-          analytics.logToolExecution({
-            toolName,
-            conversationId: this.trackedConversationId,
-            iteration,
-            args: toolArgs,
-            result: {
-              success: true,
-              output: result.output.substring(0, 500), // Truncate for log size
-            },
-            duration,
-            metadata: result.metadata,
-          });
-        } else {
-          // Transition to failure and update metrics
-          this.state = updateState(this.state, StateTransition.TOOL_FAILURE);
-          this.state.consecutiveErrors++;
-          this.state.lastError = {
-            toolName,
-            error: result.error || 'Unknown error',
-            iteration
-          };
-          
-          console.error(`   ❌ Failed: ${result.error}`);
-          // Increment attempt counter on failure
-          this.toolCallAttempts.set(toolKey, attemptCount + 1);
-          console.log(`   🔁 Attempt ${attemptCount + 1}/${this.MAX_TOOL_ATTEMPTS} for this tool call`);
-          
-          // Log failed execution to analytics
-          analytics.logToolExecution({
-            toolName,
-            conversationId: this.trackedConversationId,
-            iteration,
-            args: toolArgs,
-            result: {
-              success: false,
-              error: result.error,
-            },
-            duration,
-            metadata: result.metadata,
-          });
-          
-          // Also log as error event with full context
-          analytics.logError(toolName, result.error || 'Unknown error', iteration, toolArgs, {
-            attemptCount: attemptCount + 1,
-            maxAttempts: this.MAX_TOOL_ATTEMPTS,
-          });
-        }
-
-        // Add tool result to history
-        const observation = result.success
-          ? `[Tool Result - ${toolName}]:\n${result.output}`
-          : `[Tool Error - ${toolName}]:\n${result.error}`;
-
-        this.conversationHistory.push({
-          conversationId: 'temp',
-          role: 'tool',
-          content: observation,
-          toolCallId: toolCall.id,
-          metadata: { toolName, toolCallId: toolCall.id, success: result.success },
-        });
-
-        // Record trace for this tool call
-        if (this.trackedConversationId) {
-          try {
-            TraceRepository.getInstance().addTrace({
-              conversationId: this.trackedConversationId,
-              iteration,
-              toolName,
-              toolArgs: toolArgs,
-              toolResult: (result.success ? result.output : result.error)?.substring(0, 4000),
-              finishReason: result.success ? 'tool_success' : 'tool_error',
-            });
-          } catch { /* non-critical */ }
-        }
-
-      } catch (error: any) {
-        console.error(`   ❌ Tool execution error: ${error.message}`);
+        this.state.consecutiveErrors = 0; // Reset error counter
         
-        this.conversationHistory.push({
-          conversationId: 'temp',
-          role: 'tool',
-          content: `[Tool Execution Error - ${toolCall.function.name}]: ${error.message}`,
-          toolCallId: toolCall.id,
-          metadata: { toolName: toolCall.function.name, toolCallId: toolCall.id, error: true },
+        console.log(`   ✅ ${toolName}: ${execution.output.substring(0, 100)}${execution.output.length > 100 ? '...' : ''}`);
+        
+        // Reset attempt counter on success
+        this.toolCallAttempts.delete(toolKey);
+        
+        // Log successful execution to analytics
+        analytics.logToolExecution({
+          toolName,
+          conversationId: this.trackedConversationId,
+          iteration,
+          args: toolArgs,
+          result: {
+            success: true,
+            output: execution.output.substring(0, 500), // Truncate for log size
+          },
+          duration: execution.duration,
         });
+      } else {
+        // Transition to failure and update metrics
+        this.state = updateState(this.state, StateTransition.TOOL_FAILURE);
+        this.state.consecutiveErrors++;
+        this.state.totalToolExecutions++;
+        this.state.lastError = {
+          toolName,
+          error: execution.error || 'Unknown error',
+          iteration
+        };
+        
+        console.error(`   ❌ ${toolName}: ${execution.error}`);
+        
+        // Increment attempt counter on failure
+        const attemptCount = this.toolCallAttempts.get(toolKey) || 0;
+        this.toolCallAttempts.set(toolKey, attemptCount + 1);
+        console.log(`   🔁 Attempt ${attemptCount + 1}/${this.MAX_TOOL_ATTEMPTS} for this tool call`);
+        
+        // Log failed execution to analytics
+        analytics.logToolExecution({
+          toolName,
+          conversationId: this.trackedConversationId,
+          iteration,
+          args: toolArgs,
+          result: {
+            success: false,
+            error: execution.error,
+          },
+          duration: execution.duration,
+        });
+        
+        // Also log as error event with full context
+        analytics.logError(toolName, execution.error || 'Unknown error', iteration, toolArgs, {
+          attemptCount: attemptCount + 1,
+          maxAttempts: this.MAX_TOOL_ATTEMPTS,
+        });
+      }
+      
+      // Add tool result to conversation history
+      const observation = execution.success
+        ? `[Tool Result - ${toolName}]:\n${execution.output}`
+        : `[Tool Error - ${toolName}]:\n${execution.error}`;
+
+      this.conversationHistory.push({
+        conversationId: 'temp',
+        role: 'tool',
+        content: observation,
+        toolCallId,
+        metadata: { toolName, toolCallId, success: execution.success },
+      });
+
+      // Record trace for this tool call
+      if (this.trackedConversationId) {
+        try {
+          TraceRepository.getInstance().addTrace({
+            conversationId: this.trackedConversationId,
+            iteration,
+            toolName,
+            toolArgs: toolArgs,
+            toolResult: (execution.success ? execution.output : execution.error)?.substring(0, 4000),
+            finishReason: execution.success ? 'tool_success' : 'tool_error',
+          });
+        } catch { /* non-critical */ }
       }
     }
   }
