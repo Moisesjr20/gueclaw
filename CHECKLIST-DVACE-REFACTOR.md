@@ -127,59 +127,86 @@ const result = await queryLoop({
 
 ---
 
-## 📋 FASE 3: Tool Orchestration (Execução Garantida)
+## 📋 FASE 3: Tool Orchestration (Execução Garantida) ✅ COMPLETA
 
 ### 3.1 Criar Tool Orchestrator
-- [ ] **Arquivo:** `src/core/tools/tool-orchestrator.ts`
+- [x] **Arquivo:** `src/core/agent-loop/tool-orchestrator.ts`
   ```typescript
-  async function* runTools(
-    toolCalls: ToolUseBlock[],
-    context: ToolUseContext
-  ): AsyncGenerator<ToolExecution, void> {
+  async function runTools(
+    toolCalls: ToolCall[],
+    iteration: number
+  ): Promise<ToolExecution[]> {
     // Particionar tools em concurrent-safe vs serial
     // Executar TODAS sem exceções
+    // GARANTIA: executions.length === toolCalls.length
   }
   ```
-  - [ ] Função `partitionToolCalls(tools): { concurrent, serial }`
-  - [ ] Função `runToolsConcurrently(tools): Promise<ToolExecution[]>`
-  - [ ] Função `runToolsSerially(tools): Promise<ToolExecution[]>`
-  - [ ] **CRÍTICO:** Sempre executar TODAS as tools do array (sem skip)
+  - [x] Função `partitionToolCalls(tools): { concurrent, serial }`
+  - [x] Função `runToolsConcurrently(tools): Promise<ToolExecution[]>`
+  - [x] Função `runToolsSerially(tools): Promise<ToolExecution[]>`
+  - [x] Função `executeSingleTool()` com error handling que NUNCA throws
+  - [x] **CRÍTICO:** Sempre executar TODAS as tools do array (sem skip)
+  - [x] **21 testes unitários passando**
 
 ### 3.2 Classificar Tools por Concurrency Safety
-- [ ] **Arquivo:** `src/core/tools/tool-registry.ts` (atualizar)
-  - [ ] Adicionar campo `isConcurrencySafe: boolean` em cada tool
-  - [ ] Read-only tools: `FileRead`, `ListDirectory`, `GetErrors` → `true`
-  - [ ] Write tools: `FileWrite`, `FileEdit`, `SSHExec`, `DockerCommand` → `false`
-  - [ ] Método `getToolSafety(toolName): boolean`
+- [x] **Arquivo:** `src/core/providers/base-provider.ts` + tools
+  - [x] Adicionar campo `isConcurrencySafe?: boolean` em ToolDefinition
+  - [x] Read-only tools: `echo`, `grep_search`, `glob_search`, `analyze_image`, `transcribe_audio`, `read_skill`, `use_skill` → `true`
+  - [x] Write tools: `vps_execute_command`, `memory_write`, `docker_manage`, etc → `false` (default)
+  - [x] Método `getToolMetadata()` lê isConcurrencySafe do registry
+  - [x] **12 testes de classificação + 6 testes de integração passando**
 
 ### 3.3 Integrar Tool Orchestrator no Query Loop
-- [ ] **Arquivo:** `src/core/agent-loop/agent-loop.ts`
-  - [ ] Substituir chamadas diretas de tools por `runTools()`
-  - [ ] Consumir generator: `for await (const execution of runTools(toolCalls, context))`
-  - [ ] Adicionar cada `execution` ao `state.toolExecutions`
-  - [ ] Adicionar `tool_result` às mensagens
+- [x] **Arquivo:** `src/core/agent-loop/agent-loop.ts`
+  - [x] Importar ToolOrchestrator e ToolUseContext
+  - [x] Refatorar `executeToolCalls()` para usar orchestrator
+  - [x] Criar context com blockedTools
+  - [x] Chamar `orchestrator.runTools(validToolCalls, iteration)`
+  - [x] Mapear ToolExecution[] para conversation history
+  - [x] Preservar analytics logging (ToolAnalytics)
+  - [x] Preservar trace recording (TraceRepository)
+  - [x] Preservar loop detection logic (toolCallAttempts)
+  - [x] Atualizar state transitions (AgentLoopState)
 
 ### 3.4 Error Handling em Tool Execution
-- [ ] **Arquivo:** `src/core/tools/tool-error-handler.ts`
-  - [ ] Wrapper `safeExecuteTool(tool, input): Promise<ToolExecution>`
-  - [ ] Capturar erros: timeout, permission denied, execution failed
-  - [ ] Retornar `{ success: false, error: string }` em vez de lançar
-  - [ ] Ainda assim adicionar `tool_result` (com erro) às mensagens
+- [x] ~~**Arquivo:** `src/core/tools/tool-error-handler.ts`~~ (integrado no orchestrator)
+  - [x] Wrapper `executeSingleTool()` já implementado
+  - [x] Captura erros: tool não encontrada, bloqueada, timeout, execução falhou
+  - [x] Retorna `ToolExecution` com `success: false` em vez de lançar
+  - [x] Ainda assim adiciona `tool_result` (com erro) às mensagens
+  - [x] **Task marcada como opcional - lógica já implementada**
 
 **Validação Fase 3:**
 ```bash
-# Testar execução concorrente
-Prompt: "Liste os arquivos em src/ e docs/"
-→ Deve executar 2x FileRead em PARALELO
+# ✅ Testar execução concorrente
+Prompt: "Busque em 3 arquivos diferentes"  
+→ 3x grep_search executam em PARALELO (isConcurrencySafe: true)
+→ Timing: ~50ms total (<100ms prova paralelização)
 
-# Testar execução serial
+# ✅ Testar execução serial
 Prompt: "Crie arquivo1.txt, depois arquivo2.txt"
-→ Deve executar 2x FileWrite SEQUENCIALMENTE
+→ 2x file_write executam SEQUENCIALMENTE (isConcurrencySafe: false)
+→ Timing: ~100ms+ por tool (prova serialização)
 
-# Testar tratamento de erro
-Prompt: "Execute comando inválido no VPS"
-→ Deve retornar tool_result com error (não crashar agent loop)
+# ✅ Testar tratamento de erro
+Prompt: "Execute ferramenta que não existe"
+→ Retorna tool_result com error (não crashar agent loop)
+→ Tool falhada registrada em analytics
+→ Loop detection incrementa tentativas
+→ Agent continua executando próximas tools
+
+# ✅ CRITICAL: No tool skipping
+→ 39 testes validando que TODAS as tools executam
+→ executions.length SEMPRE === toolCalls.length
 ```
+
+**Status da Fase 3:** ✅ COMPLETA (39/39 testes passando + integração validada)
+
+**Progressão DVACE:**
+- Fase 1: ✅ 16 testes (Command System)
+- Fase 2: ✅ 15 testes (Query State Validation)
+- Fase 3: ✅ 39 testes (Tool Orchestration)
+- **Total: 70 testes DVACE passando**
 
 ---
 
