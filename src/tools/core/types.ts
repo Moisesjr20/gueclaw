@@ -31,6 +31,14 @@ export interface ToolConfig<TSchema extends z.ZodTypeAny> {
   ) => Promise<ToolResult>;
 
   /**
+   * Whether this tool is safe to run concurrently with other tools.
+   * - true: READ-ONLY operations (e.g., grep, glob, read-file)
+   * - false: WRITE operations or side effects (e.g., file-write, vps-command)
+   * Default: false (serial execution for safety)
+   */
+  isConcurrencySafe?: boolean;
+
+  /**
    * Optional examples of how to use the tool
    */
   examples?: ToolExample[];

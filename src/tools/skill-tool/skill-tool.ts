@@ -139,6 +139,7 @@ export class SkillTool extends BaseTool {
     return {
       name: this.name,
       description: enhancedDescription,
+      isConcurrencySafe: true, // READ-ONLY skill loading and execution
       parameters: {
         type: 'object' as const,
         properties: {

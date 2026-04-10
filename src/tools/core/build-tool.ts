@@ -47,6 +47,11 @@ export function buildTool<TSchema extends z.ZodTypeAny>(
         this.description,
         this.schema
       );
+      
+      // Add concurrency safety metadata
+      if (config.isConcurrencySafe !== undefined) {
+        this.toolDefinition.isConcurrencySafe = config.isConcurrencySafe;
+      }
     }
 
     /**

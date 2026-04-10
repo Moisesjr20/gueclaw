@@ -33,6 +33,7 @@ export class GrepTool extends BaseTool {
     return {
       name: this.name,
       description: this.description,
+      isConcurrencySafe: true, // READ-ONLY search operation
       parameters: {
         type: 'object',
         properties: {

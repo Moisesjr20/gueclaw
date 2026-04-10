@@ -20,6 +20,7 @@ export class GlobTool extends BaseTool {
     return {
       name: this.name,
       description: this.description,
+      isConcurrencySafe: true, // READ-ONLY file discovery
       parameters: {
         type: 'object',
         properties: {

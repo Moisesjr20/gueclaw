@@ -42,6 +42,13 @@ export interface ToolDefinition {
     properties: Record<string, ParameterProperty>;
     required?: string[];
   };
+  /**
+   * Whether this tool is safe to run concurrently with other tools.
+   * - true: READ-ONLY operations (e.g., grep, glob, read-file, analyze-image)
+   * - false: WRITE operations or tools with side effects (e.g., file-write, vps-command, docker)
+   * Default: false (serial execution for safety)
+   */
+  isConcurrencySafe?: boolean;
 }
 
 export interface ParameterProperty {

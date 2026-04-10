@@ -27,6 +27,7 @@ export class AnalyzeImageTool extends BaseTool {
     return {
       name: this.name,
       description: this.description,
+      isConcurrencySafe: true, // READ-ONLY image analysis
       parameters: {
         type: 'object',
         properties: {

@@ -21,6 +21,7 @@ export class ReadSkillTool extends BaseTool {
     return {
       name: this.name,
       description: this.description,
+      isConcurrencySafe: true, // READ-ONLY skill file loading
       parameters: {
         type: 'object',
         properties: {

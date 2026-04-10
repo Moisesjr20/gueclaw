@@ -7,6 +7,7 @@ import { buildTool, z } from './core';
 export const EchoTool = buildTool({
   name: 'echo',
   description: 'Echoes back the input text with optional transformations. Useful for testing tool calls and demonstrating buildTool() pattern.',
+  isConcurrencySafe: true, // READ-ONLY operation
 
   parameters: z.object({
     text: z

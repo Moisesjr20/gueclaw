@@ -28,6 +28,7 @@ export class AudioTool extends BaseTool {
     return {
       name: this.name,
       description: this.description,
+      isConcurrencySafe: true, // READ-ONLY audio transcription
       parameters: {
         type: 'object',
         properties: {
