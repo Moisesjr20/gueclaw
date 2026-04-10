@@ -3,10 +3,13 @@
  * 
  * Garante que promessas do agente sejam cumpridas e rastreadas.
  * Previne falsos positivos de "success" sem execução real.
+ * 
+ * MIGRADO PARA IN-MEMORY STATE (Phase 4 - Opção A)
+ * Resolve: Database UPDATE Bug (PHASE-4-DATABASE-ISSUE.md)
+ * Baseado em: dvace architecture (tmp/dvace)
  */
 
-import { DatabaseConnection } from './memory/database';
-import { Database } from 'better-sqlite3';
+import { StateManager } from '../state/gueclaw-state';
 
 export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'failed' | 'killed';
 
@@ -42,12 +45,11 @@ export function isTerminalTaskStatus(status: TaskStatus | PhaseStatus): boolean 
 }
 
 export class TaskTracker {
-  private db: Database;
+  private stateManager: StateManager;
   private static instance: TaskTracker;
 
   private constructor() {
-    this.db = DatabaseConnection.getInstance();
-    this.initializeTables();
+    this.stateManager = StateManager.getInstance();
   }
 
   public static getInstance(): TaskTracker {
@@ -59,44 +61,15 @@ export class TaskTracker {
 
   /**
    * Reset singleton instance (for testing) (DVACE Phase 4.5)
+   * Migrado para state reset (in-memory)
    */
   public static reset(): void {
-    // Clear all tasks from database before resetting
     if (TaskTracker.instance) {
-      try {
-        const count = TaskTracker.instance.db.prepare('SELECT COUNT(*) as count FROM agent_tasks').get() as any;
-        console.log(`🔄 Reset: Deleting ${count?.count || 0} tasks from database`);
-        TaskTracker.instance.db.exec('DELETE FROM agent_tasks');
-        const afterCount = TaskTracker.instance.db.prepare('SELECT COUNT(*) as count FROM agent_tasks').get() as any;
-        console.log(`🔄 Reset: ${afterCount?.count || 0} tasks remain after DELETE`);
-      } catch (err) {
-        console.warn('Could not clear tasks during reset:', err);
-      }
+      const count = TaskTracker.instance.stateManager.getTaskCount();
+      console.log(`🔄 Reset: Clearing ${count} tasks from state`);
+      TaskTracker.instance.stateManager.reset();
     }
     TaskTracker.instance = null as any;
-  }
-
-  /**
-   * Cria tabelas de tarefas se não existirem
-   */
-  private initializeTables(): void {
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS agent_tasks (
-        id TEXT PRIMARY KEY,
-        conversation_id TEXT NOT NULL,
-        description TEXT NOT NULL,
-        phases TEXT NOT NULL, -- JSON array
-        status TEXT NOT NULL DEFAULT 'pending',
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL,
-        metadata TEXT -- JSON
-      );
-
-      CREATE INDEX IF NOT EXISTS idx_agent_tasks_conversation 
-        ON agent_tasks(conversation_id);
-      CREATE INDEX IF NOT EXISTS idx_agent_tasks_status 
-        ON agent_tasks(status);
-    `);
   }
 
   /**
@@ -128,22 +101,10 @@ export class TaskTracker {
       updated_at: now,
     };
 
-    const stmt = this.db.prepare(`
-      INSERT INTO agent_tasks (id, conversation_id, description, phases, status, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `);
+    // Salvar no state in-memory
+    this.stateManager.setTask(task);
 
-    const info = stmt.run(
-      task.id,
-      task.conversation_id,
-      task.description,
-      JSON.stringify(task.phases),
-      task.status,
-      task.created_at,
-      task.updated_at
-    );
-
-    console.log(`📋 Task created: ${task.id} (${phases.length} phases) [INSERT: ${info.changes} rows]`);
+    console.log(`📋 Task created: ${task.id} (${phases.length} phases)`);
     return task;
   }
 
@@ -208,14 +169,12 @@ export class TaskTracker {
 
     task.updated_at = Date.now();
 
-    const phasesJson = JSON.stringify(task.phases);
-    
-    // Update status and phases separately (fixes better-sqlite3 multi-param issue)
-    const statusUpdate = this.db.prepare(`UPDATE agent_tasks SET status = ? WHERE id = ?`);
-    statusUpdate.run(task.status, task.id);
-    
-    const phasesUpdate = this.db.prepare(`UPDATE agent_tasks SET phases = ?, updated_at = ? WHERE id = ?`);
-    phasesUpdate.run(phasesJson, task.updated_at, task.id);
+    // Atualizar in-memory state - RESOLVE UPDATE BUG!
+    this.stateManager.updateTask(taskId, {
+      phases: task.phases,
+      status: task.status,
+      updated_at: task.updated_at
+    });
 
     console.log(`📝 Phase updated: ${phaseId} → ${status} (${toolExecutions || 0} tools)`);
   }
@@ -224,53 +183,28 @@ export class TaskTracker {
    * Busca tarefas pendentes ou em progresso
    */
   public getPendingTasks(conversationId?: string): AgentTask[] {
-    let query = `
-      SELECT * FROM agent_tasks 
-      WHERE status IN ('pending', 'in_progress')
-    `;
-    const params: any[] = [];
-
-    if (conversationId) {
-      query += ` AND conversation_id = ?`;
-      params.push(conversationId);
-    }
-
-    query += ` ORDER BY created_at DESC`;
-
-    const stmt = this.db.prepare(query);
-    const rows = stmt.all(...params) as any[];
-
-    return rows.map(row => this.deserializeTask(row));
+    return this.stateManager.getPendingTasks(conversationId);
   }
 
   /**
    * Busca uma tarefa específica
    */
   public getTask(taskId: string): AgentTask | null {
-    const stmt = this.db.prepare(`SELECT * FROM agent_tasks WHERE id = ?`);
-    const row = stmt.get(taskId) as any;
-    return row ? this.deserializeTask(row) : null;
+    return this.stateManager.getTask(taskId) || null;
   }
 
   /**
    * Busca todas as tarefas de uma conversa (DVACE Phase 4.3)
    */
   public getTasksByConversationId(conversationId: string): AgentTask[] {
-    const stmt = this.db.prepare(`
-      SELECT * FROM agent_tasks 
-      WHERE conversation_id = ?
-      ORDER BY created_at DESC
-    `);
-    const rows = stmt.all(conversationId) as any[];
-    return rows.map(row => this.deserializeTask(row));
+    return this.stateManager.getTasksByConversationId(conversationId);
   }
 
   /**
    * Verifica se há tarefas não concluídas
    */
   public hasIncompleteTasks(conversationId: string): boolean {
-    const tasks = this.getPendingTasks(conversationId);
-    return tasks.length > 0;
+    return this.stateManager.hasIncompleteTasks(conversationId);
   }
 
   /**
@@ -327,13 +261,14 @@ export class TaskTracker {
     phase.tool_executions++;
     task.updated_at = Date.now();
 
-    const stmt = this.db.prepare(`
-      UPDATE agent_tasks 
-      SET phases = ?, updated_at = ?
-      WHERE id = ?
-    `);
+    // Atualizar in-memory state - RESOLVE UPDATE BUG!
+    this.stateManager.updateTask(task.id, {
+      phases: task.phases,
+      updated_at: task.updated_at
+    });
 
-    stmt.run(JSON.stringify(task.phases), task.updated_at, task.id);
+    // Incrementar contador global
+    this.stateManager.incrementToolExecutions();
 
     console.log(`📊 Tool execution incremented: ${phase.name} → ${phase.tool_executions} tools`);
   }
@@ -388,13 +323,12 @@ export class TaskTracker {
       });
     }
 
-    const stmt = this.db.prepare(`
-      UPDATE agent_tasks 
-      SET phases = ?, status = ?, updated_at = ?
-      WHERE id = ?
-    `);
-
-    stmt.run(JSON.stringify(task.phases), task.status, task.updated_at, task.id);
+    // Atualizar in-memory state - RESOLVE UPDATE BUG!
+    this.stateManager.updateTask(task.id, {
+      phases: task.phases,
+      status: task.status,
+      updated_at: task.updated_at
+    });
 
     console.log(`🛑 Task status updated: ${taskId} → ${status}`);
   }
@@ -421,22 +355,6 @@ export class TaskTracker {
 
     output += `\nUse /task <ID> para ver detalhes`;
     return output;
-  }
-
-  /**
-   * Deserializa registro do banco
-   */
-  private deserializeTask(row: any): AgentTask {
-    return {
-      id: row.id,
-      conversation_id: row.conversation_id,
-      description: row.description,
-      phases: JSON.parse(row.phases),
-      status: row.status,
-      created_at: row.created_at,
-      updated_at: row.updated_at,
-      metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
-    };
   }
 
   /**

@@ -7,22 +7,30 @@
  * - 4.1: Terminal states (killed, completed, failed)
  * - 4.2: Tool executions validation
  * - 4.3: Agent loop integration
+ * 
+ * MIGRATED TO IN-MEMORY STATE (Phase 4 - Opção A)
+ * - Removed database dependency
+ * - Using resetStateForTests() for test isolation
+ * - Resolves: Database UPDATE Bug (PHASE-4-DATABASE-ISSUE.md)
  */
 
 import { TaskTracker, TaskStatus, PhaseStatus } from '../../src/core/task-tracker';
-import Database from 'better-sqlite3';
-import path from 'path';
-import fs from 'fs';
+import { resetStateForTests } from '../../src/state/gueclaw-state';
 
 describe('DVACE Phase 4: Task System Validation', () => {
   let tracker: TaskTracker;
   
   beforeEach(() => {
+    // Reset state manager (dvace-style)
+    resetStateForTests();
+    
+    // Reset singleton - gets fresh state
     TaskTracker.reset();
     tracker = TaskTracker.getInstance();
   });
   
   afterEach(() => {
+    // Clean up
     TaskTracker.reset();
   });
 
