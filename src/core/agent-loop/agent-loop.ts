@@ -14,6 +14,7 @@ import {
 } from '../../types/agent-state';
 import { ToolOrchestrator } from './tool-orchestrator';
 import { ToolUseContext } from '../../types/query-state';
+import { canUseTool } from '../tools/tool-permissions';
 
 /**
  * Agent Loop - ReAct Pattern Implementation
@@ -37,6 +38,9 @@ export class AgentLoop {
   
   // State tracking: Monitor iterations and transitions
   private state: AgentLoopState;
+  
+  // DVACE Phase 5: Tool permissions (allowedTools patterns)
+  private allowedTools: string[];
 
   constructor(
     provider: ILLMProvider,
@@ -47,7 +51,9 @@ export class AgentLoop {
     /** Tool names that must not be offered to the LLM for this loop instance */
     blockedTools?: string[],
     /** Conversation ID for trace recording (optional) */
-    conversationId?: string
+    conversationId?: string,
+    /** DVACE Phase 5: Tool permission patterns (e.g., ['Bash(git *)', 'FileRead(*)']) */
+    allowedTools?: string[]
   ) {
     this.provider = provider;
     this.conversationHistory = [...conversationHistory];
@@ -59,6 +65,7 @@ export class AgentLoop {
     this.trackedConversationId = conversationId;
     this.toolCallAttempts = new Map();
     this.state = createInitialState();
+    this.allowedTools = allowedTools ?? ['*']; // Default: allow all tools
   }
 
   /**
@@ -393,27 +400,62 @@ export class AgentLoop {
   /**
    * Execute tool calls and add results to conversation history
    * Refactored to use ToolOrchestrator (DVACE Phase 3)
+   * Integrated with Tool Permissions (DVACE Phase 5.3)
    */
   private async executeToolCalls(toolCalls: ToolCall[], iteration: number = 0): Promise<void> {
     console.log(`🔧 Executing ${toolCalls.length} tool call(s)...`);
     
     const analytics = ToolAnalytics.getInstance();
     
-    // Separate tool calls that are in loop detection state
+    // Separate tool calls into categories
     const validToolCalls: ToolCall[] = [];
     const loopDetectedCalls: ToolCall[] = [];
+    const permissionBlockedCalls: ToolCall[] = [];
     
+    // DVACE Phase 5.3: Check permissions for each tool call
     for (const toolCall of toolCalls) {
       const toolName = toolCall.function.name;
       const toolArgs = toolCall.function.arguments;
       const toolKey = this.getToolCallKey(toolName, toolArgs);
       const attemptCount = this.toolCallAttempts.get(toolKey) || 0;
       
+      // Check loop detection first
       if (attemptCount >= this.MAX_TOOL_ATTEMPTS) {
         loopDetectedCalls.push(toolCall);
-      } else {
-        validToolCalls.push(toolCall);
+        continue;
       }
+      
+      // Check tool permissions
+      const permissionResult = canUseTool(toolName, toolArgs, this.allowedTools);
+      if (!permissionResult.allowed) {
+        permissionBlockedCalls.push(toolCall);
+        console.warn(`   🚫 Tool "${toolName}" blocked: ${permissionResult.reason}`);
+        
+        // Add tool_result with permission error
+        this.conversationHistory.push({
+          conversationId: 'temp',
+          role: 'tool',
+          content: `❌ PERMISSION DENIED: ${permissionResult.reason}\n\nYou do not have permission to use this tool in the current context. Please use only the allowed tools for this command.`,
+          metadata: { toolName, toolCallId: toolCall.id, permissionDenied: true },
+        });
+        
+        // Record permission denial
+        if (this.trackedConversationId) {
+          try {
+            TraceRepository.getInstance().addTrace({
+              conversationId: this.trackedConversationId,
+              iteration,
+              toolName,
+              toolArgs: JSON.stringify(toolArgs),
+              toolResult: 'PERMISSION_DENIED',
+            });
+          } catch { /* non-critical */ }
+        }
+        continue;
+      }
+      
+      // Tool is valid and allowed
+      validToolCalls.push(toolCall);
     }
     
     // Handle loop-detected tools first

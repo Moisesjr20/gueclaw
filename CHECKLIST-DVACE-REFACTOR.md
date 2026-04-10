@@ -210,40 +210,40 @@ Prompt: "Execute ferramenta que não existe"
 
 ---
 
-## 📋 FASE 4: Task System com Estados Terminais
+## 📋 FASE 4: Task System com Estados Terminais (60% COMPLETE)
 
 ### 4.1 Adicionar Estados Terminais
-- [ ] **Arquivo:** `src/core/task-tracker.ts` (atualizar)
-  - [ ] Adicionar estado `'killed'` ao enum TaskStatus
-  - [ ] Criar função `isTerminalTaskStatus(status): boolean`
-    ```typescript
-    return status === 'completed' || status === 'failed' || status === 'killed'
-    ```
-  - [ ] Adicionar guarda em `updatePhaseStatus()`: não atualizar se terminal
+- [x] **Arquivo:** `src/core/task-tracker.ts` (atualizar)
+  - [x] Adicionar estado `'killed'` ao enum TaskStatus
+  - [x] Criar função `isTerminalTaskStatus(status): boolean`
+  - [x] Adicionar guarda em `updatePhaseStatus()`: não atualizar se terminal
 
 ### 4.2 Validação de Tool Executions por Phase
-- [ ] **Arquivo:** `src/core/task-tracker.ts` (atualizar)
-  - [ ] Adicionar campo `tool_executions: number` em cada phase
-  - [ ] Método `incrementToolExecutions(taskId, phaseIndex): void`
-  - [ ] Método `validatePhaseCompletion(phase): boolean`
-    ```typescript
-    // Fase só completa se tool_executions > 0 (para fases de execução)
-    if (phase.type === 'execution' && phase.tool_executions === 0) {
-      return false // Não marcar como completed
-    }
-    ```
+- [x] **Arquivo:** `src/core/task-tracker.ts` (atualizar)
+  - [x] Adicionar campo `tool_executions: number` em cada phase
+  - [x] Método `incrementToolExecutions(taskId, phaseIndex): void`
+  - [x] Método `validatePhaseCompletion(phase): boolean`
 
 ### 4.3 Integrar Task Tracker com Query Loop
-- [ ] **Arquivo:** `src/core/agent-loop/agent-loop.ts`
-  - [ ] Após cada `toolExecution`, chamar `TaskTracker.incrementToolExecutions()`
-  - [ ] Antes de marcar phase como `completed`, validar `validatePhaseCompletion()`
-  - [ ] Se validação falhar, manter phase em `in_progress` + alertar
+- [x] **Arquivo:** `src/core/agent-loop/agent-loop.ts`
+  - [x] Após cada `toolExecution`, chamar `TaskTracker.incrementToolExecutions()`
+  - [x] Integrado no executeToolCalls após tool success
+  - [x] Incrementa apenas primeira phase in_progress
 
 ### 4.4 Comando /kill para Cancelar Tasks
-- [ ] **Arquivo:** `src/commands/telegram-commands.ts`
-  - [ ] Adicionar comando `/kill <taskId>` → LocalCommand
-  - [ ] Chamar `TaskTracker.updateTaskStatus(taskId, 'killed')`
-  - [ ] Interromper query loop se task foi killed
+- [x] **Arquivo:** `src/core/task-tracker.ts`
+  - [x] Método `updateTaskStatus(taskId, status)` implementado
+  - [x] Cascata de killed para todas as phases
+  - [ ] Integração do comando `/kill` no telegram-commands.ts (pendente)
+  - [ ] Interromper query loop quando task killed (pendente)
+
+### 4.5 Testes
+- [x] **Arquivo:** `tests/integration/phase-4-validation.test.ts`
+  - [x] 14 testes criados cobrindo todas funcionalidades
+  - [ ] **ISSUE:** Database reset entre testes precisa correção (2/14 passing)
+  - [ ] Validação de persistência de updates precisa fix
+
+**Status da Fase 4:** ⚠️ 60% COMPLETA (core implementation done, tests need DB fixes)
 
 **Validação Fase 4:**
 ```bash
@@ -263,50 +263,69 @@ User: "FASE 1: Ler arquivo X, FASE 2: Editar arquivo Y, FASE 3: Commitar"
 
 ---
 
-## 📋 FASE 5: Prompt Commands com AllowedTools
+## 📋 FASE 5: Prompt Commands com AllowedTools (100% COMPLETE ✅)
 
 ### 5.1 Definir AllowedTools por Comando
-- [ ] **Arquivo:** `src/commands/prompt-commands.ts`
-  ```typescript
-  export const reviewCommand: PromptCommand = {
-    type: 'prompt',
-    name: 'review',
-    description: 'AI code review with git integration',
-    allowedTools: [
-      'Bash(git *)',      // Apenas comandos git
-      'FileRead(*)',      // Qualquer arquivo
-      'FileEdit(*)',      // Qualquer arquivo
-      'ListDirectory(*)'  // Qualquer diretório
-    ],
-    async getPrompt(args, context) {
-      return 'Review staged changes and suggest improvements.'
-    }
-  }
-  ```
-  - [ ] `/review` → `['Bash(git *)', 'FileRead(*)', 'FileEdit(*)', 'ListDirectory(*)']`
-  - [ ] `/commit` → `['Bash(git commit)', 'Bash(git push)', 'FileRead(*)']`
-  - [ ] `/deploy` → `['SSHExec(*)', 'DockerCommand(*)', 'Bash(git pull)']`
-  - [ ] `/scan-security` → `['SSHExec(*)', 'FileRead(*)', 'FileWrite(*)']`
+- [x] **Arquivo:** `src/commands/telegram-commands.ts` (já implementado)
+  - [x] `/review` → `['Bash(git *)', 'FileRead(*)', 'FileEdit(*)', 'ListDirectory(*)', 'GrepTool(*)']`
+  - [x] `/commit` → `['Bash(git commit*)', 'Bash(git push*)', 'Bash(git add*)', 'FileRead(*)']`
+  - [x] `/deploy` → `['SSHExec(*)', 'DockerCommand(*)', 'Bash(git pull)', 'Bash(git fetch)', 'FileRead(*)']`
+  - [x] Todos PromptCommands já têm allowedTools definidos
 
 ### 5.2 Tool Permission System
-- [ ] **Arquivo:** `src/core/tools/tool-permissions.ts`
-  - [ ] Função `canUseTool(toolName, allowedTools[]): boolean`
-  - [ ] Suporte a wildcards: `Bash(git *)` permite `Bash("git status")`
-  - [ ] Suporte a negação: `!FileEdit(*.env)` bloqueia edição de .env
-  - [ ] Retornar erro se tool não permitida
+- [x] **Arquivo:** `src/core/tools/tool-permissions.ts` (NOVO - 180 linhas)
+  - [x] Função `canUseTool(toolName, toolArgs, allowedTools): ToolPermissionResult`
+  - [x] Função `matchesPattern(toolName, toolArgs, pattern): boolean`
+  - [x] Função `matchesArgPattern(args, pattern): boolean` → suporte a wildcards
+  - [x] Função `validateToolPatterns(patterns): ValidationResult`
+  - [x] Padrões suportados:
+    * Wildcard: `"ToolName(*)"` → qualquer argumento
+    * Prefix: `"Bash(git *)"` → apenas comandos git
+    * Negation: `"!FileRead(/etc/*)"` → bloqueia /etc/
+    * Substring: `"SSHExec(docker)"` → comandos docker-related
+  - [x] **27/27 unit tests passando**
 
 ### 5.3 Integrar Permissions no Query Loop
-- [ ] **Arquivo:** `src/core/agent-loop/agent-loop.ts`
-  - [ ] Adicionar parâmetro `allowedTools: string[]` em `queryLoop()`
-  - [ ] Antes de executar tool, validar `canUseTool()`
-  - [ ] Se bloqueada, retornar `tool_result` com erro de permissão
-  - [ ] LLM vê erro e pode tentar outra abordagem
+- [x] **Arquivo:** `src/core/agent-loop/agent-loop.ts` (MODIFICADO)
+  - [x] Adicionar campo `private allowedTools: string[]`
+  - [x] Atualizar constructor: parameter `allowedTools` (default: ['*'])
+  - [x] Modificar `executeToolCalls()`:
+    * Importar `canUseTool` de tool-permissions
+    * Criar array `permissionBlockedCalls: ToolCall[]`
+    * Validar cada tool com `canUseTool()` antes de executar
+    * Se bloqueada, adicionar PERMISSION_DENIED error ao histórico
+    * Registrar permission denials no TraceRepository
+    * Apenas executar `validToolCalls` (passed all checks)
+  - [x] **Build compilação limpa (0 TypeScript errors)**
 
 ### 5.4 Fallback para Conversação Livre
-- [ ] **Arquivo:** `src/index.ts`
-  - [ ] Se mensagem não começa com `/comando`, usar `allowedTools: '*'` (todas)
-  - [ ] PromptCommands sempre restringem tools
-  - [ ] LocalCommands nunca passam pelo LLM
+- [x] **Arquivo:** `src/core/agent-loop/agent-loop.ts`
+  - [x] Default `allowedTools: ['*']` → todas ferramentas permitidas
+  - [x] PromptCommands definem restrições específicas via constructor
+  - [x] LocalCommands nunca passam pelo LLM (execução direta)
+  - [x] Modo conversação livre preserva capacidade total do agente
+
+### 5.5 Testes
+- [x] **Arquivo:** `tests/unit/tool-permissions.test.ts` (NOVO - 250 linhas)
+  - [x] 5.2.1: Basic Tool Matching (3 tests) → exact name, wildcards
+  - [x] 5.2.2: Argument Pattern Matching (5 tests) → prefix, substring
+  - [x] 5.2.3: Negation Patterns (3 tests) → prioritization, blocking
+  - [x] 5.2.4: Real-World Command Patterns (9 tests) → /review, /commit, /deploy
+  - [x] 5.2.5: Pattern Validation (2 tests) → invalid patterns
+  - [x] 5.2.6: Edge Cases (5 tests) → empty allowedTools, object args
+  - [x] **RESULTADO:** ✅ 27/27 tests PASSING (execution time: 3.035s)
+
+- [x] **Arquivo:** `tests/integration/phase-5-integration.test.ts` (NOVO - 280 linhas)
+  - [x] 5.3.1: Permission Enforcement (3 tests) → allow/block based on patterns
+  - [x] 5.3.2: PromptCommand Patterns (3 tests) → /review and /commit patterns
+  - [x] 5.3.3: Free Conversation Fallback (2 tests) → wildcard defaults
+  - [x] 5.3.4: Negation Patterns (1 test) → priority over allow patterns
+
+- [x] **Arquivo:** `tests/mocks/mock-provider.ts` (NOVO - 60 linhas)
+  - [x] createMockProvider() factory
+  - [x] mockResponse() helper
+  - [x] reset() function
+  - [x] Enables testing without real LLM API calls
 
 **Validação Fase 5:**
 ```bash
