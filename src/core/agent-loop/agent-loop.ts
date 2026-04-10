@@ -502,6 +502,26 @@ export class AgentLoop {
         // Reset attempt counter on success
         this.toolCallAttempts.delete(toolKey);
         
+        // DVACE Phase 4.3: Increment tool executions for active task phases
+        if (this.trackedConversationId) {
+          try {
+            const tracker = TaskTracker.getInstance();
+            const tasks = tracker.getTasksByConversationId(this.trackedConversationId);
+            
+            // Find the first in-progress task and increment its active phase
+            for (const task of tasks) {
+              const activePhaseIndex = task.phases.findIndex(p => p.status === 'in_progress');
+              if (activePhaseIndex !== -1) {
+                tracker.incrementToolExecutions(task.id, activePhaseIndex);
+                break; // Only increment one active phase per tool execution
+              }
+            }
+          } catch (err) {
+            // Non-critical: task tracking is optional
+            console.warn(`⚠️ Could not increment tool executions: ${err}`);
+          }
+        }
+        
         // Log successful execution to analytics
         analytics.logToolExecution({
           toolName,

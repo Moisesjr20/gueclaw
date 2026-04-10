@@ -8,26 +8,37 @@
 import { DatabaseConnection } from './memory/database';
 import { Database } from 'better-sqlite3';
 
+export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'failed' | 'killed';
+
 export interface AgentTask {
   id: string;
   conversation_id: string;
   description: string;
   phases: TaskPhase[];
-  status: 'pending' | 'in_progress' | 'completed' | 'failed';
+  status: TaskStatus;
   created_at: number;
   updated_at: number;
   metadata?: Record<string, any>;
 }
 
+export type PhaseStatus = 'pending' | 'in_progress' | 'completed' | 'failed' | 'killed';
+
 export interface TaskPhase {
   id: string;
   name: string;
   description: string;
-  status: 'pending' | 'in_progress' | 'completed' | 'failed';
+  status: PhaseStatus;
   tool_executions: number;
   started_at?: number;
   completed_at?: number;
   error_message?: string;
+}
+
+/**
+ * Verifica se um status é terminal (não pode ser alterado)
+ */
+export function isTerminalTaskStatus(status: TaskStatus | PhaseStatus): boolean {
+  return status === 'completed' || status === 'failed' || status === 'killed';
 }
 
 export class TaskTracker {
@@ -44,6 +55,25 @@ export class TaskTracker {
       TaskTracker.instance = new TaskTracker();
     }
     return TaskTracker.instance;
+  }
+
+  /**
+   * Reset singleton instance (for testing) (DVACE Phase 4.5)
+   */
+  public static reset(): void {
+    // Clear all tasks from database before resetting
+    if (TaskTracker.instance) {
+      try {
+        const count = TaskTracker.instance.db.prepare('SELECT COUNT(*) as count FROM agent_tasks').get() as any;
+        console.log(`🔄 Reset: Deleting ${count?.count || 0} tasks from database`);
+        TaskTracker.instance.db.exec('DELETE FROM agent_tasks');
+        const afterCount = TaskTracker.instance.db.prepare('SELECT COUNT(*) as count FROM agent_tasks').get() as any;
+        console.log(`🔄 Reset: ${afterCount?.count || 0} tasks remain after DELETE`);
+      } catch (err) {
+        console.warn('Could not clear tasks during reset:', err);
+      }
+    }
+    TaskTracker.instance = null as any;
   }
 
   /**
@@ -103,7 +133,7 @@ export class TaskTracker {
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
 
-    stmt.run(
+    const info = stmt.run(
       task.id,
       task.conversation_id,
       task.description,
@@ -113,7 +143,7 @@ export class TaskTracker {
       task.updated_at
     );
 
-    console.log(`📋 Task created: ${task.id} (${phases.length} phases)`);
+    console.log(`📋 Task created: ${task.id} (${phases.length} phases) [INSERT: ${info.changes} rows]`);
     return task;
   }
 
@@ -123,7 +153,7 @@ export class TaskTracker {
   public updatePhaseStatus(
     taskId: string,
     phaseId: string,
-    status: TaskPhase['status'],
+    status: PhaseStatus,
     toolExecutions?: number,
     errorMessage?: string
   ): void {
@@ -132,9 +162,21 @@ export class TaskTracker {
       throw new Error(`Task ${taskId} not found`);
     }
 
+    // Não permitir atualização se task está em estado terminal
+    if (isTerminalTaskStatus(task.status)) {
+      console.warn(`⚠️ Cannot update task ${taskId} - already in terminal state: ${task.status}`);
+      return;
+    }
+
     const phase = task.phases.find(p => p.id === phaseId);
     if (!phase) {
       throw new Error(`Phase ${phaseId} not found in task ${taskId}`);
+    }
+
+    // Não permitir atualização se phase está em estado terminal
+    if (isTerminalTaskStatus(phase.status)) {
+      console.warn(`⚠️ Cannot update phase ${phaseId} - already in terminal state: ${phase.status}`);
+      return;
     }
 
     phase.status = status;
@@ -166,13 +208,14 @@ export class TaskTracker {
 
     task.updated_at = Date.now();
 
-    const stmt = this.db.prepare(`
-      UPDATE agent_tasks 
-      SET phases = ?, status = ?, updated_at = ?
-      WHERE id = ?
-    `);
-
-    stmt.run(JSON.stringify(task.phases), task.status, task.updated_at, task.id);
+    const phasesJson = JSON.stringify(task.phases);
+    
+    // Update status and phases separately (fixes better-sqlite3 multi-param issue)
+    const statusUpdate = this.db.prepare(`UPDATE agent_tasks SET status = ? WHERE id = ?`);
+    statusUpdate.run(task.status, task.id);
+    
+    const phasesUpdate = this.db.prepare(`UPDATE agent_tasks SET phases = ?, updated_at = ? WHERE id = ?`);
+    phasesUpdate.run(phasesJson, task.updated_at, task.id);
 
     console.log(`📝 Phase updated: ${phaseId} → ${status} (${toolExecutions || 0} tools)`);
   }
@@ -210,6 +253,19 @@ export class TaskTracker {
   }
 
   /**
+   * Busca todas as tarefas de uma conversa (DVACE Phase 4.3)
+   */
+  public getTasksByConversationId(conversationId: string): AgentTask[] {
+    const stmt = this.db.prepare(`
+      SELECT * FROM agent_tasks 
+      WHERE conversation_id = ?
+      ORDER BY created_at DESC
+    `);
+    const rows = stmt.all(conversationId) as any[];
+    return rows.map(row => this.deserializeTask(row));
+  }
+
+  /**
    * Verifica se há tarefas não concluídas
    */
   public hasIncompleteTasks(conversationId: string): boolean {
@@ -229,6 +285,7 @@ export class TaskTracker {
       in_progress: '🔄',
       completed: '✅',
       failed: '❌',
+      killed: '🛑',
     };
 
     let summary = `${statusEmoji[task.status]} **${task.description}**\n\n`;
@@ -243,6 +300,103 @@ export class TaskTracker {
     });
 
     return summary;
+  }
+
+  /**
+   * Incrementa contador de execuções de tools em uma fase (DVACE Phase 4.2)
+   */
+  public incrementToolExecutions(taskId: string, phaseIndex: number): void {
+    const task = this.getTask(taskId);
+    if (!task) {
+      console.warn(`⚠️ Task ${taskId} not found - cannot increment tool executions`);
+      return;
+    }
+
+    if (phaseIndex < 0 || phaseIndex >= task.phases.length) {
+      console.warn(`⚠️ Invalid phase index ${phaseIndex} for task ${taskId}`);
+      return;
+    }
+
+    const phase = task.phases[phaseIndex];
+    
+    // Não incrementar se phase está em estado terminal
+    if (isTerminalTaskStatus(phase.status)) {
+      return;
+    }
+
+    phase.tool_executions++;
+    task.updated_at = Date.now();
+
+    const stmt = this.db.prepare(`
+      UPDATE agent_tasks 
+      SET phases = ?, updated_at = ?
+      WHERE id = ?
+    `);
+
+    stmt.run(JSON.stringify(task.phases), task.updated_at, task.id);
+
+    console.log(`📊 Tool execution incremented: ${phase.name} → ${phase.tool_executions} tools`);
+  }
+
+  /**
+   * Valida se uma fase pode ser marcada como completa (DVACE Phase 4.2)
+   * Fase só completa se tool_executions > 0 (para fases de execução)
+   */
+  public validatePhaseCompletion(phase: TaskPhase, phaseType: 'execution' | 'planning' = 'execution'): boolean {
+    // Fases de planning podem completar sem tool executions
+    if (phaseType === 'planning') {
+      return true;
+    }
+
+    // Fases de execução DEVEM ter tool_executions > 0
+    if (phaseType === 'execution' && phase.tool_executions === 0) {
+      console.warn(`⚠️ Phase "${phase.name}" cannot complete - no tool executions detected (DVACE validation)`);
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Atualiza status da task completa (usado para /kill command) (DVACE Phase 4.4)
+   */
+  public updateTaskStatus(taskId: string, status: TaskStatus, errorMessage?: string): void {
+    const task = this.getTask(taskId);
+    if (!task) {
+      throw new Error(`Task ${taskId} not found`);
+    }
+
+    // Não permitir atualização se já está em estado terminal
+    if (isTerminalTaskStatus(task.status)) {
+      console.warn(`⚠️ Cannot update task ${taskId} - already in terminal state: ${task.status}`);
+      return;
+    }
+
+    task.status = status;
+    task.updated_at = Date.now();
+
+    // Se killer, marcar todas as phases como killed também
+    if (status === 'killed') {
+      task.phases.forEach(phase => {
+        if (!isTerminalTaskStatus(phase.status)) {
+          phase.status = 'killed';
+          phase.completed_at = Date.now();
+          if (errorMessage) {
+            phase.error_message = errorMessage;
+          }
+        }
+      });
+    }
+
+    const stmt = this.db.prepare(`
+      UPDATE agent_tasks 
+      SET phases = ?, status = ?, updated_at = ?
+      WHERE id = ?
+    `);
+
+    stmt.run(JSON.stringify(task.phases), task.status, task.updated_at, task.id);
+
+    console.log(`🛑 Task status updated: ${taskId} → ${status}`);
   }
 
   /**
