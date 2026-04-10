@@ -96,6 +96,10 @@ export interface TelegramInput {
   metadata?: Record<string, any>;
 }
 
+// Command System Types (DVACE Architecture - Phase 1.1)
+export * from './command-types';
+export * from './agent-state';
+
 export interface AgentAction {
   thought: string;
   action?: string;

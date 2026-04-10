@@ -26,6 +26,8 @@ import { SaveToRepositoryTool } from './tools/save-to-repository-tool';
 // Import services
 import { Heartbeat } from './services/heartbeat';
 import { TelegramNotifier } from './services/telegram-notifier';
+import { TaskTracker } from './core/task-tracker';
+import { initializeCommands } from './commands/command-initializer'; // DVACE - Phase 1.4
 import * as path from 'path';
 
 /**
@@ -44,6 +46,9 @@ class GueClaw {
 
     // Initialize LLM providers
     ProviderFactory.initialize();
+
+    // DVACE Phase 1.4: Initialize Command System
+    initializeCommands();
 
     // Register built-in tools
     this.registerTools();
@@ -255,6 +260,30 @@ class GueClaw {
       );
 
       await ctx.reply(message, { parse_mode: 'Markdown' });
+    });
+
+    // Handle /tasks command - List active tasks
+    this.bot.command('tasks', async (ctx) => {
+      const tracker = TaskTracker.getInstance();
+      const tasks = tracker.getPendingTasks();
+      const message = tracker.formatTaskList(tasks);
+      await ctx.reply(message, { parse_mode: 'Markdown' });
+    });
+
+    // Handle /task <id> command - Show task details              
+    this.bot.command('task', async (ctx) => {
+      const messageText = ctx.message?.text || '/task';
+      const args = messageText.split(' ').slice(1);
+      
+      if (args.length === 0) {
+        await ctx.reply('❌ Use: /task <ID>\n\nExemplo: /task task_1234567890_abc123');
+        return;
+      }
+
+      const taskId = args[0];
+      const tracker = TaskTracker.getInstance();
+      const summary = tracker.getTaskSummary(taskId);
+      await ctx.reply(summary, { parse_mode: 'Markdown' });
     });
 
     // Handle errors

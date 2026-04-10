@@ -7,6 +7,7 @@ import { TelegramNotifier } from '../services/telegram-notifier';
 import { CostHandler } from './cost-handler';
 import { MCPCommandHandler } from './mcp-handler';
 import { MemoryHandler } from './memory-handler';
+import { CommandExecutor } from './command-executor'; // DVACE - Phase 1.4
 
 const VERSION = process.env.npm_package_version || '2.3.0';
 const START_TIME = Date.now();
@@ -27,6 +28,8 @@ function getHeartbeat(): Heartbeat {
 /**
  * CommandHandler — processes slash commands (/limpar, /status, /ajuda).
  * Returns true if the command was handled, false if it should fall through to the LLM.
+ * 
+ * DVACE Phase 1.4: Now integrates with CommandRegistry for structured commands.
  */
 export class CommandHandler {
   public static async handle(
@@ -35,10 +38,24 @@ export class CommandHandler {
     memoryManager: MemoryManager
   ): Promise<boolean> {
     const text = input.text?.trim() || '';
-    const [rawCmd] = text.split(/\s+/);
+    const parts = text.split(/\s+/);
+    const rawCmd = parts[0];
     const cmd = rawCmd.toLowerCase();
+    const args = parts.slice(1); // Command arguments
 
     console.log(`⌨️  Command received: ${cmd} from user ${input.userId}`);
+
+    // PHASE 1.4: Try CommandRegistry first (new DVACE architecture)
+    const commandName = cmd.replace(/^\//, ''); // Remove leading slash
+    const handled = await CommandExecutor.execute(commandName, args, ctx, input);
+    
+    if (handled) {
+      console.log(`✅ Command ${cmd} handled by CommandRegistry`);
+      return true;
+    }
+    
+    // Fallback to legacy command handlers (will be gradually migrated)
+    console.log(`⚠️  Command ${cmd} not in CommandRegistry, trying legacy handlers`);
 
     switch (cmd) {
       case '/limpar':
@@ -70,6 +87,7 @@ export class CommandHandler {
 
       default:
         // Unknown command — let the LLM handle it naturally
+        console.log(`ℹ️  Unknown command ${cmd}, falling through to LLM`);
         return false;
     }
   }
