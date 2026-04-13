@@ -2,25 +2,28 @@
  * Mock LLM Provider for Testing
  */
 
-import { ILLMProvider, CompletionResponse, CompletionOptions, ToolDefinition } from '../../src/core/providers/base-provider';
+import { ILLMProvider, CompletionOptions, ToolDefinition } from '../../src/core/providers/base-provider';
+import { LLMResponse, Message } from '../../src/types';
 
 export function createMockProvider() {
-  let mockResponses: CompletionResponse[] = [];
+  let mockResponses: LLMResponse[] = [];
   let callIndex = 0;
 
   const provider: ILLMProvider = {
     name: 'MockProvider',
+    supportsToolCalls: true,
+    supportsStreaming: false,
     
     async generateCompletion(
-      messages: any[],
+      messages: Message[],
       options?: CompletionOptions
-    ): Promise<CompletionResponse> {
+    ): Promise<LLMResponse> {
       if (callIndex >= mockResponses.length) {
         // Default response if no more mocks
         return {
           content: 'Mock response',
-          finishReason: 'end_turn',
-          usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+          finishReason: 'stop',
+          toolCalls: [],
         };
       }
       
@@ -28,26 +31,13 @@ export function createMockProvider() {
       callIndex++;
       return response;
     },
-    
-    formatMessages(messages: any[]): any[] {
-      return messages;
-    },
-    
-    extractToolCalls(response: any): any[] | undefined {
-      return response.toolCalls;
-    },
-    
-    formatTools(tools: ToolDefinition[]): any[] {
-      return [];
-    },
   };
 
-  function mockResponse(response: Partial<CompletionResponse>) {
+  function mockResponse(response: Partial<LLMResponse>) {
     mockResponses.push({
       content: response.content || '',
-      finishReason: response.finishReason || 'end_turn',
-      toolCalls: response.toolCalls,
-      usage: response.usage || { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+      finishReason: response.finishReason || 'stop',
+      toolCalls: response.toolCalls || [],
     });
   }
 

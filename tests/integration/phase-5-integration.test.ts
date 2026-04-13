@@ -20,7 +20,7 @@ describe('DVACE Phase 5: Integration - Tool Permissions in Agent Loop', () => {
             type: 'function',
             function: {
               name: 'FileRead',
-              arguments: '/path/to/file.txt',
+              arguments: { path: '/path/to/file.txt' },
             },
           },
         ],
@@ -56,10 +56,17 @@ describe('DVACE Phase 5: Integration - Tool Permissions in Agent Loop', () => {
             type: 'function',
             function: {
               name: 'SSHExec',
-              arguments: 'whoami',
+              arguments: { command: 'whoami' },
             },
           },
         ],
+      });
+      
+      // Mock LLM response after receiving PERMISSION DENIED
+      mockResponse({
+        content: 'I apologize, but I cannot execute that command. PERMISSION DENIED for SSHExec.',
+        finishReason: 'stop',
+        toolCalls: [],
       });
       
       const loop = new AgentLoop(
@@ -91,10 +98,17 @@ describe('DVACE Phase 5: Integration - Tool Permissions in Agent Loop', () => {
             type: 'function',
             function: {
               name: 'Bash',
-              arguments: 'rm -rf /',
+              arguments: { command: 'rm -rf /' },
             },
           },
         ],
+      });
+      
+      // Mock LLM response after PERMISSION DENIED
+      mockResponse({
+        content: 'Sorry, that command is not allowed. PERMISSION DENIED for non-git bash command.',
+        finishReason: 'stop',
+        toolCalls: [],
       });
       
       const loop = new AgentLoop(
@@ -135,7 +149,7 @@ describe('DVACE Phase 5: Integration - Tool Permissions in Agent Loop', () => {
             type: 'function',
             function: {
               name: 'Bash',
-              arguments: 'git status',
+              arguments: { command: 'git status' },
             },
           },
         ],
@@ -177,10 +191,17 @@ describe('DVACE Phase 5: Integration - Tool Permissions in Agent Loop', () => {
             type: 'function',
             function: {
               name: 'SSHExec',
-              arguments: 'docker ps',
+              arguments: { command: 'docker ps' },
             },
           },
         ],
+      });
+      
+      // Mock LLM response after PERMISSION DENIED
+      mockResponse({
+        content: 'I cannot access the server. PERMISSION DENIED for SSHExec in review mode.',
+        finishReason: 'stop',
+        toolCalls: [],
       });
       
       const loop = new AgentLoop(
@@ -219,7 +240,7 @@ describe('DVACE Phase 5: Integration - Tool Permissions in Agent Loop', () => {
             type: 'function',
             function: {
               name: 'Bash',
-              arguments: 'git commit -m "fix: bug"',
+              arguments: { command: 'git commit -m "fix: bug"' },
             },
           },
         ],
@@ -256,7 +277,7 @@ describe('DVACE Phase 5: Integration - Tool Permissions in Agent Loop', () => {
             type: 'function',
             function: {
               name: 'AnyTool',
-              arguments: 'any args',
+              arguments: { value: 'any args' },
             },
           },
         ],
@@ -290,7 +311,7 @@ describe('DVACE Phase 5: Integration - Tool Permissions in Agent Loop', () => {
             type: 'function',
             function: {
               name: 'AnyTool',
-              arguments: 'args',
+              arguments: { value: 'args' },
             },
           },
         ],
@@ -324,10 +345,17 @@ describe('DVACE Phase 5: Integration - Tool Permissions in Agent Loop', () => {
             type: 'function',
             function: {
               name: 'FileRead',
-              arguments: '/etc/passwd',
+              arguments: { path: '/etc/passwd' },
             },
           },
         ],
+      });
+      
+      // Mock LLM response after PERMISSION DENIED by negation pattern
+      mockResponse({
+        content: 'Access denied due to negation pattern. PERMISSION DENIED for /etc/ files.',
+        finishReason: 'stop',
+        toolCalls: [],
       });
       
       const loop = new AgentLoop(
