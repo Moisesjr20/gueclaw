@@ -18,15 +18,22 @@ import {
  */
 export class MemoryManagerService {
   private static instance: MemoryManagerService;
-  private repository: MemoryRepository;
+  private _repository: MemoryRepository;
   private extractor: MemoryExtractor | null;
   private extractorInitialized: boolean;
   private config: MemoryExtractionConfig;
   private lastExtractionTime: Map<string, number>; // conversationId -> timestamp
 
+  /**
+   * Public access to repository (for MCP tools)
+   */
+  public get repository(): MemoryRepository {
+    return this._repository;
+  }
+
   private constructor(config?: Partial<MemoryExtractionConfig>) {
     this.config = { ...DEFAULT_MEMORY_EXTRACTION_CONFIG, ...config };
-    this.repository = new MemoryRepository();
+    this._repository = new MemoryRepository();
     
     // Lazy loading: Don't initialize extractor in constructor
     // It will be initialized on first use when providers are ready
@@ -125,7 +132,7 @@ export class MemoryManagerService {
       const storedMemories: ExtractedMemory[] = [];
       for (const memory of extractedMemories) {
         try {
-          const stored = this.repository.add(memory);
+          const stored = this._repository.add(memory);
           storedMemories.push(stored);
         } catch (err) {
           console.error('[MemoryManagerService] Failed to store memory:', err);
@@ -159,56 +166,56 @@ export class MemoryManagerService {
    * Get memories for a user
    */
   public getMemories(query: MemoryQuery): ExtractedMemory[] {
-    return this.repository.query(query);
+    return this._repository.query(query);
   }
 
   /**
    * Get all memories for a user
    */
   public getUserMemories(userId: string, limit?: number): ExtractedMemory[] {
-    return this.repository.getByUser(userId, limit);
+    return this._repository.getByUser(userId, limit);
   }
 
   /**
    * Get memories by type
    */
   public getMemoriesByType(userId: string, type: MemoryType, limit?: number): ExtractedMemory[] {
-    return this.repository.getByType(userId, type, limit);
+    return this._repository.getByType(userId, type, limit);
   }
 
   /**
    * Search memories by tags
    */
   public searchMemories(userId: string, tags: string[]): ExtractedMemory[] {
-    return this.repository.searchByTags(userId, tags);
+    return this._repository.searchByTags(userId, tags);
   }
 
   /**
    * Get memory statistics for a user
    */
   public getStats(userId: string): MemoryStats {
-    return this.repository.getStats(userId);
+    return this._repository.getStats(userId);
   }
 
   /**
    * Delete a memory by ID
    */
   public deleteMemory(id: string): void {
-    this.repository.delete(id);
+    this._repository.delete(id);
   }
 
   /**
    * Delete all memories for a conversation
    */
   public deleteConversationMemories(conversationId: string): void {
-    this.repository.deleteByConversation(conversationId);
+    this._repository.deleteByConversation(conversationId);
   }
 
   /**
    * Delete all memories for a user
    */
   public deleteUserMemories(userId: string): void {
-    this.repository.deleteByUser(userId);
+    this._repository.deleteByUser(userId);
   }
 
   /**
@@ -216,7 +223,7 @@ export class MemoryManagerService {
    * Returns relevant memories formatted for injection into LLM context
    */
   public getContextEnrichment(userId: string, limit: number = 10): string {
-    const memories = this.repository.getByUser(userId, limit);
+    const memories = this._repository.getByUser(userId, limit);
 
     if (memories.length === 0) {
       return '';
@@ -274,7 +281,7 @@ export class MemoryManagerService {
 
     setInterval(() => {
       try {
-        const deletedCount = this.repository.deleteExpired();
+        const deletedCount = this._repository.deleteExpired();
         if (deletedCount > 0) {
           console.log(`🧹 Cleaned up ${deletedCount} expired memories`);
         }
@@ -285,7 +292,7 @@ export class MemoryManagerService {
 
     // Also run on startup
     setTimeout(() => {
-      const deletedCount = this.repository.deleteExpired();
+      const deletedCount = this._repository.deleteExpired();
       if (deletedCount > 0) {
         console.log(`🧹 Startup cleanup: ${deletedCount} expired memories deleted`);
       }

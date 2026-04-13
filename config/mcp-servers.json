@@ -49,6 +49,16 @@
       }
     },
 
+    "gueclaw-memory": {
+      "command": "npx",
+      "args": ["-y", "tsx", "src/mcp/memory-server.ts"],
+      "env": {
+        "DATABASE_PATH": "${env:DATABASE_PATH}",
+        "DATABASE_ENCRYPTION_KEY": "${env:DATABASE_ENCRYPTION_KEY}",
+        "NODE_ENV": "production"
+      }
+    },
+
     "sequentialthinking": {
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
