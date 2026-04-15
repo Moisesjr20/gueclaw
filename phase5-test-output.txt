@@ -1,0 +1,1100 @@
+
+> gueclaw-agent@2.0.0 test
+> jest tests/integration/phase-5-integration.test.ts
+
+ts-jest[ts-jest-transformer] (WARN) Define `ts-jest` config under `globals` is deprecated. Please do
+transform: {
+    <transform_regex>: ['ts-jest', { /* ts-jest config goes here in Jest */ }],
+},
+See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/presets#advanced
+  console.log
+    ­ƒº¼ Identity loaded (4787 chars)
+
+      at Function.load (src/utils/identity-loader.ts:42:15)
+
+  console.log
+    
+    ­ƒöä Starting Agent Loop (ReAct Pattern)
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:75:13)
+
+  console.log
+    ­ƒôØ User Input: Read the file
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:76:13)
+
+  console.log
+    ­ƒôè Analytics initialized | Chain: 638ab0b7
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:81:13)
+
+  console.log
+    
+    ­ƒöü Iteration 1/5 | Depth: 1 | Turn: 1
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:102:15)
+
+  console.log
+    ­ƒÆ¡ Thought: Reading the file
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:132:17)
+
+  console.warn
+    ÔÜá´©Å  WARNING: DATABASE_ENCRYPTION_KEY not set - sensitive fields are NOT encrypted!
+
+    [0m [90m 65 |[39m         console[33m.[39mlog([32m'­ƒöÉ Field-level encryption enabled (AES-256-GCM)'[39m)[33m;[39m
+     [90m 66 |[39m       } [36melse[39m {
+    [31m[1m>[22m[39m[90m 67 |[39m         console[33m.[39mwarn([32m'ÔÜá´©Å  WARNING: DATABASE_ENCRYPTION_KEY not set - sensitive fields are NOT encrypted!'[39m)[33m;[39m
+     [90m    |[39m                 [31m[1m^[22m[39m
+     [90m 68 |[39m       }
+     [90m 69 |[39m
+     [90m 70 |[39m       [90m// Create database connection[39m[0m
+
+      at Function.getInstance (src/core/memory/database.ts:67:17)
+      at TraceRepository.addTrace (src/api/trace-repository.ts:15:50)
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:149:43)
+      at Object.<anonymous> (tests/integration/phase-5-integration.test.ts:40:22)
+
+  console.log
+    ­ƒôè Database schema initialized
+
+      at Function.initializeSchema (src/core/memory/database.ts:183:13)
+
+  console.log
+    Ô£à Database connected at ./data/gueclaw.db
+
+      at Function.getInstance (src/core/memory/database.ts:81:15)
+
+  console.log
+    ­ƒöº Executing 1 tool call(s)...
+
+      at AgentLoop.executeToolCalls (src/core/agent-loop/agent-loop.ts:406:13)
+
+  console.log
+    ­ƒöº Tool Orchestrator: Executing 1 tool(s)
+
+      at ToolOrchestrator.runTools (src/core/agent-loop/tool-orchestrator.ts:68:13)
+
+  console.log
+       Concurrent: 0 tool(s)
+
+      at ToolOrchestrator.runTools (src/core/agent-loop/tool-orchestrator.ts:73:13)
+
+  console.log
+       Serial: 1 tool(s)
+
+      at ToolOrchestrator.runTools (src/core/agent-loop/tool-orchestrator.ts:74:13)
+
+  console.log
+    ­ƒöù Running 1 tool(s) serially...
+
+      at ToolOrchestrator.runToolsSerially (src/core/agent-loop/tool-orchestrator.ts:170:13)
+
+  console.log
+       ­ƒöº Executing: FileRead
+
+      at ToolOrchestrator.executeSingleTool (src/core/agent-loop/tool-orchestrator.ts:195:13)
+
+  console.log
+    Ô£à Tool Orchestrator: 1 execution(s) completed
+
+      at ToolOrchestrator.runTools (src/core/agent-loop/tool-orchestrator.ts:118:13)
+
+  console.error
+       ÔØî FileRead: Tool "FileRead" not found in registry
+
+    [0m [90m 588 |[39m         }[33m;[39m
+     [90m 589 |[39m         
+    [31m[1m>[22m[39m[90m 590 |[39m         console[33m.[39merror([32m`   ÔØî ${toolName}: ${execution.error}`[39m)[33m;[39m
+     [90m     |[39m                 [31m[1m^[22m[39m
+     [90m 591 |[39m         
+     [90m 592 |[39m         [90m// Increment attempt counter on failure[39m
+     [90m 593 |[39m         [36mconst[39m attemptCount [33m=[39m [36mthis[39m[33m.[39mtoolCallAttempts[33m.[39m[36mget[39m(toolKey) [33m||[39m [35m0[39m[33m;[39m[0m
+
+      at AgentLoop.executeToolCalls (src/core/agent-loop/agent-loop.ts:590:17)
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:210:11)
+      at Object.<anonymous> (tests/integration/phase-5-integration.test.ts:40:22)
+
+  console.log
+       ­ƒöü Attempt 1/3 for this tool call
+
+      at AgentLoop.executeToolCalls (src/core/agent-loop/agent-loop.ts:595:17)
+
+  console.log
+    ­ƒôè [Analytics] ÔØî FileRead | FAILED | 1ms | Chain: 638ab0b7 | Depth: 1
+
+      at ToolAnalytics.logToolExecution (src/utils/tool-analytics.ts:114:13)
+
+  console.error
+    ­ƒôè [Analytics] ÔØî ERROR in FileRead | Chain: 638ab0b7 | Iteration: 1 | Error: Tool "FileRead" not found in registry
+
+    [0m [90m 144 |[39m     [36mthis[39m[33m.[39mwriteLog(event)[33m;[39m
+     [90m 145 |[39m     
+    [31m[1m>[22m[39m[90m 146 |[39m     console[33m.[39merror(
+     [90m     |[39m             [31m[1m^[22m[39m
+     [90m 147 |[39m       [32m`­ƒôè [Analytics] ÔØî ERROR in ${toolName} | `[39m [33m+[39m
+     [90m 148 |[39m       [32m`Chain: ${this.queryChainId.slice(0, 8)} | `[39m [33m+[39m
+     [90m 149 |[39m       [32m`Iteration: ${iteration} | Error: ${error.slice(0, 100)}`[39m[0m
+
+      at ToolAnalytics.logError (src/utils/tool-analytics.ts:146:13)
+      at AgentLoop.executeToolCalls (src/core/agent-loop/agent-loop.ts:611:19)
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:210:11)
+      at Object.<anonymous> (tests/integration/phase-5-integration.test.ts:40:22)
+
+  console.log
+    
+    ­ƒöü Iteration 2/5 | Depth: 2 | Turn: 2
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:102:15)
+
+  console.log
+    ­ƒÆ¡ Thought: Mock response
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:132:17)
+
+  console.log
+    
+    Ô£à Agent Loop completed successfully
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:258:19)
+
+  console.log
+    
+    ­ƒôè Agent Loop State Summary:
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:381:13)
+
+  console.log
+    State Summary:
+      Turns: 2
+      Last Transition: SUCCESS
+      Tool Executions: 1
+      Avg Tool Duration: 0.00ms
+      Consecutive Errors: 1
+      Elapsed Time: 30ms
+      Compaction Attempted: false
+      Recovery Attempts: 0
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:382:13)
+
+  console.log
+    
+    ­ƒöä Starting Agent Loop (ReAct Pattern)
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:75:13)
+
+  console.log
+    ­ƒôØ User Input: Execute whoami command
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:76:13)
+
+  console.log
+    ­ƒôè Analytics initialized | Chain: 4676b32e
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:81:13)
+
+  console.log
+    
+    ­ƒöü Iteration 1/5 | Depth: 1 | Turn: 1
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:102:15)
+
+  console.log
+    ­ƒÆ¡ Thought: Executing command
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:132:17)
+
+  console.log
+    ­ƒöº Executing 1 tool call(s)...
+
+      at AgentLoop.executeToolCalls (src/core/agent-loop/agent-loop.ts:406:13)
+
+  console.warn
+       ­ƒÜ½ Tool "SSHExec" blocked: Tool "SSHExec" not in allowedTools. Available: FileRead(*)
+
+    [0m [90m 430 |[39m       [36mif[39m ([33m![39mpermissionResult[33m.[39mallowed) {
+     [90m 431 |[39m         permissionBlockedCalls[33m.[39mpush(toolCall)[33m;[39m
+    [31m[1m>[22m[39m[90m 432 |[39m         console[33m.[39mwarn([32m`   ­ƒÜ½ Tool "${toolName}" blocked: ${permissionResult.reason}`[39m)[33m;[39m
+     [90m     |[39m                 [31m[1m^[22m[39m
+     [90m 433 |[39m         
+     [90m 434 |[39m         [90m// Add tool_result with permission error[39m
+     [90m 435 |[39m         [36mthis[39m[33m.[39mconversationHistory[33m.[39mpush({[0m
+
+      at AgentLoop.executeToolCalls (src/core/agent-loop/agent-loop.ts:432:17)
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:210:22)
+      at Object.<anonymous> (tests/integration/phase-5-integration.test.ts:75:22)
+
+  console.log
+    
+    ­ƒöü Iteration 2/5 | Depth: 2 | Turn: 2
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:102:15)
+
+  console.log
+    ­ƒÆ¡ Thought: Mock response
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:132:17)
+
+  console.log
+    
+    Ô£à Agent Loop completed successfully
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:258:19)
+
+  console.log
+    
+    ­ƒôè Agent Loop State Summary:
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:381:13)
+
+  console.log
+    State Summary:
+      Turns: 2
+      Last Transition: SUCCESS
+      Tool Executions: 0
+      Avg Tool Duration: 0.00ms
+      Consecutive Errors: 0
+      Elapsed Time: 8ms
+      Compaction Attempted: false
+      Recovery Attempts: 0
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:382:13)
+
+  console.log
+    
+    ­ƒöä Starting Agent Loop (ReAct Pattern)
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:75:13)
+
+  console.log
+    ­ƒôØ User Input: Delete everything
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:76:13)
+
+  console.log
+    ­ƒôè Analytics initialized | Chain: 4bbd5c21
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:81:13)
+
+  console.log
+    
+    ­ƒöü Iteration 1/5 | Depth: 1 | Turn: 1
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:102:15)
+
+  console.log
+    ­ƒÆ¡ Thought: Running command
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:132:17)
+
+  console.log
+    ­ƒöº Executing 1 tool call(s)...
+
+      at AgentLoop.executeToolCalls (src/core/agent-loop/agent-loop.ts:406:13)
+
+  console.warn
+       ­ƒÜ½ Tool "Bash" blocked: Tool "Bash" not in allowedTools. Available: Bash(git *)
+
+    [0m [90m 430 |[39m       [36mif[39m ([33m![39mpermissionResult[33m.[39mallowed) {
+     [90m 431 |[39m         permissionBlockedCalls[33m.[39mpush(toolCall)[33m;[39m
+    [31m[1m>[22m[39m[90m 432 |[39m         console[33m.[39mwarn([32m`   ­ƒÜ½ Tool "${toolName}" blocked: ${permissionResult.reason}`[39m)[33m;[39m
+     [90m     |[39m                 [31m[1m^[22m[39m
+     [90m 433 |[39m         
+     [90m 434 |[39m         [90m// Add tool_result with permission error[39m
+     [90m 435 |[39m         [36mthis[39m[33m.[39mconversationHistory[33m.[39mpush({[0m
+
+      at AgentLoop.executeToolCalls (src/core/agent-loop/agent-loop.ts:432:17)
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:210:22)
+      at Object.<anonymous> (tests/integration/phase-5-integration.test.ts:110:22)
+
+  console.log
+    
+    ­ƒöü Iteration 2/5 | Depth: 2 | Turn: 2
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:102:15)
+
+  console.log
+    ­ƒÆ¡ Thought: Mock response
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:132:17)
+
+  console.log
+    
+    Ô£à Agent Loop completed successfully
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:258:19)
+
+  console.log
+    
+    ­ƒôè Agent Loop State Summary:
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:381:13)
+
+  console.log
+    State Summary:
+      Turns: 2
+      Last Transition: SUCCESS
+      Tool Executions: 0
+      Avg Tool Duration: 0.00ms
+      Consecutive Errors: 0
+      Elapsed Time: 6ms
+      Compaction Attempted: false
+      Recovery Attempts: 0
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:382:13)
+
+  console.log
+    
+    ­ƒöä Starting Agent Loop (ReAct Pattern)
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:75:13)
+
+  console.log
+    ­ƒôØ User Input: Check git status
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:76:13)
+
+  console.log
+    ­ƒôè Analytics initialized | Chain: 18956537
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:81:13)
+
+  console.log
+    
+    ­ƒöü Iteration 1/5 | Depth: 1 | Turn: 1
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:102:15)
+
+  console.log
+    ­ƒÆ¡ Thought: Checking git status
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:132:17)
+
+  console.log
+    ­ƒöº Executing 1 tool call(s)...
+
+      at AgentLoop.executeToolCalls (src/core/agent-loop/agent-loop.ts:406:13)
+
+  console.warn
+       ­ƒÜ½ Tool "Bash" blocked: Tool "Bash" not in allowedTools. Available: Bash(git *), FileRead(*), FileEdit(*), ListDirectory(*)
+
+    [0m [90m 430 |[39m       [36mif[39m ([33m![39mpermissionResult[33m.[39mallowed) {
+     [90m 431 |[39m         permissionBlockedCalls[33m.[39mpush(toolCall)[33m;[39m
+    [31m[1m>[22m[39m[90m 432 |[39m         console[33m.[39mwarn([32m`   ­ƒÜ½ Tool "${toolName}" blocked: ${permissionResult.reason}`[39m)[33m;[39m
+     [90m     |[39m                 [31m[1m^[22m[39m
+     [90m 433 |[39m         
+     [90m 434 |[39m         [90m// Add tool_result with permission error[39m
+     [90m 435 |[39m         [36mthis[39m[33m.[39mconversationHistory[33m.[39mpush({[0m
+
+      at AgentLoop.executeToolCalls (src/core/agent-loop/agent-loop.ts:432:17)
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:210:22)
+      at Object.<anonymous> (tests/integration/phase-5-integration.test.ts:154:22)
+
+  console.log
+    
+    ­ƒöü Iteration 2/5 | Depth: 2 | Turn: 2
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:102:15)
+
+  console.log
+    ­ƒÆ¡ Thought: Mock response
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:132:17)
+
+  console.log
+    
+    Ô£à Agent Loop completed successfully
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:258:19)
+
+  console.log
+    
+    ­ƒôè Agent Loop State Summary:
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:381:13)
+
+  console.log
+    State Summary:
+      Turns: 2
+      Last Transition: SUCCESS
+      Tool Executions: 0
+      Avg Tool Duration: 0.00ms
+      Consecutive Errors: 0
+      Elapsed Time: 5ms
+      Compaction Attempted: false
+      Recovery Attempts: 0
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:382:13)
+
+  console.log
+    
+    ­ƒöä Starting Agent Loop (ReAct Pattern)
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:75:13)
+
+  console.log
+    ­ƒôØ User Input: Check Docker containers
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:76:13)
+
+  console.log
+    ­ƒôè Analytics initialized | Chain: 0115d207
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:81:13)
+
+  console.log
+    
+    ­ƒöü Iteration 1/5 | Depth: 1 | Turn: 1
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:102:15)
+
+  console.log
+    ­ƒÆ¡ Thought: Checking server
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:132:17)
+
+  console.log
+    ­ƒöº Executing 1 tool call(s)...
+
+      at AgentLoop.executeToolCalls (src/core/agent-loop/agent-loop.ts:406:13)
+
+  console.warn
+       ­ƒÜ½ Tool "SSHExec" blocked: Tool "SSHExec" not in allowedTools. Available: Bash(git *), FileRead(*), FileEdit(*), ListDirectory(*)
+
+    [0m [90m 430 |[39m       [36mif[39m ([33m![39mpermissionResult[33m.[39mallowed) {
+     [90m 431 |[39m         permissionBlockedCalls[33m.[39mpush(toolCall)[33m;[39m
+    [31m[1m>[22m[39m[90m 432 |[39m         console[33m.[39mwarn([32m`   ­ƒÜ½ Tool "${toolName}" blocked: ${permissionResult.reason}`[39m)[33m;[39m
+     [90m     |[39m                 [31m[1m^[22m[39m
+     [90m 433 |[39m         
+     [90m 434 |[39m         [90m// Add tool_result with permission error[39m
+     [90m 435 |[39m         [36mthis[39m[33m.[39mconversationHistory[33m.[39mpush({[0m
+
+      at AgentLoop.executeToolCalls (src/core/agent-loop/agent-loop.ts:432:17)
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:210:22)
+      at Object.<anonymous> (tests/integration/phase-5-integration.test.ts:196:22)
+
+  console.log
+    
+    ­ƒöü Iteration 2/5 | Depth: 2 | Turn: 2
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:102:15)
+
+  console.log
+    ­ƒÆ¡ Thought: Mock response
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:132:17)
+
+  console.log
+    
+    Ô£à Agent Loop completed successfully
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:258:19)
+
+  console.log
+    
+    ­ƒôè Agent Loop State Summary:
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:381:13)
+
+  console.log
+    State Summary:
+      Turns: 2
+      Last Transition: SUCCESS
+      Tool Executions: 0
+      Avg Tool Duration: 0.00ms
+      Consecutive Errors: 0
+      Elapsed Time: 7ms
+      Compaction Attempted: false
+      Recovery Attempts: 0
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:382:13)
+
+  console.log
+    
+    ­ƒöä Starting Agent Loop (ReAct Pattern)
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:75:13)
+
+  console.log
+    ­ƒôØ User Input: Commit changes
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:76:13)
+
+  console.log
+    ­ƒôè Analytics initialized | Chain: 80882c47
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:81:13)
+
+  console.log
+    
+    ­ƒöü Iteration 1/5 | Depth: 1 | Turn: 1
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:102:15)
+
+  console.log
+    ­ƒÆ¡ Thought: Committing changes
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:132:17)
+
+  console.log
+    ­ƒöº Executing 1 tool call(s)...
+
+      at AgentLoop.executeToolCalls (src/core/agent-loop/agent-loop.ts:406:13)
+
+  console.warn
+       ­ƒÜ½ Tool "Bash" blocked: Tool "Bash" not in allowedTools. Available: Bash(git commit*), Bash(git push*), Bash(git add*), FileRead(*)
+
+    [0m [90m 430 |[39m       [36mif[39m ([33m![39mpermissionResult[33m.[39mallowed) {
+     [90m 431 |[39m         permissionBlockedCalls[33m.[39mpush(toolCall)[33m;[39m
+    [31m[1m>[22m[39m[90m 432 |[39m         console[33m.[39mwarn([32m`   ­ƒÜ½ Tool "${toolName}" blocked: ${permissionResult.reason}`[39m)[33m;[39m
+     [90m     |[39m                 [31m[1m^[22m[39m
+     [90m 433 |[39m         
+     [90m 434 |[39m         [90m// Add tool_result with permission error[39m
+     [90m 435 |[39m         [36mthis[39m[33m.[39mconversationHistory[33m.[39mpush({[0m
+
+      at AgentLoop.executeToolCalls (src/core/agent-loop/agent-loop.ts:432:17)
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:210:22)
+      at Object.<anonymous> (tests/integration/phase-5-integration.test.ts:238:22)
+
+  console.log
+    
+    ­ƒöü Iteration 2/5 | Depth: 2 | Turn: 2
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:102:15)
+
+  console.log
+    ­ƒÆ¡ Thought: Mock response
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:132:17)
+
+  console.log
+    
+    Ô£à Agent Loop completed successfully
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:258:19)
+
+  console.log
+    
+    ­ƒôè Agent Loop State Summary:
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:381:13)
+
+  console.log
+    State Summary:
+      Turns: 2
+      Last Transition: SUCCESS
+      Tool Executions: 0
+      Avg Tool Duration: 0.00ms
+      Consecutive Errors: 0
+      Elapsed Time: 7ms
+      Compaction Attempted: false
+      Recovery Attempts: 0
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:382:13)
+
+  console.log
+    
+    ­ƒöä Starting Agent Loop (ReAct Pattern)
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:75:13)
+
+  console.log
+    ­ƒôØ User Input: Do anything
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:76:13)
+
+  console.log
+    ­ƒôè Analytics initialized | Chain: 75680999
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:81:13)
+
+  console.log
+    
+    ­ƒöü Iteration 1/5 | Depth: 1 | Turn: 1
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:102:15)
+
+  console.log
+    ­ƒÆ¡ Thought: Executing
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:132:17)
+
+  console.log
+    ­ƒöº Executing 1 tool call(s)...
+
+      at AgentLoop.executeToolCalls (src/core/agent-loop/agent-loop.ts:406:13)
+
+  console.log
+    ­ƒöº Tool Orchestrator: Executing 1 tool(s)
+
+      at ToolOrchestrator.runTools (src/core/agent-loop/tool-orchestrator.ts:68:13)
+
+  console.log
+       Concurrent: 0 tool(s)
+
+      at ToolOrchestrator.runTools (src/core/agent-loop/tool-orchestrator.ts:73:13)
+
+  console.log
+       Serial: 1 tool(s)
+
+      at ToolOrchestrator.runTools (src/core/agent-loop/tool-orchestrator.ts:74:13)
+
+  console.log
+    ­ƒöù Running 1 tool(s) serially...
+
+      at ToolOrchestrator.runToolsSerially (src/core/agent-loop/tool-orchestrator.ts:170:13)
+
+  console.log
+       ­ƒöº Executing: AnyTool
+
+      at ToolOrchestrator.executeSingleTool (src/core/agent-loop/tool-orchestrator.ts:195:13)
+
+  console.log
+    Ô£à Tool Orchestrator: 1 execution(s) completed
+
+      at ToolOrchestrator.runTools (src/core/agent-loop/tool-orchestrator.ts:118:13)
+
+  console.error
+       ÔØî AnyTool: Tool "AnyTool" not found in registry
+
+    [0m [90m 588 |[39m         }[33m;[39m
+     [90m 589 |[39m         
+    [31m[1m>[22m[39m[90m 590 |[39m         console[33m.[39merror([32m`   ÔØî ${toolName}: ${execution.error}`[39m)[33m;[39m
+     [90m     |[39m                 [31m[1m^[22m[39m
+     [90m 591 |[39m         
+     [90m 592 |[39m         [90m// Increment attempt counter on failure[39m
+     [90m 593 |[39m         [36mconst[39m attemptCount [33m=[39m [36mthis[39m[33m.[39mtoolCallAttempts[33m.[39m[36mget[39m(toolKey) [33m||[39m [35m0[39m[33m;[39m[0m
+
+      at AgentLoop.executeToolCalls (src/core/agent-loop/agent-loop.ts:590:17)
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:210:11)
+      at Object.<anonymous> (tests/integration/phase-5-integration.test.ts:275:22)
+
+  console.log
+       ­ƒöü Attempt 1/3 for this tool call
+
+      at AgentLoop.executeToolCalls (src/core/agent-loop/agent-loop.ts:595:17)
+
+  console.log
+    ­ƒôè [Analytics] ÔØî AnyTool | FAILED | 0ms | Chain: 75680999 | Depth: 1
+
+      at ToolAnalytics.logToolExecution (src/utils/tool-analytics.ts:114:13)
+
+  console.error
+    ­ƒôè [Analytics] ÔØî ERROR in AnyTool | Chain: 75680999 | Iteration: 1 | Error: Tool "AnyTool" not found in registry
+
+    [0m [90m 144 |[39m     [36mthis[39m[33m.[39mwriteLog(event)[33m;[39m
+     [90m 145 |[39m     
+    [31m[1m>[22m[39m[90m 146 |[39m     console[33m.[39merror(
+     [90m     |[39m             [31m[1m^[22m[39m
+     [90m 147 |[39m       [32m`­ƒôè [Analytics] ÔØî ERROR in ${toolName} | `[39m [33m+[39m
+     [90m 148 |[39m       [32m`Chain: ${this.queryChainId.slice(0, 8)} | `[39m [33m+[39m
+     [90m 149 |[39m       [32m`Iteration: ${iteration} | Error: ${error.slice(0, 100)}`[39m[0m
+
+      at ToolAnalytics.logError (src/utils/tool-analytics.ts:146:13)
+      at AgentLoop.executeToolCalls (src/core/agent-loop/agent-loop.ts:611:19)
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:210:11)
+      at Object.<anonymous> (tests/integration/phase-5-integration.test.ts:275:22)
+
+  console.log
+    
+    ­ƒöü Iteration 2/5 | Depth: 2 | Turn: 2
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:102:15)
+
+  console.log
+    ­ƒÆ¡ Thought: Mock response
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:132:17)
+
+  console.log
+    
+    Ô£à Agent Loop completed successfully
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:258:19)
+
+  console.log
+    
+    ­ƒôè Agent Loop State Summary:
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:381:13)
+
+  console.log
+    State Summary:
+      Turns: 2
+      Last Transition: SUCCESS
+      Tool Executions: 1
+      Avg Tool Duration: 0.00ms
+      Consecutive Errors: 1
+      Elapsed Time: 13ms
+      Compaction Attempted: false
+      Recovery Attempts: 0
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:382:13)
+
+  console.log
+    
+    ­ƒöä Starting Agent Loop (ReAct Pattern)
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:75:13)
+
+  console.log
+    ­ƒôØ User Input: Test
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:76:13)
+
+  console.log
+    ­ƒôè Analytics initialized | Chain: 58f6d3ca
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:81:13)
+
+  console.log
+    
+    ­ƒöü Iteration 1/5 | Depth: 1 | Turn: 1
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:102:15)
+
+  console.log
+    ­ƒÆ¡ Thought: OK
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:132:17)
+
+  console.log
+    ­ƒöº Executing 1 tool call(s)...
+
+      at AgentLoop.executeToolCalls (src/core/agent-loop/agent-loop.ts:406:13)
+
+  console.log
+    ­ƒöº Tool Orchestrator: Executing 1 tool(s)
+
+      at ToolOrchestrator.runTools (src/core/agent-loop/tool-orchestrator.ts:68:13)
+
+  console.log
+       Concurrent: 0 tool(s)
+
+      at ToolOrchestrator.runTools (src/core/agent-loop/tool-orchestrator.ts:73:13)
+
+  console.log
+       Serial: 1 tool(s)
+
+      at ToolOrchestrator.runTools (src/core/agent-loop/tool-orchestrator.ts:74:13)
+
+  console.log
+    ­ƒöù Running 1 tool(s) serially...
+
+      at ToolOrchestrator.runToolsSerially (src/core/agent-loop/tool-orchestrator.ts:170:13)
+
+  console.log
+       ­ƒöº Executing: AnyTool
+
+      at ToolOrchestrator.executeSingleTool (src/core/agent-loop/tool-orchestrator.ts:195:13)
+
+  console.log
+    Ô£à Tool Orchestrator: 1 execution(s) completed
+
+      at ToolOrchestrator.runTools (src/core/agent-loop/tool-orchestrator.ts:118:13)
+
+  console.error
+       ÔØî AnyTool: Tool "AnyTool" not found in registry
+
+    [0m [90m 588 |[39m         }[33m;[39m
+     [90m 589 |[39m         
+    [31m[1m>[22m[39m[90m 590 |[39m         console[33m.[39merror([32m`   ÔØî ${toolName}: ${execution.error}`[39m)[33m;[39m
+     [90m     |[39m                 [31m[1m^[22m[39m
+     [90m 591 |[39m         
+     [90m 592 |[39m         [90m// Increment attempt counter on failure[39m
+     [90m 593 |[39m         [36mconst[39m attemptCount [33m=[39m [36mthis[39m[33m.[39mtoolCallAttempts[33m.[39m[36mget[39m(toolKey) [33m||[39m [35m0[39m[33m;[39m[0m
+
+      at AgentLoop.executeToolCalls (src/core/agent-loop/agent-loop.ts:590:17)
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:210:11)
+      at Object.<anonymous> (tests/integration/phase-5-integration.test.ts:309:22)
+
+  console.log
+       ­ƒöü Attempt 1/3 for this tool call
+
+      at AgentLoop.executeToolCalls (src/core/agent-loop/agent-loop.ts:595:17)
+
+  console.log
+    ­ƒôè [Analytics] ÔØî AnyTool | FAILED | 1ms | Chain: 58f6d3ca | Depth: 1
+
+      at ToolAnalytics.logToolExecution (src/utils/tool-analytics.ts:114:13)
+
+  console.error
+    ­ƒôè [Analytics] ÔØî ERROR in AnyTool | Chain: 58f6d3ca | Iteration: 1 | Error: Tool "AnyTool" not found in registry
+
+    [0m [90m 144 |[39m     [36mthis[39m[33m.[39mwriteLog(event)[33m;[39m
+     [90m 145 |[39m     
+    [31m[1m>[22m[39m[90m 146 |[39m     console[33m.[39merror(
+     [90m     |[39m             [31m[1m^[22m[39m
+     [90m 147 |[39m       [32m`­ƒôè [Analytics] ÔØî ERROR in ${toolName} | `[39m [33m+[39m
+     [90m 148 |[39m       [32m`Chain: ${this.queryChainId.slice(0, 8)} | `[39m [33m+[39m
+     [90m 149 |[39m       [32m`Iteration: ${iteration} | Error: ${error.slice(0, 100)}`[39m[0m
+
+      at ToolAnalytics.logError (src/utils/tool-analytics.ts:146:13)
+      at AgentLoop.executeToolCalls (src/core/agent-loop/agent-loop.ts:611:19)
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:210:11)
+      at Object.<anonymous> (tests/integration/phase-5-integration.test.ts:309:22)
+
+  console.log
+    
+    ­ƒöü Iteration 2/5 | Depth: 2 | Turn: 2
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:102:15)
+
+  console.log
+    ­ƒÆ¡ Thought: Mock response
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:132:17)
+
+  console.log
+    
+    Ô£à Agent Loop completed successfully
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:258:19)
+
+  console.log
+    
+    ­ƒôè Agent Loop State Summary:
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:381:13)
+
+  console.log
+    State Summary:
+      Turns: 2
+      Last Transition: SUCCESS
+      Tool Executions: 1
+      Avg Tool Duration: 0.00ms
+      Consecutive Errors: 1
+      Elapsed Time: 20ms
+      Compaction Attempted: false
+      Recovery Attempts: 0
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:382:13)
+
+  console.log
+    
+    ­ƒöä Starting Agent Loop (ReAct Pattern)
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:75:13)
+
+  console.log
+    ­ƒôØ User Input: Read /etc/passwd
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:76:13)
+
+  console.log
+    ­ƒôè Analytics initialized | Chain: 53c35b8e
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:81:13)
+
+  console.log
+    
+    ­ƒöü Iteration 1/5 | Depth: 1 | Turn: 1
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:102:15)
+
+  console.log
+    ­ƒÆ¡ Thought: Reading file
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:132:17)
+
+  console.log
+    ­ƒöº Executing 1 tool call(s)...
+
+      at AgentLoop.executeToolCalls (src/core/agent-loop/agent-loop.ts:406:13)
+
+  console.log
+    ­ƒöº Tool Orchestrator: Executing 1 tool(s)
+
+      at ToolOrchestrator.runTools (src/core/agent-loop/tool-orchestrator.ts:68:13)
+
+  console.log
+       Concurrent: 0 tool(s)
+
+      at ToolOrchestrator.runTools (src/core/agent-loop/tool-orchestrator.ts:73:13)
+
+  console.log
+       Serial: 1 tool(s)
+
+      at ToolOrchestrator.runTools (src/core/agent-loop/tool-orchestrator.ts:74:13)
+
+  console.log
+    ­ƒöù Running 1 tool(s) serially...
+
+      at ToolOrchestrator.runToolsSerially (src/core/agent-loop/tool-orchestrator.ts:170:13)
+
+  console.log
+       ­ƒöº Executing: FileRead
+
+      at ToolOrchestrator.executeSingleTool (src/core/agent-loop/tool-orchestrator.ts:195:13)
+
+  console.log
+    Ô£à Tool Orchestrator: 1 execution(s) completed
+
+      at ToolOrchestrator.runTools (src/core/agent-loop/tool-orchestrator.ts:118:13)
+
+  console.error
+       ÔØî FileRead: Tool "FileRead" not found in registry
+
+    [0m [90m 588 |[39m         }[33m;[39m
+     [90m 589 |[39m         
+    [31m[1m>[22m[39m[90m 590 |[39m         console[33m.[39merror([32m`   ÔØî ${toolName}: ${execution.error}`[39m)[33m;[39m
+     [90m     |[39m                 [31m[1m^[22m[39m
+     [90m 591 |[39m         
+     [90m 592 |[39m         [90m// Increment attempt counter on failure[39m
+     [90m 593 |[39m         [36mconst[39m attemptCount [33m=[39m [36mthis[39m[33m.[39mtoolCallAttempts[33m.[39m[36mget[39m(toolKey) [33m||[39m [35m0[39m[33m;[39m[0m
+
+      at AgentLoop.executeToolCalls (src/core/agent-loop/agent-loop.ts:590:17)
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:210:11)
+      at Object.<anonymous> (tests/integration/phase-5-integration.test.ts:343:22)
+
+  console.log
+       ­ƒöü Attempt 1/3 for this tool call
+
+      at AgentLoop.executeToolCalls (src/core/agent-loop/agent-loop.ts:595:17)
+
+  console.log
+    ­ƒôè [Analytics] ÔØî FileRead | FAILED | 1ms | Chain: 53c35b8e | Depth: 1
+
+      at ToolAnalytics.logToolExecution (src/utils/tool-analytics.ts:114:13)
+
+  console.error
+    ­ƒôè [Analytics] ÔØî ERROR in FileRead | Chain: 53c35b8e | Iteration: 1 | Error: Tool "FileRead" not found in registry
+
+    [0m [90m 144 |[39m     [36mthis[39m[33m.[39mwriteLog(event)[33m;[39m
+     [90m 145 |[39m     
+    [31m[1m>[22m[39m[90m 146 |[39m     console[33m.[39merror(
+     [90m     |[39m             [31m[1m^[22m[39m
+     [90m 147 |[39m       [32m`­ƒôè [Analytics] ÔØî ERROR in ${toolName} | `[39m [33m+[39m
+     [90m 148 |[39m       [32m`Chain: ${this.queryChainId.slice(0, 8)} | `[39m [33m+[39m
+     [90m 149 |[39m       [32m`Iteration: ${iteration} | Error: ${error.slice(0, 100)}`[39m[0m
+
+      at ToolAnalytics.logError (src/utils/tool-analytics.ts:146:13)
+      at AgentLoop.executeToolCalls (src/core/agent-loop/agent-loop.ts:611:19)
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:210:11)
+      at Object.<anonymous> (tests/integration/phase-5-integration.test.ts:343:22)
+
+  console.log
+    
+    ­ƒöü Iteration 2/5 | Depth: 2 | Turn: 2
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:102:15)
+
+  console.log
+    ­ƒÆ¡ Thought: Mock response
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:132:17)
+
+  console.log
+    
+    Ô£à Agent Loop completed successfully
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:258:19)
+
+  console.log
+    
+    ­ƒôè Agent Loop State Summary:
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:381:13)
+
+  console.log
+    State Summary:
+      Turns: 2
+      Last Transition: SUCCESS
+      Tool Executions: 1
+      Avg Tool Duration: 0.00ms
+      Consecutive Errors: 1
+      Elapsed Time: 17ms
+      Compaction Attempted: false
+      Recovery Attempts: 0
+
+      at AgentLoop.run (src/core/agent-loop/agent-loop.ts:382:13)
+
+FAIL tests/integration/phase-5-integration.test.ts
+  DVACE Phase 5: Integration - Tool Permissions in Agent Loop
+    5.3.1: Permission Enforcement
+      ÔêÜ should allow tool when in allowedTools (75 ms)
+      ├ù should block tool not in allowedTools (13 ms)
+      ├ù should enforce git-only bash commands (9 ms)
+    5.3.2: PromptCommand Patterns
+      ÔêÜ should support /review command pattern (9 ms)
+      ├ù should block SSH in /review command (11 ms)
+      ÔêÜ should support /commit command pattern (13 ms)
+    5.3.3: Free Conversation Fallback
+      ÔêÜ should allow all tools with wildcard (18 ms)
+      ÔêÜ should default to wildcard if no allowedTools provided (24 ms)
+    5.3.4: Negation Patterns
+      ├ù should block negated patterns (22 ms)
+
+  ÔùÅ DVACE Phase 5: Integration - Tool Permissions in Agent Loop ÔÇ║ 5.3.1: Permission Enforcement ÔÇ║ should block tool not in allowedTools
+
+    expect(received).toContain(expected) // indexOf
+
+    Expected substring: "PERMISSION DENIED"
+    Received string:    "Mock response"
+
+      76 |       
+      77 |       // Verify permission denied message was added to history
+    > 78 |       expect(result).toContain('PERMISSION DENIED');
+         |                      ^
+      79 |     });
+      80 |
+      81 |     it('should enforce git-only bash commands', async () => {
+
+      at Object.<anonymous> (tests/integration/phase-5-integration.test.ts:78:22)
+
+  ÔùÅ DVACE Phase 5: Integration - Tool Permissions in Agent Loop ÔÇ║ 5.3.1: Permission Enforcement ÔÇ║ should enforce git-only bash commands
+
+    expect(received).toContain(expected) // indexOf
+
+    Expected substring: "PERMISSION DENIED"
+    Received string:    "Mock response"
+
+      111 |       
+      112 |       // Verify blocked
+    > 113 |       expect(result).toContain('PERMISSION DENIED');
+          |                      ^
+      114 |     });
+      115 |   });
+      116 |
+
+      at Object.<anonymous> (tests/integration/phase-5-integration.test.ts:113:22)
+
+  ÔùÅ DVACE Phase 5: Integration - Tool Permissions in Agent Loop ÔÇ║ 5.3.2: PromptCommand Patterns ÔÇ║ should block SSH in /review command
+
+    expect(received).toContain(expected) // indexOf
+
+    Expected substring: "PERMISSION DENIED"
+    Received string:    "Mock response"
+
+      197 |       
+      198 |       // Should be blocked
+    > 199 |       expect(result).toContain('PERMISSION DENIED');
+          |                      ^
+      200 |     });
+      201 |
+      202 |     it('should support /commit command pattern', async () => {
+
+      at Object.<anonymous> (tests/integration/phase-5-integration.test.ts:199:22)
+
+  ÔùÅ DVACE Phase 5: Integration - Tool Permissions in Agent Loop ÔÇ║ 5.3.4: Negation Patterns ÔÇ║ should block negated patterns
+
+    expect(received).toContain(expected) // indexOf
+
+    Expected substring: "PERMISSION DENIED"
+    Received string:    "Mock response"
+
+      344 |       
+      345 |       // Should be blocked by negation
+    > 346 |       expect(result).toContain('PERMISSION DENIED');
+          |                      ^
+      347 |       expect(result).toContain('negation pattern');
+      348 |     });
+      349 |   });
+
+      at Object.<anonymous> (tests/integration/phase-5-integration.test.ts:346:22)
+
+Test Suites: 1 failed, 1 total
+Tests:       4 failed, 5 passed, 9 total
+Snapshots:   0 total
+Time:        2.745 s, estimated 3 s
+Ran all test suites matching /tests\\integration\\phase-5-integration.test.ts/i.
