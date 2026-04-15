@@ -129,6 +129,30 @@ export class AgentLoop {
           options
         );
 
+        // 🔍 DEBUG CRÍTICO - Diagnóstico de Tool Calls
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log('🔍 LLM RESPONSE DEBUG:');
+        console.log(`   Provider: ${this.provider.constructor.name}`);
+        console.log(`   Provider Supports Tool Calls: ${this.provider.supportsToolCalls}`);
+        console.log(`   Tools Available: ${tools.length}`);
+        console.log(`   Finish Reason: ${response.finishReason}`);
+        console.log(`   Has Tool Calls: ${!!response.toolCalls && response.toolCalls.length > 0}`);
+        console.log(`   Tool Calls Count: ${response.toolCalls?.length || 0}`);
+        console.log(`   Content Length: ${response.content?.length || 0}`);
+        
+        if (response.toolCalls && response.toolCalls.length > 0) {
+          console.log(`   ✅ Tool Names: ${response.toolCalls.map(t => t.function.name).join(', ')}`);
+          console.log(`   Tool Args Preview:`);
+          response.toolCalls.forEach((tc, idx) => {
+            console.log(`      [${idx + 1}] ${tc.function.name}:`, JSON.stringify(tc.function.arguments).substring(0, 100));
+          });
+        } else {
+          console.log(`   ⚠️ NO TOOL CALLS GENERATED!`);
+          console.log(`   Content Preview (first 500 chars):`);
+          console.log(`   "${response.content?.substring(0, 500)}"`);
+        }
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
         console.log(`💭 Thought: ${response.content.substring(0, 100)}${response.content.length > 100 ? '...' : ''}`);
 
         // Detect multi-phase promises before finishing
