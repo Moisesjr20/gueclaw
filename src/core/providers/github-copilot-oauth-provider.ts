@@ -473,10 +473,35 @@ export class GitHubCopilotOAuthProvider implements ILLMProvider {
           },
         }));
         payload.tool_choice = options.toolChoice ?? 'auto';
+        
+        // 🔍 DEBUG: Log tools being sent
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log('🔍 GITHUB COPILOT OAUTH - REQUEST DEBUG:');
+        console.log(`   Model: ${this.model}`);
+        console.log(`   Tools Count: ${payload.tools.length}`);
+        console.log(`   Tool Names: ${payload.tools.map((t: any) => t.function.name).join(', ')}`);
+        console.log(`   Tool Choice: ${payload.tool_choice}`);
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       }
 
       // Call Copilot API
       const response = await this.client.post('/chat/completions', payload);
+      
+      // 🔍 DEBUG: Log raw response
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('🔍 GITHUB COPILOT OAUTH - RESPONSE DEBUG:');
+      console.log(`   Finish Reason: ${response.data.choices[0].finish_reason}`);
+      console.log(`   Has tool_calls: ${!!response.data.choices[0].message.tool_calls}`);
+      console.log(`   Has content array: ${Array.isArray(response.data.choices[0].message.content)}`);
+      if (response.data.choices[0].message.tool_calls) {
+        console.log(`   Tool Calls: ${JSON.stringify(response.data.choices[0].message.tool_calls).substring(0, 300)}`);
+      }
+      if (Array.isArray(response.data.choices[0].message.content)) {
+        const toolUseBlocks = response.data.choices[0].message.content.filter((b: any) => b.type === 'tool_use');
+        console.log(`   Content blocks: ${response.data.choices[0].message.content.length} (tool_use: ${toolUseBlocks.length})`);
+      }
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
 
       // Parse response
       const llmResponse = this.parseResponse(response.data);
