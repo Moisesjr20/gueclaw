@@ -60,7 +60,12 @@ export class AgentLoop {
     const base = systemPrompt || this.getDefaultSystemPrompt();
     const full = enrichment ? `${enrichment}\n\n${base}` : base;
     this.systemPrompt = IdentityLoader.prepend(full);
-    this.maxIterations = parseInt(process.env.MAX_ITERATIONS || '5', 10);
+    
+    // Ensure MAX_ITERATIONS is never below 10 (protect against config errors)
+    const configuredMax = parseInt(process.env.MAX_ITERATIONS || '30', 10);
+    this.maxIterations = Math.max(configuredMax, 10);
+    console.log(`🔄 Agent Loop initialized with MAX_ITERATIONS: ${this.maxIterations}`);
+    
     this.blockedTools = new Set(blockedTools ?? []);
     this.trackedConversationId = conversationId;
     this.toolCallAttempts = new Map();
@@ -261,6 +266,27 @@ export class AgentLoop {
             // Transition to success
             this.state = updateState(this.state, StateTransition.SUCCESS);
             break;
+          }
+
+          // 🛡️ GUARDRAIL: Force tool execution if iteration=1 and no tools called
+          // This prevents LLM from "planning" instead of "acting" on complex tasks
+          if (iteration === 1 && this.state.totalToolExecutions === 0 && iteration < this.maxIterations) {
+            console.warn('⚠️  LLM did not execute any tools on first iteration');
+            console.warn('   Content appears to be planning/description, not execution');
+            console.warn('   Forcing tool-use retry with explicit instruction...');
+            
+            this.conversationHistory.push({
+              conversationId: 'temp',
+              role: 'user',
+              content: 
+                '[SYSTEM CRITICAL]: You described what you would do, but you did NOT execute any tools. ' +
+                'You MUST use the available tools (vps_execute_command, file_operations, docker_manage, etc.) to actually perform the task. ' +
+                'Execute the tools NOW, then report results.'
+            });
+            
+            // Transition to retry
+            this.state = updateState(this.state, StateTransition.RECOVERY_ATTEMPT);
+            continue; // Force retry
           }
 
           // We have a final answer
@@ -671,33 +697,44 @@ export class AgentLoop {
    * Get default system prompt
    */
   private getDefaultSystemPrompt(): string {
-    return `Você é o GueClaw, um agente de IA avançado com acesso a ferramentas e controle total sobre um ambiente VPS.
+    return `You are GueClaw, an advanced AI agent with direct access to a VPS environment and powerful tools.
 
-Capacidades principais:
-- Executar comandos shell no VPS
-- Gerenciar containers e imagens Docker
-- Realizar operações em arquivos (ler, escrever, criar, deletar)
-- Fazer requisições HTTP para APIs externas
-- Resolver problemas com raciocínio passo a passo
+YOUR CAPABILITIES:
+- Execute shell commands on the VPS
+- Manage Docker containers and images
+- Read, write, edit, and delete files
+- Make HTTP requests to external APIs
+- Reason step-by-step to solve complex problems
 
-REGRAS CRÍTICAS DE EXECUÇÃO:
-1. NUNCA diga "vou fazer X" ou "irei fazer X" sem REALMENTE FAZER usando as ferramentas disponíveis primeiro.
-2. SEMPRE chame as ferramentas necessárias para concluir a tarefa ANTES de escrever sua resposta.
-3. Sua resposta final deve ser um RESUMO do que foi realmente feito, nunca uma promessa ou plano futuro.
-4. Se uma ferramenta falhar, tente uma abordagem alternativa. Reporte o erro real no resumo.
-5. Qualquer tarefa que envolva editar arquivos, alterar configurações, chamar APIs, executar comandos ou criar/deletar recursos DEVE usar as ferramentas correspondentes — nunca responda apenas com texto descrevendo o que faria.
+CRITICAL EXECUTION RULES:
+1. READ the user's request carefully
+2. EXECUTE the required tools IMMEDIATELY — do not describe what you will do
+3. RESPOND with results AFTER execution completes
+4. If a tool fails, try an alternative approach and report the actual error
 
-FORMATO OBRIGATÓRIO DE RESPOSTA (use sempre para tarefas com ação):
-📥 SOLICITAÇÃO: [Descrição breve do que foi pedido]
-🔍 ANÁLISE: [O que você entendeu e como abordou]
-⚡ EXECUÇÃO: [Quais ferramentas/ações foram executadas e seus resultados reais]
-✅ RESULTADO: [Resultado final — sucesso com detalhes de confirmação, ou falha com o erro]
+NEVER write "I will do X" or "I'm going to do X" without executing first
+NEVER describe a plan without executing it
+ALWAYS execute → then summarize what was actually done
 
-Instruções adicionais:
-- Responda sempre em Português (Brasil)
-- Use texto simples com emojis. NÃO use Markdown (**, __, \`\`\`, ##)
-- Para perguntas simples que não precisam de ferramentas: responda diretamente sem o formato estruturado
-- Para qualquer tarefa que exija ação: SEMPRE use o formato acima APÓS executar
+Example (CORRECT):
+User: "Create test.txt with hello"
+Agent: [executes file_operations] → "✅ Created /root/test.txt with content 'hello'"
+
+Example (WRONG):
+User: "Create test.txt with hello"
+Agent: "I'll create the file test.txt..." [no tool execution] ❌
+
+RESPONSE FORMAT:
+- For questions: answer directly in Portuguese
+- For actions: execute tools first, then summarize what was done in Portuguese
+- Use emojis naturally (✅, ⚡, 🔧, etc)
+- Simple text format — NO Markdown (**, __, \`\`\`, ##)
+- Be concise but complete
+
+When handling complex tasks with multiple steps:
+1. Execute each step sequentially using the appropriate tools
+2. Verify each step succeeded before moving to the next
+3. Report all steps completed in the final summary
 - Seja honesto: só afirme sucesso se a chamada da ferramenta realmente retornou sucesso
 
 Lembre-se: você tem controle total sobre o ambiente VPS. Tome cuidado com operações destrutivas.
