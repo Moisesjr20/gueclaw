@@ -13,6 +13,7 @@ import { IdentityLoader } from '../utils/identity-loader';
 import { ProviderFactory } from '../core/providers/provider-factory';
 import { ContextCompressor } from '../services/context-compressor';
 import { MemoryManagerService } from '../services/memory-extractor';
+import { loadProjectContext } from '../core/context';
 import * as fs from 'fs';
 import pdfParse from 'pdf-parse';
 import * as Papa from 'papaparse';
@@ -262,6 +263,12 @@ export class AgentController {
 
     // USER_ID so the LLM can pass it to memory_write tool
     parts.push(`USER_ID (use em chamadas à ferramenta memory_write): ${userId}`);
+
+    // User context from .gueclaw/ (Feature 1.1: Context Files)
+    const userContext = loadProjectContext();
+    if (userContext) {
+      parts.push(userContext);
+    }
 
     // Extracted memories (Phase 3.2 - Advanced Memory)
     const extractedMemories = this.memoryExtractor.getContextEnrichment(userId, 10);

@@ -14,6 +14,7 @@ import {
 } from '../types/command-types';
 import { TaskTracker } from '../core/task-tracker';
 import { costTracker } from '../services/cost-tracker';
+import { getContextLoader } from '../core/context';
 
 /**
  * /start - Welcome message
@@ -66,7 +67,8 @@ export const helpCommand: LocalCommand = {
       `• \`/reload\` - Reload skills (hot-reload)\n` +
       `• \`/cost [today|week|month]\` - Show LLM usage costs\n` +
       `• \`/tasks\` - List active tasks\n` +
-      `• \`/task <id>\` - Show task details\n\n` +
+      `• \`/task <id>\` - Show task details\n` +
+      `• \`/context [show|create|reload]\` - Manage user context files\n\n` +
       `**Supported File Types:**\n` +
       `• PDF documents\n` +
       `• CSV files\n` +
@@ -400,6 +402,97 @@ export const deployCommand: PromptCommand = {
 };
 
 /**
+ * /context - Manage user context files
+ */
+export const contextCommand: LocalCommand = {
+  type: 'local',
+  name: 'context',
+  description: 'Manage user context from .gueclaw/ directory',
+  run: async (args: string[], context: CommandContext): Promise<CommandResult> => {
+    const subcommand = args[0]?.toLowerCase() || 'show';
+    const loader = getContextLoader();
+
+    switch (subcommand) {
+      case 'show': {
+        // Show current context
+        const info = loader.getContextInfo();
+        
+        if (info.files.length === 0) {
+          return {
+            success: true,
+            message: '📄 **Context Files**\n\nNo context files found in .gueclaw/\n\nUse `/context create` to create a template.'
+          };
+        }
+
+        const filesList = info.files
+          .map(f => `  • ${f.path} (${f.size} chars, priority ${f.priority})`)
+          .join('\n');
+
+        const message = 
+          `📄 **Context Files**\n\n` +
+          `**Loaded Files:**\n${filesList}\n\n` +
+          `**Total Size:** ${info.totalSize} characters\n\n` +
+          `These files are automatically injected into every conversation.\n` +
+          `Edit them in .gueclaw/ directory to update your context.`;
+
+        return { success: true, message };
+      }
+
+      case 'create': {
+        // Create template context file
+        try {
+          loader.ensureDefaultContext();
+          return {
+            success: true,
+            message: 
+              `✅ **Context Template Created**\n\n` +
+              `Created default context.md in .gueclaw/\n\n` +
+              `Edit this file to add your personal context:\n` +
+              `• Who you are\n` +
+              `• Your preferences\n` +
+              `• Active projects\n` +
+              `• VPS information\n` +
+              `• Communication style\n\n` +
+              `The context will be loaded automatically in the next conversation.`
+          };
+        } catch (error) {
+          return {
+            success: false,
+            message: `❌ Failed to create context template: ${error instanceof Error ? error.message : 'Unknown error'}`
+          };
+        }
+      }
+
+      case 'reload': {
+        // Force reload context (clear cache)
+        loader.clearCache();
+        const info = loader.getContextInfo();
+        
+        return {
+          success: true,
+          message: 
+            `🔄 **Context Reloaded**\n\n` +
+            `Loaded ${info.files.length} file(s), ${info.totalSize} characters.\n\n` +
+            `The new context will be used in the next message.`
+        };
+      }
+
+      default: {
+        return {
+          success: false,
+          message: 
+            `❌ **Unknown subcommand:** \`${subcommand}\`\n\n` +
+            `**Available subcommands:**\n` +
+            `/context show - Show current context files\n` +
+            `/context create - Create template context file\n` +
+            `/context reload - Force reload context cache`
+        };
+      }
+    }
+  }
+};
+
+/**
  * Export all commands as an array for registration
  */
 export const allTelegramCommands = [
@@ -414,6 +507,7 @@ export const allTelegramCommands = [
   costCommand,
   statsCommand,
   reloadCommand,
+  contextCommand,
   
   // PromptCommands
   reviewCommand,

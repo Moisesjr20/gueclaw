@@ -33,7 +33,14 @@
 - Histórico de conversas com janela de contexto configurável
 - Cleanup automático de conversas antigas
 
-### 🔒 **Segurança**
+### � **Context Files** (Novo!)
+- Sistema de contexto pessoal injetado automaticamente em cada conversa
+- Elimina a necessidade de repetir informações sobre você, preferências e projetos
+- Arquivos `.gueclaw/context.md` e `.gueclaw/projects/*.md` carregados silenciosamente
+- Gerenciamento via comando `/context [show|create|reload]`
+- Suporte a múltiplos projetos com contextos específicos
+
+### �🔒 **Segurança**
 - Whitelist estrita baseada em IDs do Telegram
 - Variáveis de ambiente para credenciais VPS
 - Logs detalhados de todas as operações
@@ -170,6 +177,9 @@ No Telegram, use os seguintes comandos:
 - `/help` - Mostrar ajuda
 - `/stats` - Ver estatísticas do agente (skills carregadas)
 - `/reload` - Recarregar skills (hot-reload)
+- `/context [show|create|reload]` - Gerenciar arquivos de contexto pessoal
+- `/cost [today|week|month]` - Ver custos de uso do LLM
+- `/tasks` - Listar tarefas ativas
 
 ### Exemplos de Uso
 
@@ -235,7 +245,73 @@ Aqui está um resumo do documento:
 ```
 
 ---
+## 📁 Context Files
 
+O GueClaw agora suporta **Context Files** — arquivos de contexto pessoal que são automaticamente injetados em cada conversa, eliminando a necessidade de repetir informações sobre você, seus projetos e preferências.
+
+### Como Funciona
+
+1. **Crie o contexto inicial:**
+   ```bash
+   # No Telegram
+   /context create
+   ```
+
+2. **Edite o arquivo `.gueclaw/context.md`** com suas informações:
+   ```markdown
+   # GueClaw Context File
+   
+   ## 👤 Who Am I
+   - **Nome:** Moisés
+   - **Fuso Horário:** America/Sao_Paulo
+   - **Idioma Preferido:** pt-BR
+   
+   ## ⚙️ My Preferences
+   - Sempre gerar testes para código novo
+   - Usar TypeScript strict mode
+   - Seguir Clean Architecture
+   
+   ## 🚀 Active Projects
+   ### GueClaw Agent
+   - Tech Stack: Node.js, TypeScript, Telegram Bot API
+   - Status: Production
+   ```
+
+3. **O contexto é carregado automaticamente** na próxima conversa!
+
+### Comandos Disponíveis
+
+- `/context show` - Ver arquivos de contexto carregados
+- `/context create` - Criar template de contexto padrão
+- `/context reload` - Forçar recarregamento do cache
+
+### Estrutura de Arquivos
+
+```
+.gueclaw/
+├── context.md          # Contexto principal (sempre carregado)
+├── preferences.md      # Preferências opcionais
+├── projects/           # Contextos específicos por projeto
+│   ├── project-a.md
+│   └── project-b.md
+└── README.md          # Documentação
+```
+
+### Priorização
+
+Os arquivos são carregados nesta ordem:
+1. `.gueclaw/context.md` (principal)
+2. `.gueclaw/preferences.md` (se existir)
+3. `.gueclaw/projects/*.md` (todos os arquivos)
+
+### Segurança
+
+⚠️ **IMPORTANTE:** 
+- A pasta `.gueclaw/` está no `.gitignore` por padrão
+- **NUNCA** commite estes arquivos (contêm dados pessoais)
+- Não inclua secrets — use variáveis de ambiente
+
+---
 ## �️ Arquitetura DVACE
 
 **GueClaw** implementa a arquitetura **DVACE** (inspired by Claude Desktop's `dvace` codebase), garantindo execução real de ferramentas e rastreamento preciso de tarefas.

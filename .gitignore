@@ -22,6 +22,9 @@ tmp/*
 logs/*
 !logs/.gitkeep
 
+# Context files — contain personal information
+.gueclaw/
+
 # MCP memory — pode conter dados sensíveis de sessões anteriores
 data/memory/mcp-memory.jsonl
 
