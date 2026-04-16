@@ -11,6 +11,7 @@ import { SkillExecutor } from '../core/skills/skill-executor';
 import { AgentLoop } from '../core/agent-loop/agent-loop';
 import { IdentityLoader } from '../utils/identity-loader';
 import { ProviderFactory } from '../core/providers/provider-factory';
+import { ToolRegistry } from '../tools/tool-registry';
 import { ContextCompressor } from '../services/context-compressor';
 import { MemoryManagerService } from '../services/memory-extractor';
 import { loadProjectContext } from '../core/context';
@@ -394,6 +395,53 @@ export class AgentController {
       console.log('🧹 Cleaning up old conversations...');
       this.memoryManager.cleanup(30); // Older than 30 days
     }, 24 * 60 * 60 * 1000); // Every day
+  }
+
+  /**
+   * Process a direct message/prompt without Telegram context
+   * Used by CronScheduler for executing scheduled jobs
+   * 
+   * @param prompt The prompt to execute
+   * @param userId User ID for context
+   * @returns Response object with text and metadata
+   */
+  public async processDirectMessage(prompt: string, userId: string): Promise<{
+    response: string;
+    toolCalls?: Array<{ toolName: string; args: any; result: any }>;
+    tokensUsed?: { prompt: number; completion: number; total: number };
+  }> {
+    const conversationId = `user_${userId}`;
+
+    // Get or create conversation
+    const conversation = this.memoryManager.getConversation(userId);
+
+    // Add user message
+    this.memoryManager.addUserMessage(conversation.id, prompt);
+
+    // Build history for LLM
+    const history = this.memoryManager.getRecentMessages(conversation.id);
+
+    // Build enrichment (memory, skills, context files, etc)
+    const enrichment = this.buildEnrichment(userId);
+
+    // Use general agent loop
+    const provider = ProviderFactory.getFastProvider();
+    const agentLoop = new AgentLoop(provider, history, undefined, enrichment, undefined, conversation.id);
+    const response = await agentLoop.run(prompt);
+
+    // Save assistant response
+    if (response !== NO_REPLY) {
+      this.memoryManager.addAssistantMessage(conversation.id, response);
+    }
+
+    // Extract tool calls and tokens from response metadata (if available)
+    // Note: This is a simplified version, AgentLoop doesn't return these directly
+    // You may need to enhance AgentLoop to return metadata
+    return {
+      response: response,
+      toolCalls: undefined, // AgentLoop doesn't expose this currently
+      tokensUsed: undefined // AgentLoop doesn't expose this currently
+    };
   }
 
   /**

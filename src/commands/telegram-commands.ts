@@ -75,7 +75,8 @@ export const helpCommand: LocalCommand = {
       `• \`/reload\` - Reload skills (hot-reload)\n` +
       `• \`/context [show|create|reload]\` - Manage user context\n` +
       `• \`/compress\` - Force compress history\n` +
-      `• \`/personality [name]\` - Change communication style\n\n` +
+      `• \`/personality [name]\` - Change communication style\n` +
+      `• \`/cron [help|list|status]\` - Manage scheduled jobs\n\n` +
       `**Supported File Types:**\n` +
       `• PDF documents, CSV files, Text files\n` +
       `• Images, Audio/voice messages\n\n` +
@@ -83,7 +84,8 @@ export const helpCommand: LocalCommand = {
       `• "List all Docker containers"\n` +
       `• "Create a new skill for database management"\n` +
       `• "Execute: df -h"\n` +
-      `• "Make a GET request to https://api.github.com"\n\n` +
+      `• "Make a GET request to https://api.github.com"\n` +
+      `• "Schedule a daily report at 7am"\n\n` +
       `Send any message or file and I'll process it!`;
 
     return {
@@ -881,6 +883,216 @@ export const personalityCommand: LocalCommand = {
 };
 
 /**
+ * /cron - Manage scheduled jobs
+ */
+export const cronCommand: LocalCommand = {
+  type: 'local',
+  name: 'cron',
+  description: 'Manage scheduled jobs (list, create, delete, pause, resume, trigger)',
+  run: async (args: string[], context: CommandContext): Promise<CommandResult> => {
+    // Import dependencies
+    const { CronStorage } = await import('../services/cron/cron-storage');
+    const { CronScheduler } = await import('../services/cron/cron-scheduler');
+    const { parse, isValidSchedule } = await import('../services/cron/schedule-parser');
+
+    const storage = CronStorage.getInstance();
+    const scheduler = CronScheduler.getInstance();
+
+    // Get subcommand
+    const subcommand = args[0]?.toLowerCase();
+
+    try {
+      // /cron list
+      if (!subcommand || subcommand === 'list') {
+        const jobs = context.userId ? storage.getJobsByUser(context.userId) : storage.loadJobs();
+
+        if (jobs.length === 0) {
+          return {
+            success: true,
+            message: '📋 No jobs scheduled'
+          };
+        }
+
+        const jobList = jobs
+          .map((j, i) => 
+            `${i + 1}. **${j.name}** (${j.status === 'active' ? '✅' : j.status === 'paused' ? '⏸️' : '❌'})\n` +
+            `   • ID: \`${j.id}\`\n` +
+            `   • Schedule: ${j.schedule.description || j.schedule.value}\n` +
+            `   • Next: ${j.nextRun ? new Date(j.nextRun).toLocaleString() : 'N/A'}\n` +
+            `   • Last: ${j.lastRun ? new Date(j.lastRun).toLocaleString() : 'Never'}\n` +
+            `   • Deliver: ${j.deliver}`
+          )
+          .join('\n\n');
+
+        return {
+          success: true,
+          message: `📋 **Scheduled Jobs (${jobs.length})**\n\n${jobList}\n\n_Use \`/cron help\` for more commands_`
+        };
+      }
+
+      // /cron status
+      if (subcommand === 'status') {
+        const status = scheduler.getStatus();
+
+        let message = `📊 **Cron Scheduler Status**\n\n` +
+          `**Running:** ${status.running ? '✅ Yes' : '❌ No'}\n` +
+          `**Total Jobs:** ${status.jobCount}\n` +
+          `**Active Jobs:** ${status.activeJobs}\n`;
+
+        if (status.nextDueJob) {
+          message += `**Next Due:** ${status.nextDueJob.name} at ${new Date(status.nextDueJob.dueAt).toLocaleString()}`;
+        }
+
+        return {
+          success: true,
+          message
+        };
+      }
+
+      // /cron delete <id>
+      if (subcommand === 'delete' || subcommand === 'del' || subcommand === 'remove') {
+        const jobId = args[1];
+        if (!jobId) {
+          return {
+            success: false,
+            message: '❌ Missing job ID\n\nUsage: `/cron delete <job_id>`'
+          };
+        }
+
+        const deleted = await storage.deleteJob(jobId);
+        if (!deleted) {
+          return {
+            success: false,
+            message: `❌ Job not found: \`${jobId}\``
+          };
+        }
+
+        return {
+          success: true,
+          message: `✅ Job deleted successfully`
+        };
+      }
+
+      // /cron pause <id>
+      if (subcommand === 'pause' || subcommand === 'stop') {
+        const jobId = args[1];
+        if (!jobId) {
+          return {
+            success: false,
+            message: '❌ Missing job ID\n\nUsage: `/cron pause <job_id>`'
+          };
+        }
+
+        const job = storage.getJob(jobId);
+        if (!job) {
+          return {
+            success: false,
+            message: `❌ Job not found: \`${jobId}\``
+          };
+        }
+
+        await storage.updateJob(jobId, { status: 'paused' });
+
+        return {
+          success: true,
+          message: `⏸️ Job "${job.name}" paused`
+        };
+      }
+
+      // /cron resume <id>
+      if (subcommand === 'resume' || subcommand === 'start') {
+        const jobId = args[1];
+        if (!jobId) {
+          return {
+            success: false,
+            message: '❌ Missing job ID\n\nUsage: `/cron resume <job_id>`'
+          };
+        }
+
+        const job = storage.getJob(jobId);
+        if (!job) {
+          return {
+            success: false,
+            message: `❌ Job not found: \`${jobId}\``
+          };
+        }
+
+        const { calculateNextRun } = await import('../services/cron/schedule-parser');
+        const nextRun = calculateNextRun(job.schedule, new Date());
+
+        await storage.updateJob(jobId, {
+          status: 'active',
+          nextRun: nextRun.toISOString()
+        });
+
+        return {
+          success: true,
+          message: `▶️ Job "${job.name}" resumed\n\nNext run: ${nextRun.toLocaleString()}`
+        };
+      }
+
+      // /cron trigger <id>
+      if (subcommand === 'trigger' || subcommand === 'run') {
+        const jobId = args[1];
+        if (!jobId) {
+          return {
+            success: false,
+            message: '❌ Missing job ID\n\nUsage: `/cron trigger <job_id>`'
+          };
+        }
+
+        await scheduler.triggerJob(jobId);
+
+        return {
+          success: true,
+          message: `🚀 Job triggered successfully (executing in background)`
+        };
+      }
+
+      // /cron help
+      if (subcommand === 'help') {
+        return {
+          success: true,
+          message: 
+            `⏰ **Cron Commands**\n\n` +
+            `**List & Info:**\n` +
+            `• \`/cron\` or \`/cron list\` - List all jobs\n` +
+            `• \`/cron status\` - Scheduler status\n\n` +
+            `**Management:**\n` +
+            `• \`/cron delete <id>\` - Delete a job\n` +
+            `• \`/cron pause <id>\` - Pause a job\n` +
+            `• \`/cron resume <id>\` - Resume a job\n` +
+            `• \`/cron trigger <id>\` - Run immediately\n\n` +
+            `**Creating Jobs:**\n` +
+            `To create a job, ask me in natural language:\n` +
+            `_"Schedule a daily report at 7am"_\n` +
+            `_"Create a job to backup files every 2 hours"_\n\n` +
+            `**Schedule Formats:**\n` +
+            `• \`30m\`, \`2h\`, \`1d\` - Intervals\n` +
+            `• \`every 30m\` - Recurring\n` +
+            `• \`0 7 * * *\` - Cron expression (daily at 7am)\n` +
+            `• \`2026-04-17T14:00\` - One-time at specific time`
+        };
+      }
+
+      // Unknown subcommand
+      return {
+        success: false,
+        message: 
+          `❌ Unknown subcommand: \`${subcommand}\`\n\n` +
+          `Use \`/cron help\` to see available commands.`
+      };
+
+    } catch (error) {
+      return {
+        success: false,
+        message: `❌ Error: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
+    }
+  }
+};
+
+/**
  * Export all commands as an array for registration
  */
 export const allTelegramCommands = [
@@ -901,6 +1113,7 @@ export const allTelegramCommands = [
   compressCommand,
   insightsCommand,
   personalityCommand,
+  cronCommand,
   
   // PromptCommands
   reviewCommand,
