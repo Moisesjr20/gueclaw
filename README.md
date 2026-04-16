@@ -312,6 +312,95 @@ Os arquivos são carregados nesta ordem:
 - Não inclua secrets — use variáveis de ambiente
 
 ---
+
+## ⏰ Cron Scheduler
+
+O GueClaw agora suporta **agendamento de tarefas automatizadas** que executam prompts em horários específicos, intervalos regulares ou datas únicas.
+
+### Características
+
+- ✅ **4 Formatos de Schedule:** Intervalos simples (`30m`, `2h`), cron expressions (`0 7 * * *`), ISO timestamps, execuções únicas
+- ✅ **Execução via AgentLoop:** Jobs têm acesso a todas as ferramentas e contexto
+- ✅ **3 Modos de Entrega:** Telegram, arquivo local, ou silencioso
+- ✅ **Gerenciamento Completo:** Criar, listar, pausar, retomar, deletar, executar manualmente
+- ✅ **Histórico de Execuções:** Saída, duração, tokens usados, ferramentas chamadas
+
+### Comandos Disponíveis
+
+```bash
+# Listar todos os jobs
+/cron list
+
+# Ver status do scheduler
+/cron status
+
+# Deletar um job
+/cron delete <job-id>
+
+# Pausar/retomar um job
+/cron pause <job-id>
+/cron resume <job-id>
+
+# Executar manualmente
+/cron trigger <job-id>
+
+# Ajuda
+/cron help
+```
+
+### Exemplos de Uso
+
+#### 1. Agenda Diária (Via LLM)
+
+```
+📱 Você: Crie um job chamado 'Agenda Diária' que todo dia às 7h me envie um resumo dos eventos do Google Calendar
+
+🤖 GueClaw: [Usa cron_manager tool]
+✅ Job criado com sucesso!
+
+📋 Agenda Diária
+⏰ Schedule: 0 7 * * * (At 7:00 AM every day)
+📤 Delivery: telegram
+🆔 ID: abc-123-def
+
+Próxima execução: amanhã às 7:00
+```
+
+#### 2. Backup Diário
+
+```
+📱 Você: Crie um job de backup diário às 2h que execute o backup do banco de dados, mas não me envie mensagem
+
+🤖 GueClaw: ✅ Job de backup criado!
+O backup será executado às 2h silenciosamente.
+Output será salvo em data/cron/output/
+```
+
+#### 3. Relatório Semanal
+
+```
+📱 Você: Toda segunda às 9h me envie um relatório com estatísticas dos últimos 7 dias
+
+🤖 GueClaw: ✅ Job 'Relatório Semanal' criado!
+Próxima execução: segunda-feira 09:00
+```
+
+### Formatos de Schedule
+
+| Formato | Exemplo | Descrição |
+|---------|---------|-----------|
+| **Intervalo** | `30m`, `2h`, `1d` | A cada X minutos/horas/dias |
+| **Cron** | `0 7 * * *` | Todo dia às 7h |
+| **ISO** | `2026-04-17T14:00` | Execução única no horário especificado |
+| **Once** | `once 30m` | Daqui a 30 minutos (desabilita após executar) |
+
+### Documentação Completa
+
+Para documentação detalhada sobre API, troubleshooting e exemplos avançados, consulte:
+
+📚 **[docs/cron-scheduler.md](docs/cron-scheduler.md)**
+
+---
 ## �️ Arquitetura DVACE
 
 **GueClaw** implementa a arquitetura **DVACE** (inspired by Claude Desktop's `dvace` codebase), garantindo execução real de ferramentas e rastreamento preciso de tarefas.
