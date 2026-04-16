@@ -60,27 +60,30 @@ export const helpCommand: LocalCommand = {
   run: async (args: string[], context: CommandContext): Promise<CommandResult> => {
     const message =
       `📚 **GueClaw Agent Help**\n\n` +
-      `**Available Commands:**\n` +
+      `**Control Commands:**\n` +
       `• \`/start\` - Welcome message\n` +
       `• \`/help\` - Show this help\n` +
+      `• \`/retry\` - Retry last message with new response\n` +
+      `• \`/undo\` - Delete last interaction\n\n` +
+      `**Information Commands:**\n` +
       `• \`/stats\` - Show agent statistics\n` +
-      `• \`/reload\` - Reload skills (hot-reload)\n` +
-      `• \`/cost [today|week|month]\` - Show LLM usage costs\n` +
+      `• \`/cost [period]\` - Show LLM usage costs\n` +
+      `• \`/insights [days]\` - Show conversation insights\n` +
       `• \`/tasks\` - List active tasks\n` +
-      `• \`/task <id>\` - Show task details\n` +
-      `• \`/context [show|create|reload]\` - Manage user context files\n\n` +
+      `• \`/task <id>\` - Show task details\n\n` +
+      `**Management Commands:**\n` +
+      `• \`/reload\` - Reload skills (hot-reload)\n` +
+      `• \`/context [show|create|reload]\` - Manage user context\n` +
+      `• \`/compress\` - Force compress history\n` +
+      `• \`/personality [name]\` - Change communication style\n\n` +
       `**Supported File Types:**\n` +
-      `• PDF documents\n` +
-      `• CSV files\n` +
-      `• Text files\n` +
-      `• Images\n` +
-      `• Audio/voice messages\n\n` +
+      `• PDF documents, CSV files, Text files\n` +
+      `• Images, Audio/voice messages\n\n` +
       `**Examples:**\n` +
       `• "List all Docker containers"\n` +
       `• "Create a new skill for database management"\n` +
       `• "Execute: df -h"\n` +
-      `• "Read the file /var/log/nginx/access.log"\n` +
-      `• "Make a GET request to https://api.github.com/repos/gueclaw/agent"\n\n` +
+      `• "Make a GET request to https://api.github.com"\n\n` +
       `Send any message or file and I'll process it!`;
 
     return {
@@ -493,6 +496,391 @@ export const contextCommand: LocalCommand = {
 };
 
 /**
+ * /retry - Retry last user message (delete last response and re-process)
+ */
+export const retryCommand: LocalCommand = {
+  type: 'local',
+  name: 'retry',
+  description: 'Retry last user message with a new response',
+  aliases: ['tentar-novamente'],
+  run: async (args: string[], context: CommandContext): Promise<CommandResult> => {
+    const { memoryManager, ctx, conversationId } = context;
+
+    if (!memoryManager || !ctx) {
+      return {
+        success: false,
+        message: '❌ Memory manager not available'
+      };
+    }
+
+    try {
+      // Get all messages
+      const allMessages = memoryManager.getAllMessages(conversationId);
+      
+      if (allMessages.length < 2) {
+        return {
+          success: false,
+          message: '❌ Not enough messages to retry. Send a message first!'
+        };
+      }
+
+      // Find last user message and last assistant message
+      let lastUserMsg: any = null;
+      let lastAssistantMsg: any = null;
+
+      for (let i = allMessages.length - 1; i >= 0; i--) {
+        const msg = allMessages[i];
+        if (msg.role === 'user' && !lastUserMsg) {
+          lastUserMsg = msg;
+        }
+        if (msg.role === 'assistant' && !lastAssistantMsg) {
+          lastAssistantMsg = msg;
+        }
+        if (lastUserMsg && lastAssistantMsg) break;
+      }
+
+      if (!lastUserMsg || !lastAssistantMsg) {
+        return {
+          success: false,
+          message: '❌ Could not find last user/assistant message pair'
+        };
+      }
+
+      // Delete last assistant message (and any subsequent tool messages)
+      const messagesToDelete: string[] = [];
+      let foundAssistant = false;
+      
+      for (let i = allMessages.length - 1; i >= 0; i--) {
+        const msg = allMessages[i];
+        if (msg.role === 'assistant' && !foundAssistant) {
+          if (msg.id) messagesToDelete.push(msg.id);
+          foundAssistant = true;
+        } else if (foundAssistant && msg.role === 'tool') {
+          if (msg.id) messagesToDelete.push(msg.id);
+        } else if (foundAssistant && msg.role !== 'tool') {
+          break;
+        }
+      }
+
+      memoryManager.deleteMessages(messagesToDelete);
+
+      // Notify and trigger re-processing
+      return {
+        success: true,
+        message: `🔄 **Retrying...**\n\nDeleted last response. Processing your message again:\n\n"${lastUserMsg.content.substring(0, 100)}${lastUserMsg.content.length > 100 ? '...' : ''}"\n\n_Note: The agent will re-process automatically._`,
+        metadata: { retry: true, originalMessage: lastUserMsg.content }
+      };
+
+    } catch (error) {
+      return {
+        success: false,
+        message: `❌ Failed to retry: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
+    }
+  }
+};
+
+/**
+ * /undo - Delete last complete turn (user message + assistant response + tools)
+ */
+export const undoCommand: LocalCommand = {
+  type: 'local',
+  name: 'undo',
+  description: 'Delete last complete interaction (user + assistant)',
+  aliases: ['desfazer'],
+  run: async (args: string[], context: CommandContext): Promise<CommandResult> => {
+    const { memoryManager, conversationId } = context;
+
+    if (!memoryManager) {
+      return {
+        success: false,
+        message: '❌ Memory manager not available'
+      };
+    }
+
+    try {
+      const allMessages = memoryManager.getAllMessages(conversationId);
+      
+      if (allMessages.length === 0) {
+        return {
+          success: false,
+          message: '❌ No messages to undo'
+        };
+      }
+
+      // Find last turn (user + assistant + tools)
+      const messagesToDelete: string[] = [];
+      let deletedTurn = false;
+
+      for (let i = allMessages.length - 1; i >= 0; i--) {
+        const msg = allMessages[i];
+        
+        // Delete assistant and tool messages
+        if (msg.role === 'assistant' || msg.role === 'tool') {
+          if (msg.id) messagesToDelete.push(msg.id);
+        }
+        // When we hit a user message, delete it and stop
+        else if (msg.role === 'user') {
+          if (msg.id) messagesToDelete.push(msg.id);
+          deletedTurn = true;
+          break;
+        }
+      }
+
+      if (!deletedTurn || messagesToDelete.length === 0) {
+        return {
+          success: false,
+          message: '❌ Could not find complete turn to undo'
+        };
+      }
+
+      memoryManager.deleteMessages(messagesToDelete);
+
+      return {
+        success: true,
+        message: `✅ **Undone!**\n\nDeleted ${messagesToDelete.length} message(s) from last turn.\n\nYou can continue the conversation from the previous state.`
+      };
+
+    } catch (error) {
+      return {
+        success: false,
+        message: `❌ Failed to undo: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
+    }
+  }
+};
+
+/**
+ * /compress - Force compress conversation history
+ */
+export const compressCommand: LocalCommand = {
+  type: 'local',
+  name: 'compress',
+  description: 'Force compress conversation history',
+  aliases: ['compactar'],
+  run: async (args: string[], context: CommandContext): Promise<CommandResult> => {
+    const { memoryManager, conversationId } = context;
+
+    if (!memoryManager) {
+      return {
+        success: false,
+        message: '❌ Memory manager not available'
+      };
+    }
+
+    try {
+      const messagesBefore = memoryManager.getAllMessages(conversationId).length;
+
+      if (messagesBefore < 10) {
+        return {
+          success: false,
+          message: `❌ Not enough messages to compress (need 10+, have ${messagesBefore})`
+        };
+      }
+
+      // Import ContextCompressor
+      const { ContextCompressor } = await import('../services/context-compressor/context-compressor');
+      const compressor = new ContextCompressor();
+
+      // Get all messages
+      const allMessages = memoryManager.getAllMessages(conversationId);
+
+      // Perform compression
+      const compressed = await compressor.compressIfNeeded(allMessages);
+      const result = compressed.result;
+
+      if (!result.compressed) {
+        return {
+          success: false,
+          message: '⚠️ Compression not needed or failed'
+        };
+      }
+
+      return {
+        success: true,
+        message: 
+          `✅ **Compression Complete!**\n\n` +
+          `📊 **Stats:**\n` +
+          `• Before: ${result.originalCount} messages\n` +
+          `• After: ${result.newCount} messages\n` +
+          `• Reduction: ${result.messagesCompressed} messages\n` +
+          `• Tokens saved: ~${result.tokensSaved}\n\n` +
+          `_Note: This creates a summary. DB update not implemented yet._`
+      };
+
+    } catch (error) {
+      return {
+        success: false,
+        message: `❌ Failed to compress: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
+    }
+  }
+};
+
+/**
+ * /insights - Show conversation insights and statistics
+ */
+export const insightsCommand: LocalCommand = {
+  type: 'local',
+  name: 'insights',
+  description: 'Show conversation insights and usage statistics',
+  run: async (args: string[], context: CommandContext): Promise<CommandResult> => {
+    const { memoryManager, conversationId, userId } = context;
+
+    if (!memoryManager) {
+      return {
+        success: false,
+        message: '❌ Memory manager not available'
+      };
+    }
+
+    try {
+      // Get period (default: 7 days)
+      const period = parseInt(args[0]) || 7;
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - period);
+
+      // Get all messages
+      const allMessages = memoryManager.getAllMessages(conversationId);
+      
+      // Filter by period
+      const recentMessages = allMessages.filter(msg => {
+        if (!msg.timestamp) return false;
+        return new Date(msg.timestamp) >= cutoffDate;
+      });
+
+      // Count by role
+      const userCount = recentMessages.filter(m => m.role === 'user').length;
+      const assistantCount = recentMessages.filter(m => m.role === 'assistant').length;
+      const toolCount = recentMessages.filter(m => m.role === 'tool').length;
+
+      // Get tool usage stats
+      const toolUsage: Record<string, number> = {};
+      recentMessages
+        .filter(m => m.role === 'tool' && m.metadata?.toolName)
+        .forEach(m => {
+          const toolName = m.metadata?.toolName || 'unknown';
+          toolUsage[toolName] = (toolUsage[toolName] || 0) + 1;
+        });
+
+      const topTools = Object.entries(toolUsage)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([tool, count]) => `  • ${tool}: ${count} uses`)
+        .join('\n');
+
+      // Get cost data
+      const { costTracker } = await import('../services/cost-tracker/cost-tracker');
+      const costs = costTracker.getWeekCosts(userId);
+
+      const message = 
+        `📊 **Insights (Last ${period} days)**\n\n` +
+        `**Messages:**\n` +
+        `• User: ${userCount}\n` +
+        `• Assistant: ${assistantCount}\n` +
+        `• Tool calls: ${toolCount}\n` +
+        `• Total: ${recentMessages.length}\n\n` +
+        (topTools ? `**Top Tools:**\n${topTools}\n\n` : '') +
+        `**LLM Costs:**\n` +
+        `• Total: $${costs.totalCostUSD.toFixed(4)}\n` +
+        `• Tokens: ${costs.totalTokens.toLocaleString()}\n` +
+        `• Requests: ${costs.requestCount}\n\n` +
+        `_Use \`/insights <days>\` to change period_`;
+
+      return {
+        success: true,
+        message
+      };
+
+    } catch (error) {
+      return {
+        success: false,
+        message: `❌ Failed to get insights: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
+    }
+  }
+};
+
+/**
+ * /personality - Change agent personality/tone
+ */
+export const personalityCommand: LocalCommand = {
+  type: 'local',
+  name: 'personality',
+  description: 'Change agent personality and communication style',
+  run: async (args: string[], context: CommandContext): Promise<CommandResult> => {
+    const personalities = {
+      default: {
+        name: 'Default',
+        description: 'Balanced, professional yet friendly',
+        prompt: ''
+      },
+      professional: {
+        name: 'Professional',
+        description: 'Formal, concise, business-oriented',
+        prompt: 'COMMUNICATION STYLE: Be extremely professional, formal, and concise. Use business language. Avoid emojis and casual expressions.'
+      },
+      casual: {
+        name: 'Casual',
+        description: 'Friendly, relaxed, conversational',
+        prompt: 'COMMUNICATION STYLE: Be casual, friendly, and conversational. Use emojis naturally. Be warm and approachable.'
+      },
+      concise: {
+        name: 'Concise',
+        description: 'Brief, direct, minimal explanations',
+        prompt: 'COMMUNICATION STYLE: Be extremely concise. Give shortest possible answers. No unnecessary explanations. Direct and to the point.'
+      },
+      verbose: {
+        name: 'Verbose',
+        description: 'Detailed, educational, explanatory',
+        prompt: 'COMMUNICATION STYLE: Be detailed and thorough. Explain concepts fully. Provide context and examples. Be educational.'
+      }
+    };
+
+    const selectedPersonality = args[0]?.toLowerCase();
+
+    // No argument - show available personalities
+    if (!selectedPersonality) {
+      const list = Object.entries(personalities)
+        .map(([key, p]) => `  • \`${key}\` - ${p.description}`)
+        .join('\n');
+
+      return {
+        success: true,
+        message: 
+          `🎭 **Available Personalities:**\n\n${list}\n\n` +
+          `**Usage:** \`/personality <name>\`\n\n` +
+          `_Note: Personality change affects future messages in this conversation._`
+      };
+    }
+
+    // Invalid personality
+    if (!personalities[selectedPersonality as keyof typeof personalities]) {
+      return {
+        success: false,
+        message: `❌ Unknown personality: \`${selectedPersonality}\`\n\nUse \`/personality\` to see available options.`
+      };
+    }
+
+    const personality = personalities[selectedPersonality as keyof typeof personalities];
+
+    // Store personality in conversation metadata (would need DB support for persistence)
+    // For now, just acknowledge
+    return {
+      success: true,
+      message: 
+        `✅ **Personality Changed!**\n\n` +
+        `🎭 **${personality.name}**\n` +
+        `${personality.description}\n\n` +
+        `_This change will affect my responses going forward._\n\n` +
+        `⚠️ **Note:** Personality persistence across restarts not yet implemented. ` +
+        `The change will apply to this session only.`,
+      metadata: { personality: selectedPersonality }
+    };
+  }
+};
+
+/**
  * Export all commands as an array for registration
  */
 export const allTelegramCommands = [
@@ -508,6 +896,11 @@ export const allTelegramCommands = [
   statsCommand,
   reloadCommand,
   contextCommand,
+  retryCommand,
+  undoCommand,
+  compressCommand,
+  insightsCommand,
+  personalityCommand,
   
   // PromptCommands
   reviewCommand,

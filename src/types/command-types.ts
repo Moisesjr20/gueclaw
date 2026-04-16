@@ -11,6 +11,7 @@
  */
 
 import { Message, ToolCall, ToolResult } from './index';
+import type { MemoryManager } from '../core/memory/memory-manager';
 
 /**
  * Context provided to command execution handlers
@@ -20,6 +21,8 @@ export interface CommandContext {
   conversationId: string;
   messageHistory: Message[];
   metadata?: Record<string, any>;
+  memoryManager?: MemoryManager;
+  ctx?: any; // Telegram context for re-execution
 }
 
 /**

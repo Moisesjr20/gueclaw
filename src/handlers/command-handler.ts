@@ -47,7 +47,7 @@ export class CommandHandler {
 
     // PHASE 1.4: Try CommandRegistry first (new DVACE architecture)
     const commandName = cmd.replace(/^\//, ''); // Remove leading slash
-    const handled = await CommandExecutor.execute(commandName, args, ctx, input);
+    const handled = await CommandExecutor.execute(commandName, args, ctx, input, memoryManager);
     
     if (handled) {
       console.log(`✅ Command ${cmd} handled by CommandRegistry`);
