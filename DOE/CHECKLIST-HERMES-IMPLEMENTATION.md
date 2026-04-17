@@ -562,8 +562,8 @@
 
 #### Documentação (1h)
 - [x] Feature documentada neste checklist
-- [ ] Atualizar README.md com seção "Subagents" (próximo commit)
-- [ ] Criar `docs/subagents.md` com arquitetura (próximo commit)
+- [x] Atualizar README.md com seção "Subagents"
+- [x] Criar `docs/subagents.md` com arquitetura
 
 **Commit:** `d5acdbf` - feat(subagents): implement isolated parallel subagents (Feature 3.1)
 

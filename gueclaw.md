@@ -17,6 +17,7 @@ O **GueClaw** é um agente de IA pessoal projetado para operar em VPS (Virtual P
 - **Skills Modulares**: Hot-reload, auto-aperfeiçoamento
 - **Memória Persistente**: SQLite com WAL + context files
 - **Cron Scheduler**: Agendamento de tarefas recorrentes
+- **Subagentes Paralelos**: Delegação de tarefas isoladas e execução paralela
 - **Cost Tracking**: Monitoramento de tokens e custos LLM
 
 ---
@@ -442,7 +443,110 @@ Agent: [NotebookLM.list_sources]
 
 ---
 
-## 💰 Cost Tracking
+## � Subagentes Paralelos
+
+O GueClaw implementa um sistema avançado de **subagentes isolados** que permite executar múltiplas tarefas em paralelo com contexto independente.
+
+### Arquitetura
+
+```typescript
+// Delegar tarefas para subagentes isolados
+const result = await delegate_task({
+  tasks: [
+    { description: 'Analyze file A', context: { file: 'src/a.ts' } },
+    { description: 'Analyze file B', context: { file: 'src/b.ts' } },
+    { description: 'Analyze file C', context: { file: 'src/c.ts' } }
+  ],
+  maxConcurrent: 3  // Máximo 3 tarefas simultâneas
+});
+```
+
+### Características
+
+- **Contexto Isolado**: Cada subagente tem seu próprio histórico de mensagens (não compartilha com o pai)
+- **Task ID Único**: UUID v4 para isolamento total
+- **Timeout Handling**: Limite de tempo configurável por tarefa (Promise.race)
+- **Error Isolation**: Falha em uma tarefa não afeta as outras
+- **Restricted Toolsets**: Ferramentas bloqueadas para segurança:
+  - `delegate_task` (previne recursão infinita)
+  - `clarify` (previne interação com usuário)
+  - `MemoryWrite` (previne escrita em memória compartilhada)
+  - `send_message` (previne side effects)
+  - `CronTool` (previne criação de cron jobs)
+  - `execute_code` (segurança)
+- **Metadata Tracking**: Registro de toolCalls, iterations, executionTime
+- **MAX_ITERATIONS**: Subagentes têm limite de 15 iterações (vs 30 do pai)
+
+### Modos de Execução
+
+**1. Single Task (Sequential)**
+```typescript
+delegate_task({
+  tasks: [{ description: 'Analyze code', context: {...} }]
+});
+// Executa uma tarefa de cada vez com heartbeat
+```
+
+**2. Batch Mode (Parallel)**
+```typescript
+delegate_task({
+  tasks: [
+    { description: 'Task 1' },
+    { description: 'Task 2' },
+    { description: 'Task 3' }
+  ],
+  maxConcurrent: 3
+});
+// Executa até 3 tarefas simultaneamente (queue FIFO)
+```
+
+### Quando Usar
+
+✅ **Use subagentes para:**
+- Analisar múltiplos arquivos simultaneamente
+- Executar tarefas independentes que não compartilham estado
+- Paralelizar operações longas (builds, testes, análises)
+- Isolar operações que podem falhar sem afetar o fluxo principal
+
+❌ **Não use para:**
+- Tarefas que requerem interação com o usuário
+- Operações que modificam estado compartilhado
+- Tarefas que precisam do contexto completo da conversa
+- Operações que já são rápidas (< 2s)
+
+### Performance
+
+- **Parallel Speedup**: 3 tasks paralelas = ~3x mais rápido que sequencial
+- **Queue Management**: FIFO com active pool (Promise.race para first-complete)
+- **Memory Efficiency**: Contexto isolado reduz uso de memória por subagente
+
+### Exemplo Completo
+
+```typescript
+// Analisar 5 arquivos em paralelo (3 concurrent)
+User: Analise os arquivos A, B, C, D, E em paralelo
+
+Agent: [delegate_task]
+🔷 Delegating 5 tasks | Max concurrent: 3
+
+Task 1 (A): ✅ Complete (3.2s, 5 tools, 8 iterations)
+Task 2 (B): ✅ Complete (2.8s, 4 tools, 6 iterations)
+Task 3 (C): ❌ Error: Timeout (15s)
+Task 4 (D): ✅ Complete (4.1s, 6 tools, 9 iterations)
+Task 5 (E): ✅ Complete (3.5s, 5 tools, 7 iterations)
+
+📊 Summary:
+- Total time: 7.3s (vs ~18s sequential)
+- Success: 4/5 tasks
+- Failed: 1 task (timeout)
+- Average iterations: 7.5
+```
+
+**Ver arquitetura completa em:** `docs/subagents.md`
+
+---
+
+## �💰 Cost Tracking
 
 Monitoramento de custos LLM em tempo real:
 

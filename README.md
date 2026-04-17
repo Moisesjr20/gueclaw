@@ -39,7 +39,14 @@
 - Arquivos `.gueclaw/context.md` e `.gueclaw/projects/*.md` carregados silenciosamente
 - Gerenciamento via comando `/context [show|create|reload]`
 - Suporte a múltiplos projetos com contextos específicos
-
+### 👥 **Subagentes Paralelos** (Novo!)
+- Sistema de delegação de tarefas para execução paralela
+- Contexto isolado: cada subagente tem seu próprio histórico
+- Restricted toolsets: ferramentas bloqueadas para segurança (delegate, clarify, memory_write, etc)
+- Timeout e error isolation: falha em uma tarefa não afeta outras
+- Max concurrent: 3-5 tarefas simultâneas com queue FIFO
+- Performance: ~3x mais rápido que execução sequencial
+- Use cases: análise de múltiplos arquivos, operações independentes, paralelização de builds/testes
 ### �🔒 **Segurança**
 - Whitelist estrita baseada em IDs do Telegram
 - Variáveis de ambiente para credenciais VPS
