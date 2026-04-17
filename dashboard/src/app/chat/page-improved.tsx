@@ -80,7 +80,7 @@ export default function ChatPageImproved() {
 
     try {
       // Se tiver arquivos, fazer upload primeiro
-      let fileUrls: string[] = [];
+      const fileUrls: string[] = [];
       if (files.length > 0) {
         // TODO: Implementar endpoint de upload de arquivos
         // const formData = new FormData();

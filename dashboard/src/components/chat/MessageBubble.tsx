@@ -24,7 +24,7 @@ export interface MessageBubbleProps {
   conversationId?: string;
 }
 
-export function MessageBubble({ message, conversationId }: MessageBubbleProps) {
+export function MessageBubble({ message, conversationId: _conversationId }: MessageBubbleProps) {
   const isUser = message.role === 'user';
   const isSystem = message.role === 'system';
   const isError = message.is_error;
@@ -104,7 +104,7 @@ export function MessageBubble({ message, conversationId }: MessageBubbleProps) {
           >
             <ReactMarkdown
               components={{
-                code({ node, inline, className, children, ...props }) {
+                code({ node: _node, inline, className, children, ...props }) {
                   const match = /language-(\w+)/.exec(className || '');
                   return !inline && match ? (
                     <SyntaxHighlighter

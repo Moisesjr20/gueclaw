@@ -1,5 +1,10 @@
 // 💬 Chat API Update - Suporte para File URLs
 // Exemplo de como atualizar o endpoint de chat para processar arquivos
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
+import { NextRequest, NextResponse } from 'next/server';
+import path from 'path';
+import fs from 'fs/promises';
 
 // ANTES (versão antiga):
 /*
