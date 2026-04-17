@@ -25,6 +25,7 @@ import { SaveToRepositoryTool } from './tools/save-to-repository-tool';
 import { CronTool } from './tools/cron-tool';
 import { NotebookLMTool } from './tools/notebooklm-tool'; // RAG com Google NotebookLM
 import { SessionSearchTool } from './tools/session-search-tool'; // FTS5 session search
+import { DelegateTool } from './tools/delegate-tool'; // Delegate tasks to isolated subagents
 
 // Import services
 import { Heartbeat } from './services/heartbeat';
@@ -145,6 +146,7 @@ class GueClaw {
       new SaveToRepositoryTool(), // Save files to centralized repository
       new NotebookLMTool(), // NotebookLM: RAG completo com Google NotebookLM
       new SessionSearchTool(), // SessionSearch: FTS5-based conversation search
+      new DelegateTool(), // DelegateTask: Spawn isolated subagents for parallel execution
     ]);
 
     console.log(`✅ Registered ${ToolRegistry.getAllNames().length} tools`);
