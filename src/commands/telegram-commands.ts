@@ -78,7 +78,8 @@ export const helpCommand: LocalCommand = {
       `• \`/personality [name]\` - Change communication style\n` +
       `• \`/cron [help|list|status]\` - Manage scheduled jobs\n` +
       `• \`/improve <skill>\` - Auto-improve skill from failures\n` +
-      `• \`/improve-force <skill>\` - Force apply improvement\n\n` +
+      `• \`/improve-force <skill>\` - Force apply improvement\n` +
+      `• \`/search <query>\` - Search conversation history\n\n` +
       `**Supported File Types:**\n` +
       `• PDF documents, CSV files, Text files\n` +
       `• Images, Audio/voice messages\n\n` +
@@ -1235,6 +1236,100 @@ export const improveForceCommand: LocalCommand = {
 };
 
 /**
+ * /search <query> - Search conversation history
+ */
+export const searchCommand: LocalCommand = {
+  type: 'local',
+  name: 'search',
+  description: 'Search conversation history using full-text search',
+  aliases: ['buscar', 'find'],
+  run: async (args: string[], context: CommandContext): Promise<CommandResult> => {
+    try {
+      // Lazy import to avoid circular dependencies
+      const { SessionSearcher } = await import('../core/memory/session-searcher');
+
+      if (args.length === 0) {
+        return {
+          success: false,
+          message: 
+            `❌ **Usage:** \`/search <query>\`\n\n` +
+            `**Examples:**\n` +
+            `• \`/search docker container\`\n` +
+            `• \`/search "how to backup"\`\n` +
+            `• \`/search error message\`\n\n` +
+            `**Tips:**\n` +
+            `• Use quotes for exact phrases\n` +
+            `• Search is case-insensitive\n` +
+            `• Results are ranked by relevance`
+        };
+      }
+
+      const query = args.join(' ');
+
+      // Send loading message
+      await context.ctx.reply('🔍 Searching conversation history...');
+
+      const searcher = new SessionSearcher();
+      const results = await searcher.searchSessions(query, {
+        maxResults: 5,
+        userId: context.ctx.from?.id.toString(),
+      });
+
+      if (results.length === 0) {
+        return {
+          success: true,
+          message: `🔍 **No results found for:** "${query}"\n\nTry different keywords or check spelling.`
+        };
+      }
+
+      // Format results for Telegram
+      let message = `🔍 **Search Results for:** "${query}"\n\n`;
+      message += `📊 Found ${results.length} conversation${results.length > 1 ? 's' : ''}\n\n`;
+
+      for (let i = 0; i < results.length; i++) {
+        const result = results[i];
+        const relevance = (result.relevanceScore * 100).toFixed(0);
+
+        message += `**${i + 1}. Conversation** (${relevance}% relevant)\n`;
+        message += `• ID: \`${result.conversationId.substring(0, 8)}...\`\n`;
+        message += `• Matches: ${result.matchCount}\n`;
+
+        if (result.timeRange) {
+          const start = new Date(result.timeRange.start * 1000).toLocaleDateString();
+          message += `• Date: ${start}\n`;
+        }
+
+        if (result.firstMessage) {
+          const preview = result.firstMessage.substring(0, 80);
+          message += `• Topic: "${preview}${result.firstMessage.length > 80 ? '...' : ''}"\n`;
+        }
+
+        // Show top match snippet
+        if (result.matches.length > 0) {
+          const topMatch = result.matches[0];
+          message += `\n💬 **${topMatch.role}:** ${topMatch.snippet}\n`;
+        }
+
+        message += `\n`;
+      }
+
+      message += `\n💡 **Tip:** Use conversation ID with tools to load full context`;
+
+      return {
+        success: true,
+        message
+      };
+
+    } catch (error) {
+      return {
+        success: false,
+        message: `❌ Search error: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
+    }
+  }
+};
+
+/**
  * Export all commands as an array for registration
  */
 export const allTelegramCommands = [
@@ -1258,6 +1353,7 @@ export const allTelegramCommands = [
   cronCommand,
   improveCommand,
   improveForceCommand,
+  searchCommand,
   
   // PromptCommands
   reviewCommand,

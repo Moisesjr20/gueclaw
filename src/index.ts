@@ -24,6 +24,7 @@ import { GlobTool } from './tools/glob-tool';
 import { SaveToRepositoryTool } from './tools/save-to-repository-tool';
 import { CronTool } from './tools/cron-tool';
 import { NotebookLMTool } from './tools/notebooklm-tool'; // RAG com Google NotebookLM
+import { SessionSearchTool } from './tools/session-search-tool'; // FTS5 session search
 
 // Import services
 import { Heartbeat } from './services/heartbeat';
@@ -143,6 +144,7 @@ class GueClaw {
       new GlobTool(), // GlobTool: Fast file pattern matching
       new SaveToRepositoryTool(), // Save files to centralized repository
       new NotebookLMTool(), // NotebookLM: RAG completo com Google NotebookLM
+      new SessionSearchTool(), // SessionSearch: FTS5-based conversation search
     ]);
 
     console.log(`✅ Registered ${ToolRegistry.getAllNames().length} tools`);
