@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
       console.log(`📎 Processing ${fileUrls.length} attachments...`);
       
       const fileContents = await Promise.all(
-        fileUrls.map(async (url) => {
+        fileUrls.map(async (url: string) => {
           try {
             // Se URL for local (/uploads/...)
             if (url.startsWith('/uploads/')) {
@@ -129,7 +129,7 @@ export async function POST_INLINE(req: NextRequest) {
     
     if (files.length > 0) {
       const fileContents = await Promise.all(
-        files.map(async (file) => {
+        files.map(async (file: File) => {
           const buffer = Buffer.from(await file.arrayBuffer());
           const content = buffer.toString('utf-8');
           return `\n\n**File: ${file.name}**\n\`\`\`\n${content}\n\`\`\`\n`;
@@ -202,12 +202,14 @@ if (['.png', '.jpg', '.jpeg'].includes(ext)) {
 }
 
 // No request para LLM:
+// const imageAttachments: Array<{ url: string }> = []; // Example placeholder
+const imageAttachments: Array<{ url: string; type?: string; name?: string }> = [];
 const messages = [
   {
     role: 'user',
     content: [
-      { type: 'text', text: message },
-      ...imageAttachments.map(img => ({
+      { type: 'text', text: 'message' },
+      ...imageAttachments.map((img: { url: string }) => ({
         type: 'image_url',
         image_url: { url: img.url }
       }))
