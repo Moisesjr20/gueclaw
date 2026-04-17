@@ -111,7 +111,7 @@ export class DatabaseConnection {
       )
     `);
 
-    // Skills execution history
+    // Skills execution history (Feature 2.1: Auto-improvement)
     db.exec(`
       CREATE TABLE IF NOT EXISTS skill_executions (
         id TEXT PRIMARY KEY,
@@ -119,6 +119,8 @@ export class DatabaseConnection {
         user_id TEXT NOT NULL,
         success INTEGER NOT NULL,
         error_message TEXT,
+        error_type TEXT,
+        context TEXT,
         execution_time_ms INTEGER,
         timestamp INTEGER DEFAULT (strftime('%s', 'now'))
       )
@@ -170,6 +172,12 @@ export class DatabaseConnection {
       CREATE INDEX IF NOT EXISTS idx_skill_executions_user 
       ON skill_executions(user_id, timestamp);
 
+      CREATE INDEX IF NOT EXISTS idx_skill_executions_name_success
+      ON skill_executions(skill_name, success, timestamp DESC);
+
+      CREATE INDEX IF NOT EXISTS idx_skill_executions_name_timestamp
+      ON skill_executions(skill_name, timestamp DESC);
+
       CREATE INDEX IF NOT EXISTS idx_traces_conversation
       ON execution_traces(conversation_id, created_at);
 
@@ -178,6 +186,56 @@ export class DatabaseConnection {
 
       CREATE INDEX IF NOT EXISTS idx_financial_user_status
       ON financial_transactions(user_id, status, transaction_date DESC);
+    `);
+
+    // FTS5 Virtual Table for Session Search (Feature 2.2)
+    db.exec(`
+      CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
+        content,
+        conversation_id UNINDEXED,
+        role UNINDEXED,
+        timestamp UNINDEXED,
+        content='messages',
+        content_rowid='rowid'
+      );
+    `);
+
+    // Populate FTS5 with existing messages (if table was just created)
+    const ftsCount = db.prepare('SELECT COUNT(*) as count FROM messages_fts').get() as { count: number };
+    const messagesCount = db.prepare('SELECT COUNT(*) as count FROM messages').get() as { count: number };
+    
+    if (ftsCount.count === 0 && messagesCount.count > 0) {
+      console.log(`🔍 Populating FTS5 index with ${messagesCount.count} existing messages...`);
+      db.exec(`
+        INSERT INTO messages_fts(rowid, content, conversation_id, role, timestamp)
+        SELECT rowid, content, conversation_id, role, timestamp FROM messages;
+      `);
+      console.log('✅ FTS5 index populated');
+    }
+
+    // Triggers to keep FTS5 synchronized with messages table
+    db.exec(`
+      CREATE TRIGGER IF NOT EXISTS messages_fts_insert AFTER INSERT ON messages BEGIN
+        INSERT INTO messages_fts(rowid, content, conversation_id, role, timestamp)
+        VALUES (NEW.rowid, NEW.content, NEW.conversation_id, NEW.role, NEW.timestamp);
+      END;
+    `);
+
+    db.exec(`
+      CREATE TRIGGER IF NOT EXISTS messages_fts_update AFTER UPDATE ON messages BEGIN
+        UPDATE messages_fts 
+        SET content = NEW.content,
+            conversation_id = NEW.conversation_id,
+            role = NEW.role,
+            timestamp = NEW.timestamp
+        WHERE rowid = OLD.rowid;
+      END;
+    `);
+
+    db.exec(`
+      CREATE TRIGGER IF NOT EXISTS messages_fts_delete AFTER DELETE ON messages BEGIN
+        DELETE FROM messages_fts WHERE rowid = OLD.rowid;
+      END;
     `);
 
     console.log('📊 Database schema initialized');

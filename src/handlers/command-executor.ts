@@ -11,6 +11,7 @@ import { CommandContext, CommandResult } from '../types/command-types';
 import { TelegramOutputHandler } from './telegram-output-handler';
 import { commandRegistry } from '../commands/command-initializer';
 import { isLocalCommand, isPromptCommand, isToolCommand } from '../types/command-types';
+import { MemoryManager } from '../core/memory/memory-manager';
 
 /**
  * Command Executor - Bridges Telegram with Command System
@@ -23,13 +24,15 @@ export class CommandExecutor {
    * @param args - Command arguments
    * @param ctx - Telegram context
    * @param input - Processed telegram input
+   * @param memoryManager - Memory manager instance
    * @returns true if command was handled
    */
   public static async execute(
     commandName: string,
     args: string[],
     ctx: Context,
-    input: TelegramInput
+    input: TelegramInput,
+    memoryManager?: MemoryManager
   ): Promise<boolean> {
     // Lookup command in registry
     const command = commandRegistry.get(commandName);
@@ -44,7 +47,9 @@ export class CommandExecutor {
       userId: input.userId,
       conversationId: input.userId, // For now, userId = conversationId
       messageHistory: [], // Will be populated if needed
-      metadata: input.metadata || {}
+      metadata: input.metadata || {},
+      memoryManager,
+      ctx
     };
     
     console.log(`🎯 Executing command: /${commandName} (${command.type})`);

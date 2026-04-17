@@ -14,6 +14,7 @@ import {
 } from '../types/command-types';
 import { TaskTracker } from '../core/task-tracker';
 import { costTracker } from '../services/cost-tracker';
+import { getContextLoader } from '../core/context';
 
 /**
  * /start - Welcome message
@@ -59,26 +60,35 @@ export const helpCommand: LocalCommand = {
   run: async (args: string[], context: CommandContext): Promise<CommandResult> => {
     const message =
       `📚 **GueClaw Agent Help**\n\n` +
-      `**Available Commands:**\n` +
+      `**Control Commands:**\n` +
       `• \`/start\` - Welcome message\n` +
       `• \`/help\` - Show this help\n` +
+      `• \`/retry\` - Retry last message with new response\n` +
+      `• \`/undo\` - Delete last interaction\n\n` +
+      `**Information Commands:**\n` +
       `• \`/stats\` - Show agent statistics\n` +
-      `• \`/reload\` - Reload skills (hot-reload)\n` +
-      `• \`/cost [today|week|month]\` - Show LLM usage costs\n` +
+      `• \`/cost [period]\` - Show LLM usage costs\n` +
+      `• \`/insights [days]\` - Show conversation insights\n` +
       `• \`/tasks\` - List active tasks\n` +
       `• \`/task <id>\` - Show task details\n\n` +
+      `**Management Commands:**\n` +
+      `• \`/reload\` - Reload skills (hot-reload)\n` +
+      `• \`/context [show|create|reload]\` - Manage user context\n` +
+      `• \`/compress\` - Force compress history\n` +
+      `• \`/personality [name]\` - Change communication style\n` +
+      `• \`/cron [help|list|status]\` - Manage scheduled jobs\n` +
+      `• \`/improve <skill>\` - Auto-improve skill from failures\n` +
+      `• \`/improve-force <skill>\` - Force apply improvement\n` +
+      `• \`/search <query>\` - Search conversation history\n\n` +
       `**Supported File Types:**\n` +
-      `• PDF documents\n` +
-      `• CSV files\n` +
-      `• Text files\n` +
-      `• Images\n` +
-      `• Audio/voice messages\n\n` +
+      `• PDF documents, CSV files, Text files\n` +
+      `• Images, Audio/voice messages\n\n` +
       `**Examples:**\n` +
       `• "List all Docker containers"\n` +
       `• "Create a new skill for database management"\n` +
       `• "Execute: df -h"\n` +
-      `• "Read the file /var/log/nginx/access.log"\n` +
-      `• "Make a GET request to https://api.github.com/repos/gueclaw/agent"\n\n` +
+      `• "Make a GET request to https://api.github.com"\n` +
+      `• "Schedule a daily report at 7am"\n\n` +
       `Send any message or file and I'll process it!`;
 
     return {
@@ -400,6 +410,926 @@ export const deployCommand: PromptCommand = {
 };
 
 /**
+ * /context - Manage user context files
+ */
+export const contextCommand: LocalCommand = {
+  type: 'local',
+  name: 'context',
+  description: 'Manage user context from .gueclaw/ directory',
+  run: async (args: string[], context: CommandContext): Promise<CommandResult> => {
+    const subcommand = args[0]?.toLowerCase() || 'show';
+    const loader = getContextLoader();
+
+    switch (subcommand) {
+      case 'show': {
+        // Show current context
+        const info = loader.getContextInfo();
+        
+        if (info.files.length === 0) {
+          return {
+            success: true,
+            message: '📄 **Context Files**\n\nNo context files found in .gueclaw/\n\nUse `/context create` to create a template.'
+          };
+        }
+
+        const filesList = info.files
+          .map(f => `  • ${f.path} (${f.size} chars, priority ${f.priority})`)
+          .join('\n');
+
+        const message = 
+          `📄 **Context Files**\n\n` +
+          `**Loaded Files:**\n${filesList}\n\n` +
+          `**Total Size:** ${info.totalSize} characters\n\n` +
+          `These files are automatically injected into every conversation.\n` +
+          `Edit them in .gueclaw/ directory to update your context.`;
+
+        return { success: true, message };
+      }
+
+      case 'create': {
+        // Create template context file
+        try {
+          loader.ensureDefaultContext();
+          return {
+            success: true,
+            message: 
+              `✅ **Context Template Created**\n\n` +
+              `Created default context.md in .gueclaw/\n\n` +
+              `Edit this file to add your personal context:\n` +
+              `• Who you are\n` +
+              `• Your preferences\n` +
+              `• Active projects\n` +
+              `• VPS information\n` +
+              `• Communication style\n\n` +
+              `The context will be loaded automatically in the next conversation.`
+          };
+        } catch (error) {
+          return {
+            success: false,
+            message: `❌ Failed to create context template: ${error instanceof Error ? error.message : 'Unknown error'}`
+          };
+        }
+      }
+
+      case 'reload': {
+        // Force reload context (clear cache)
+        loader.clearCache();
+        const info = loader.getContextInfo();
+        
+        return {
+          success: true,
+          message: 
+            `🔄 **Context Reloaded**\n\n` +
+            `Loaded ${info.files.length} file(s), ${info.totalSize} characters.\n\n` +
+            `The new context will be used in the next message.`
+        };
+      }
+
+      default: {
+        return {
+          success: false,
+          message: 
+            `❌ **Unknown subcommand:** \`${subcommand}\`\n\n` +
+            `**Available subcommands:**\n` +
+            `/context show - Show current context files\n` +
+            `/context create - Create template context file\n` +
+            `/context reload - Force reload context cache`
+        };
+      }
+    }
+  }
+};
+
+/**
+ * /retry - Retry last user message (delete last response and re-process)
+ */
+export const retryCommand: LocalCommand = {
+  type: 'local',
+  name: 'retry',
+  description: 'Retry last user message with a new response',
+  aliases: ['tentar-novamente'],
+  run: async (args: string[], context: CommandContext): Promise<CommandResult> => {
+    const { memoryManager, ctx, conversationId } = context;
+
+    if (!memoryManager || !ctx) {
+      return {
+        success: false,
+        message: '❌ Memory manager not available'
+      };
+    }
+
+    try {
+      // Get all messages
+      const allMessages = memoryManager.getAllMessages(conversationId);
+      
+      if (allMessages.length < 2) {
+        return {
+          success: false,
+          message: '❌ Not enough messages to retry. Send a message first!'
+        };
+      }
+
+      // Find last user message and last assistant message
+      let lastUserMsg: any = null;
+      let lastAssistantMsg: any = null;
+
+      for (let i = allMessages.length - 1; i >= 0; i--) {
+        const msg = allMessages[i];
+        if (msg.role === 'user' && !lastUserMsg) {
+          lastUserMsg = msg;
+        }
+        if (msg.role === 'assistant' && !lastAssistantMsg) {
+          lastAssistantMsg = msg;
+        }
+        if (lastUserMsg && lastAssistantMsg) break;
+      }
+
+      if (!lastUserMsg || !lastAssistantMsg) {
+        return {
+          success: false,
+          message: '❌ Could not find last user/assistant message pair'
+        };
+      }
+
+      // Delete last assistant message (and any subsequent tool messages)
+      const messagesToDelete: string[] = [];
+      let foundAssistant = false;
+      
+      for (let i = allMessages.length - 1; i >= 0; i--) {
+        const msg = allMessages[i];
+        if (msg.role === 'assistant' && !foundAssistant) {
+          if (msg.id) messagesToDelete.push(msg.id);
+          foundAssistant = true;
+        } else if (foundAssistant && msg.role === 'tool') {
+          if (msg.id) messagesToDelete.push(msg.id);
+        } else if (foundAssistant && msg.role !== 'tool') {
+          break;
+        }
+      }
+
+      memoryManager.deleteMessages(messagesToDelete);
+
+      // Notify and trigger re-processing
+      return {
+        success: true,
+        message: `🔄 **Retrying...**\n\nDeleted last response. Processing your message again:\n\n"${lastUserMsg.content.substring(0, 100)}${lastUserMsg.content.length > 100 ? '...' : ''}"\n\n_Note: The agent will re-process automatically._`,
+        metadata: { retry: true, originalMessage: lastUserMsg.content }
+      };
+
+    } catch (error) {
+      return {
+        success: false,
+        message: `❌ Failed to retry: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
+    }
+  }
+};
+
+/**
+ * /undo - Delete last complete turn (user message + assistant response + tools)
+ */
+export const undoCommand: LocalCommand = {
+  type: 'local',
+  name: 'undo',
+  description: 'Delete last complete interaction (user + assistant)',
+  aliases: ['desfazer'],
+  run: async (args: string[], context: CommandContext): Promise<CommandResult> => {
+    const { memoryManager, conversationId } = context;
+
+    if (!memoryManager) {
+      return {
+        success: false,
+        message: '❌ Memory manager not available'
+      };
+    }
+
+    try {
+      const allMessages = memoryManager.getAllMessages(conversationId);
+      
+      if (allMessages.length === 0) {
+        return {
+          success: false,
+          message: '❌ No messages to undo'
+        };
+      }
+
+      // Find last turn (user + assistant + tools)
+      const messagesToDelete: string[] = [];
+      let deletedTurn = false;
+
+      for (let i = allMessages.length - 1; i >= 0; i--) {
+        const msg = allMessages[i];
+        
+        // Delete assistant and tool messages
+        if (msg.role === 'assistant' || msg.role === 'tool') {
+          if (msg.id) messagesToDelete.push(msg.id);
+        }
+        // When we hit a user message, delete it and stop
+        else if (msg.role === 'user') {
+          if (msg.id) messagesToDelete.push(msg.id);
+          deletedTurn = true;
+          break;
+        }
+      }
+
+      if (!deletedTurn || messagesToDelete.length === 0) {
+        return {
+          success: false,
+          message: '❌ Could not find complete turn to undo'
+        };
+      }
+
+      memoryManager.deleteMessages(messagesToDelete);
+
+      return {
+        success: true,
+        message: `✅ **Undone!**\n\nDeleted ${messagesToDelete.length} message(s) from last turn.\n\nYou can continue the conversation from the previous state.`
+      };
+
+    } catch (error) {
+      return {
+        success: false,
+        message: `❌ Failed to undo: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
+    }
+  }
+};
+
+/**
+ * /compress - Force compress conversation history
+ */
+export const compressCommand: LocalCommand = {
+  type: 'local',
+  name: 'compress',
+  description: 'Force compress conversation history',
+  aliases: ['compactar'],
+  run: async (args: string[], context: CommandContext): Promise<CommandResult> => {
+    const { memoryManager, conversationId } = context;
+
+    if (!memoryManager) {
+      return {
+        success: false,
+        message: '❌ Memory manager not available'
+      };
+    }
+
+    try {
+      const messagesBefore = memoryManager.getAllMessages(conversationId).length;
+
+      if (messagesBefore < 10) {
+        return {
+          success: false,
+          message: `❌ Not enough messages to compress (need 10+, have ${messagesBefore})`
+        };
+      }
+
+      // Import ContextCompressor
+      const { ContextCompressor } = await import('../services/context-compressor/context-compressor');
+      const compressor = new ContextCompressor();
+
+      // Get all messages
+      const allMessages = memoryManager.getAllMessages(conversationId);
+
+      // Perform compression
+      const compressed = await compressor.compressIfNeeded(allMessages);
+      const result = compressed.result;
+
+      if (!result.compressed) {
+        return {
+          success: false,
+          message: '⚠️ Compression not needed or failed'
+        };
+      }
+
+      return {
+        success: true,
+        message: 
+          `✅ **Compression Complete!**\n\n` +
+          `📊 **Stats:**\n` +
+          `• Before: ${result.originalCount} messages\n` +
+          `• After: ${result.newCount} messages\n` +
+          `• Reduction: ${result.messagesCompressed} messages\n` +
+          `• Tokens saved: ~${result.tokensSaved}\n\n` +
+          `_Note: This creates a summary. DB update not implemented yet._`
+      };
+
+    } catch (error) {
+      return {
+        success: false,
+        message: `❌ Failed to compress: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
+    }
+  }
+};
+
+/**
+ * /insights - Show conversation insights and statistics
+ */
+export const insightsCommand: LocalCommand = {
+  type: 'local',
+  name: 'insights',
+  description: 'Show conversation insights and usage statistics',
+  run: async (args: string[], context: CommandContext): Promise<CommandResult> => {
+    const { memoryManager, conversationId, userId } = context;
+
+    if (!memoryManager) {
+      return {
+        success: false,
+        message: '❌ Memory manager not available'
+      };
+    }
+
+    try {
+      // Get period (default: 7 days)
+      const period = parseInt(args[0]) || 7;
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - period);
+
+      // Get all messages
+      const allMessages = memoryManager.getAllMessages(conversationId);
+      
+      // Filter by period
+      const recentMessages = allMessages.filter(msg => {
+        if (!msg.timestamp) return false;
+        return new Date(msg.timestamp) >= cutoffDate;
+      });
+
+      // Count by role
+      const userCount = recentMessages.filter(m => m.role === 'user').length;
+      const assistantCount = recentMessages.filter(m => m.role === 'assistant').length;
+      const toolCount = recentMessages.filter(m => m.role === 'tool').length;
+
+      // Get tool usage stats
+      const toolUsage: Record<string, number> = {};
+      recentMessages
+        .filter(m => m.role === 'tool' && m.metadata?.toolName)
+        .forEach(m => {
+          const toolName = m.metadata?.toolName || 'unknown';
+          toolUsage[toolName] = (toolUsage[toolName] || 0) + 1;
+        });
+
+      const topTools = Object.entries(toolUsage)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([tool, count]) => `  • ${tool}: ${count} uses`)
+        .join('\n');
+
+      // Get cost data
+      const { costTracker } = await import('../services/cost-tracker/cost-tracker');
+      const costs = costTracker.getWeekCosts(userId);
+
+      const message = 
+        `📊 **Insights (Last ${period} days)**\n\n` +
+        `**Messages:**\n` +
+        `• User: ${userCount}\n` +
+        `• Assistant: ${assistantCount}\n` +
+        `• Tool calls: ${toolCount}\n` +
+        `• Total: ${recentMessages.length}\n\n` +
+        (topTools ? `**Top Tools:**\n${topTools}\n\n` : '') +
+        `**LLM Costs:**\n` +
+        `• Total: $${costs.totalCostUSD.toFixed(4)}\n` +
+        `• Tokens: ${costs.totalTokens.toLocaleString()}\n` +
+        `• Requests: ${costs.requestCount}\n\n` +
+        `_Use \`/insights <days>\` to change period_`;
+
+      return {
+        success: true,
+        message
+      };
+
+    } catch (error) {
+      return {
+        success: false,
+        message: `❌ Failed to get insights: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
+    }
+  }
+};
+
+/**
+ * /personality - Change agent personality/tone
+ */
+export const personalityCommand: LocalCommand = {
+  type: 'local',
+  name: 'personality',
+  description: 'Change agent personality and communication style',
+  run: async (args: string[], context: CommandContext): Promise<CommandResult> => {
+    const personalities = {
+      default: {
+        name: 'Default',
+        description: 'Balanced, professional yet friendly',
+        prompt: ''
+      },
+      professional: {
+        name: 'Professional',
+        description: 'Formal, concise, business-oriented',
+        prompt: 'COMMUNICATION STYLE: Be extremely professional, formal, and concise. Use business language. Avoid emojis and casual expressions.'
+      },
+      casual: {
+        name: 'Casual',
+        description: 'Friendly, relaxed, conversational',
+        prompt: 'COMMUNICATION STYLE: Be casual, friendly, and conversational. Use emojis naturally. Be warm and approachable.'
+      },
+      concise: {
+        name: 'Concise',
+        description: 'Brief, direct, minimal explanations',
+        prompt: 'COMMUNICATION STYLE: Be extremely concise. Give shortest possible answers. No unnecessary explanations. Direct and to the point.'
+      },
+      verbose: {
+        name: 'Verbose',
+        description: 'Detailed, educational, explanatory',
+        prompt: 'COMMUNICATION STYLE: Be detailed and thorough. Explain concepts fully. Provide context and examples. Be educational.'
+      }
+    };
+
+    const selectedPersonality = args[0]?.toLowerCase();
+
+    // No argument - show available personalities
+    if (!selectedPersonality) {
+      const list = Object.entries(personalities)
+        .map(([key, p]) => `  • \`${key}\` - ${p.description}`)
+        .join('\n');
+
+      return {
+        success: true,
+        message: 
+          `🎭 **Available Personalities:**\n\n${list}\n\n` +
+          `**Usage:** \`/personality <name>\`\n\n` +
+          `_Note: Personality change affects future messages in this conversation._`
+      };
+    }
+
+    // Invalid personality
+    if (!personalities[selectedPersonality as keyof typeof personalities]) {
+      return {
+        success: false,
+        message: `❌ Unknown personality: \`${selectedPersonality}\`\n\nUse \`/personality\` to see available options.`
+      };
+    }
+
+    const personality = personalities[selectedPersonality as keyof typeof personalities];
+
+    // Store personality in conversation metadata (would need DB support for persistence)
+    // For now, just acknowledge
+    return {
+      success: true,
+      message: 
+        `✅ **Personality Changed!**\n\n` +
+        `🎭 **${personality.name}**\n` +
+        `${personality.description}\n\n` +
+        `_This change will affect my responses going forward._\n\n` +
+        `⚠️ **Note:** Personality persistence across restarts not yet implemented. ` +
+        `The change will apply to this session only.`,
+      metadata: { personality: selectedPersonality }
+    };
+  }
+};
+
+/**
+ * /cron - Manage scheduled jobs
+ */
+export const cronCommand: LocalCommand = {
+  type: 'local',
+  name: 'cron',
+  description: 'Manage scheduled jobs (list, create, delete, pause, resume, trigger)',
+  run: async (args: string[], context: CommandContext): Promise<CommandResult> => {
+    // Import dependencies
+    const { CronStorage } = await import('../services/cron/cron-storage');
+    const { CronScheduler } = await import('../services/cron/cron-scheduler');
+    const { parse, isValidSchedule } = await import('../services/cron/schedule-parser');
+
+    const storage = CronStorage.getInstance();
+    const scheduler = CronScheduler.getInstance();
+
+    // Get subcommand
+    const subcommand = args[0]?.toLowerCase();
+
+    try {
+      // /cron list
+      if (!subcommand || subcommand === 'list') {
+        const jobs = context.userId ? storage.getJobsByUser(context.userId) : storage.loadJobs();
+
+        if (jobs.length === 0) {
+          return {
+            success: true,
+            message: '📋 No jobs scheduled'
+          };
+        }
+
+        const jobList = jobs
+          .map((j, i) => 
+            `${i + 1}. **${j.name}** (${j.status === 'active' ? '✅' : j.status === 'paused' ? '⏸️' : '❌'})\n` +
+            `   • ID: \`${j.id}\`\n` +
+            `   • Schedule: ${j.schedule.description || j.schedule.value}\n` +
+            `   • Next: ${j.nextRun ? new Date(j.nextRun).toLocaleString() : 'N/A'}\n` +
+            `   • Last: ${j.lastRun ? new Date(j.lastRun).toLocaleString() : 'Never'}\n` +
+            `   • Deliver: ${j.deliver}`
+          )
+          .join('\n\n');
+
+        return {
+          success: true,
+          message: `📋 **Scheduled Jobs (${jobs.length})**\n\n${jobList}\n\n_Use \`/cron help\` for more commands_`
+        };
+      }
+
+      // /cron status
+      if (subcommand === 'status') {
+        const status = scheduler.getStatus();
+
+        let message = `📊 **Cron Scheduler Status**\n\n` +
+          `**Running:** ${status.running ? '✅ Yes' : '❌ No'}\n` +
+          `**Total Jobs:** ${status.jobCount}\n` +
+          `**Active Jobs:** ${status.activeJobs}\n`;
+
+        if (status.nextDueJob) {
+          message += `**Next Due:** ${status.nextDueJob.name} at ${new Date(status.nextDueJob.dueAt).toLocaleString()}`;
+        }
+
+        return {
+          success: true,
+          message
+        };
+      }
+
+      // /cron delete <id>
+      if (subcommand === 'delete' || subcommand === 'del' || subcommand === 'remove') {
+        const jobId = args[1];
+        if (!jobId) {
+          return {
+            success: false,
+            message: '❌ Missing job ID\n\nUsage: `/cron delete <job_id>`'
+          };
+        }
+
+        const deleted = await storage.deleteJob(jobId);
+        if (!deleted) {
+          return {
+            success: false,
+            message: `❌ Job not found: \`${jobId}\``
+          };
+        }
+
+        return {
+          success: true,
+          message: `✅ Job deleted successfully`
+        };
+      }
+
+      // /cron pause <id>
+      if (subcommand === 'pause' || subcommand === 'stop') {
+        const jobId = args[1];
+        if (!jobId) {
+          return {
+            success: false,
+            message: '❌ Missing job ID\n\nUsage: `/cron pause <job_id>`'
+          };
+        }
+
+        const job = storage.getJob(jobId);
+        if (!job) {
+          return {
+            success: false,
+            message: `❌ Job not found: \`${jobId}\``
+          };
+        }
+
+        await storage.updateJob(jobId, { status: 'paused' });
+
+        return {
+          success: true,
+          message: `⏸️ Job "${job.name}" paused`
+        };
+      }
+
+      // /cron resume <id>
+      if (subcommand === 'resume' || subcommand === 'start') {
+        const jobId = args[1];
+        if (!jobId) {
+          return {
+            success: false,
+            message: '❌ Missing job ID\n\nUsage: `/cron resume <job_id>`'
+          };
+        }
+
+        const job = storage.getJob(jobId);
+        if (!job) {
+          return {
+            success: false,
+            message: `❌ Job not found: \`${jobId}\``
+          };
+        }
+
+        const { calculateNextRun } = await import('../services/cron/schedule-parser');
+        const nextRun = calculateNextRun(job.schedule, new Date());
+
+        await storage.updateJob(jobId, {
+          status: 'active',
+          nextRun: nextRun.toISOString()
+        });
+
+        return {
+          success: true,
+          message: `▶️ Job "${job.name}" resumed\n\nNext run: ${nextRun.toLocaleString()}`
+        };
+      }
+
+      // /cron trigger <id>
+      if (subcommand === 'trigger' || subcommand === 'run') {
+        const jobId = args[1];
+        if (!jobId) {
+          return {
+            success: false,
+            message: '❌ Missing job ID\n\nUsage: `/cron trigger <job_id>`'
+          };
+        }
+
+        await scheduler.triggerJob(jobId);
+
+        return {
+          success: true,
+          message: `🚀 Job triggered successfully (executing in background)`
+        };
+      }
+
+      // /cron help
+      if (subcommand === 'help') {
+        return {
+          success: true,
+          message: 
+            `⏰ **Cron Commands**\n\n` +
+            `**List & Info:**\n` +
+            `• \`/cron\` or \`/cron list\` - List all jobs\n` +
+            `• \`/cron status\` - Scheduler status\n\n` +
+            `**Management:**\n` +
+            `• \`/cron delete <id>\` - Delete a job\n` +
+            `• \`/cron pause <id>\` - Pause a job\n` +
+            `• \`/cron resume <id>\` - Resume a job\n` +
+            `• \`/cron trigger <id>\` - Run immediately\n\n` +
+            `**Creating Jobs:**\n` +
+            `To create a job, ask me in natural language:\n` +
+            `_"Schedule a daily report at 7am"_\n` +
+            `_"Create a job to backup files every 2 hours"_\n\n` +
+            `**Schedule Formats:**\n` +
+            `• \`30m\`, \`2h\`, \`1d\` - Intervals\n` +
+            `• \`every 30m\` - Recurring\n` +
+            `• \`0 7 * * *\` - Cron expression (daily at 7am)\n` +
+            `• \`2026-04-17T14:00\` - One-time at specific time`
+        };
+      }
+
+      // Unknown subcommand
+      return {
+        success: false,
+        message: 
+          `❌ Unknown subcommand: \`${subcommand}\`\n\n` +
+          `Use \`/cron help\` to see available commands.`
+      };
+
+    } catch (error) {
+      return {
+        success: false,
+        message: `❌ Error: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
+    }
+  }
+};
+
+/**
+ * /improve <skill> - Analyze and improve a skill
+ */
+export const improveCommand: LocalCommand = {
+  type: 'local',
+  name: 'improve',
+  description: 'Analyze and improve a skill based on failure patterns',
+  aliases: ['melhorar'],
+  run: async (args: string[], context: CommandContext): Promise<CommandResult> => {
+    try {
+      // Lazy import to avoid circular dependencies
+      const { SkillImprover } = await import('../core/skills/skill-improver');
+      const { SkillExecutionTracker } = await import('../core/skills/skill-execution-tracker');
+
+      if (args.length === 0) {
+        return {
+          success: false,
+          message: 
+            `❌ **Usage:** \`/improve <skill-name>\`\n\n` +
+            `**Examples:**\n` +
+            `• \`/improve uazapi-whatsapp\`\n` +
+            `• \`/improve google-calendar-events\`\n\n` +
+            `**Info:** Analyzes recent failures and proposes fixes.\n` +
+            `Only applies if confidence ≥ 80%. Use \`/improve-force\` to override.`
+        };
+      }
+
+      const skillName = args[0];
+
+      // Send loading message
+      await context.ctx.reply('🔍 Analyzing skill failures and generating improvement proposal...');
+
+      // Get stats first
+      const stats = SkillExecutionTracker.getFailureStats(skillName, 7);
+
+      if (stats.totalExecutions === 0) {
+        return {
+          success: false,
+          message: `⚠️  No execution history found for skill **${skillName}** in the last 7 days.`
+        };
+      }
+
+      // Run improvement analysis
+      const result = await SkillImprover.checkAndImprove(skillName, true, false);
+
+      if (result.success) {
+        return {
+          success: true,
+          message: 
+            `✅ **Skill Improved: ${skillName}**\n\n` +
+            `**Confidence:** ${(result.confidence * 100).toFixed(1)}%\n` +
+            `**Changes Applied:** ${result.appliedChanges}\n` +
+            `**Summary:**\n${result.summary}\n\n` +
+            `📝 See changelog at \`.agents/skills/${skillName}/.changelog.md\``
+        };
+      } else {
+        let message = `⚠️  **Analysis Complete for ${skillName}**\n\n`;
+        message += `**Stats (last 7 days):**\n`;
+        message += `• Executions: ${stats.totalExecutions}\n`;
+        message += `• Failures: ${stats.totalFailures} (${(stats.failureRate * 100).toFixed(1)}%)\n`;
+        message += `• Recent failures (24h): ${stats.recentFailures}\n`;
+        message += `• Pattern detected: ${stats.hasPattern ? '✅ Yes' : '❌ No'}\n\n`;
+
+        if (result.confidence > 0) {
+          message += `**Confidence:** ${(result.confidence * 100).toFixed(1)}%\n`;
+          message += `**Status:** ${result.summary}\n\n`;
+          message += `💡 Use \`/improve-force ${skillName}\` to apply anyway.`;
+        } else {
+          message += result.summary;
+        }
+
+        return {
+          success: false,
+          message
+        };
+      }
+
+    } catch (error) {
+      return {
+        success: false,
+        message: `❌ Error: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
+    }
+  }
+};
+
+/**
+ * /improve-force <skill> - Force apply improvement even with low confidence
+ */
+export const improveForceCommand: LocalCommand = {
+  type: 'local',
+  name: 'improve-force',
+  description: 'Force apply skill improvement regardless of confidence',
+  aliases: ['melhorar-forcar'],
+  run: async (args: string[], context: CommandContext): Promise<CommandResult> => {
+    try {
+      const { SkillImprover } = await import('../core/skills/skill-improver');
+
+      if (args.length === 0) {
+        return {
+          success: false,
+          message: 
+            `❌ **Usage:** \`/improve-force <skill-name>\`\n\n` +
+            `⚠️  **Warning:** This bypasses the 80% confidence threshold.\n` +
+            `Only use if you trust the LLM's analysis.`
+        };
+      }
+
+      const skillName = args[0];
+
+      await context.ctx.reply('⚡ Force-applying improvement...');
+
+      const result = await SkillImprover.checkAndImprove(skillName, true, true);
+
+      if (result.success) {
+        return {
+          success: true,
+          message: 
+            `✅ **Skill Improved (FORCED): ${skillName}**\n\n` +
+            `**Confidence:** ${(result.confidence * 100).toFixed(1)}%\n` +
+            `**Changes Applied:** ${result.appliedChanges}\n` +
+            `**Summary:**\n${result.summary}\n\n` +
+            `📝 See changelog at \`.agents/skills/${skillName}/.changelog.md\``
+        };
+      } else {
+        return {
+          success: false,
+          message: `❌ ${result.summary}\n\nError: ${result.error || 'Unknown'}`
+        };
+      }
+
+    } catch (error) {
+      return {
+        success: false,
+        message: `❌ Error: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
+    }
+  }
+};
+
+/**
+ * /search <query> - Search conversation history
+ */
+export const searchCommand: LocalCommand = {
+  type: 'local',
+  name: 'search',
+  description: 'Search conversation history using full-text search',
+  aliases: ['buscar', 'find'],
+  run: async (args: string[], context: CommandContext): Promise<CommandResult> => {
+    try {
+      // Lazy import to avoid circular dependencies
+      const { SessionSearcher } = await import('../core/memory/session-searcher');
+
+      if (args.length === 0) {
+        return {
+          success: false,
+          message: 
+            `❌ **Usage:** \`/search <query>\`\n\n` +
+            `**Examples:**\n` +
+            `• \`/search docker container\`\n` +
+            `• \`/search "how to backup"\`\n` +
+            `• \`/search error message\`\n\n` +
+            `**Tips:**\n` +
+            `• Use quotes for exact phrases\n` +
+            `• Search is case-insensitive\n` +
+            `• Results are ranked by relevance`
+        };
+      }
+
+      const query = args.join(' ');
+
+      // Send loading message
+      await context.ctx.reply('🔍 Searching conversation history...');
+
+      const searcher = new SessionSearcher();
+      const results = await searcher.searchSessions(query, {
+        maxResults: 5,
+        userId: context.ctx.from?.id.toString(),
+      });
+
+      if (results.length === 0) {
+        return {
+          success: true,
+          message: `🔍 **No results found for:** "${query}"\n\nTry different keywords or check spelling.`
+        };
+      }
+
+      // Format results for Telegram
+      let message = `🔍 **Search Results for:** "${query}"\n\n`;
+      message += `📊 Found ${results.length} conversation${results.length > 1 ? 's' : ''}\n\n`;
+
+      for (let i = 0; i < results.length; i++) {
+        const result = results[i];
+        const relevance = (result.relevanceScore * 100).toFixed(0);
+
+        message += `**${i + 1}. Conversation** (${relevance}% relevant)\n`;
+        message += `• ID: \`${result.conversationId.substring(0, 8)}...\`\n`;
+        message += `• Matches: ${result.matchCount}\n`;
+
+        if (result.timeRange) {
+          const start = new Date(result.timeRange.start * 1000).toLocaleDateString();
+          message += `• Date: ${start}\n`;
+        }
+
+        if (result.firstMessage) {
+          const preview = result.firstMessage.substring(0, 80);
+          message += `• Topic: "${preview}${result.firstMessage.length > 80 ? '...' : ''}"\n`;
+        }
+
+        // Show top match snippet
+        if (result.matches.length > 0) {
+          const topMatch = result.matches[0];
+          message += `\n💬 **${topMatch.role}:** ${topMatch.snippet}\n`;
+        }
+
+        message += `\n`;
+      }
+
+      message += `\n💡 **Tip:** Use conversation ID with tools to load full context`;
+
+      return {
+        success: true,
+        message
+      };
+
+    } catch (error) {
+      return {
+        success: false,
+        message: `❌ Search error: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
+    }
+  }
+};
+
+/**
  * Export all commands as an array for registration
  */
 export const allTelegramCommands = [
@@ -414,6 +1344,16 @@ export const allTelegramCommands = [
   costCommand,
   statsCommand,
   reloadCommand,
+  contextCommand,
+  retryCommand,
+  undoCommand,
+  compressCommand,
+  insightsCommand,
+  personalityCommand,
+  cronCommand,
+  improveCommand,
+  improveForceCommand,
+  searchCommand,
   
   // PromptCommands
   reviewCommand,

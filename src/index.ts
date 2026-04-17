@@ -22,11 +22,16 @@ import { createSkillTool } from './tools/skill-tool';
 import { GrepTool } from './tools/grep-tool';
 import { GlobTool } from './tools/glob-tool';
 import { SaveToRepositoryTool } from './tools/save-to-repository-tool';
+import { CronTool } from './tools/cron-tool';
+import { NotebookLMTool } from './tools/notebooklm-tool'; // RAG com Google NotebookLM
+import { SessionSearchTool } from './tools/session-search-tool'; // FTS5 session search
+import { DelegateTool } from './tools/delegate-tool'; // Delegate tasks to isolated subagents
 
 // Import services
 import { Heartbeat } from './services/heartbeat';
 import { TelegramNotifier } from './services/telegram-notifier';
 import { TaskTracker } from './core/task-tracker';
+import { CronScheduler } from './services/cron/cron-scheduler';
 import { initializeCommands } from './commands/command-initializer'; // DVACE - Phase 1.4
 import * as path from 'path';
 
@@ -37,6 +42,7 @@ class GueClaw {
   private bot: Bot;
   private controller: AgentController;
   private heartbeat?: Heartbeat;
+  private cronScheduler?: CronScheduler;
 
   constructor() {
     this.validateEnvironment();
@@ -133,10 +139,14 @@ class GueClaw {
       new AnalyzeImageTool(),
       new AudioTool(),
       new FinancialTool(),
+      new CronTool(), // CronTool: Schedule and manage automated tasks
       createSkillTool(), // SkillTool: LLM can invoke skills proactively
       new GrepTool(), // GrepTool: Fast regex search with ripgrep
       new GlobTool(), // GlobTool: Fast file pattern matching
       new SaveToRepositoryTool(), // Save files to centralized repository
+      new NotebookLMTool(), // NotebookLM: RAG completo com Google NotebookLM
+      new SessionSearchTool(), // SessionSearch: FTS5-based conversation search
+      new DelegateTool(), // DelegateTask: Spawn isolated subagents for parallel execution
     ]);
 
     console.log(`✅ Registered ${ToolRegistry.getAllNames().length} tools`);
@@ -311,6 +321,12 @@ class GueClaw {
         console.log(`🔌 MCP tools registered: ${mcpTools.map(t => t.name).join(', ')}`);
       }
 
+      // Initialize and start Cron Scheduler
+      this.cronScheduler = CronScheduler.getInstance();
+      this.cronScheduler.initialize(this.controller, this.bot);
+      this.cronScheduler.start();
+      console.log('⏰ Cron Scheduler started');
+
       console.log(`📡 Telegram polling started`);
       
       // Determine active provider
@@ -350,6 +366,7 @@ class GueClaw {
     console.log('\n🛑 Shutting down GueClaw Agent...');
     
     this.heartbeat?.stop();
+    this.cronScheduler?.stop();
     await MCPManager.getInstance().shutdown();
     await this.bot.stop();
     DatabaseConnection.close();
