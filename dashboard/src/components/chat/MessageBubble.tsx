@@ -104,8 +104,9 @@ export function MessageBubble({ message, conversationId: _conversationId }: Mess
           >
             <ReactMarkdown
               components={{
-                code({ node: _node, inline, className, children, ...props }) {
+                code({ node: _node, className, children, ...props }: any) {
                   const match = /language-(\w+)/.exec(className || '');
+                  const inline = !match;
                   return !inline && match ? (
                     <SyntaxHighlighter
                       style={oneDark}
