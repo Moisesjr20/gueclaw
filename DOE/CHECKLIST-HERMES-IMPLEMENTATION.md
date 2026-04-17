@@ -14,8 +14,8 @@
 | Sprint | Features | Esforço | Status | Progresso |
 |--------|----------|---------|--------|-----------|
 | Sprint 1 | Context Files + Slash Commands + Cron | 14-23h | ✅ Complete | 100% |
-| Sprint 2 | Auto-Improve + FTS5 Search | 18-22h | 📅 Planned | 0% |
-| Sprint 3 | Subagentes Paralelos | 12-16h | 📅 Planned | 0% |
+| Sprint 2 | Auto-Improve + FTS5 Search | 18-22h | ✅ Complete | 100% |
+| Sprint 3 | Subagentes Paralelos | 12-16h | ✅ Complete | 100% |
 
 **Legenda:**
 - ⏳ Not Started
@@ -492,7 +492,7 @@
 
 **Objetivo:** Multi-agent workflows  
 **Prazo:** 7 dias  
-**Status:** 📅 Planned
+**Status:** ✅ Complete | **Tempo Real:** ~14h | **Commit:** d5acdbf
 
 ---
 
@@ -565,7 +565,7 @@
 - [ ] Atualizar README.md com seção "Subagents" (próximo commit)
 - [ ] Criar `docs/subagents.md` com arquitetura (próximo commit)
 
-**Commit:** `feat(subagents): implement isolated parallel subagents (Feature 3.1)` - Pendente
+**Commit:** `d5acdbf` - feat(subagents): implement isolated parallel subagents (Feature 3.1)
 
 ---
 
