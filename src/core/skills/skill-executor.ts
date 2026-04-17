@@ -5,6 +5,8 @@ import { ToolRegistry } from '../../tools/tool-registry';
 import { ILLMProvider } from '../providers/base-provider';
 import { ProviderFactory } from '../providers/provider-factory';
 import { SkillExecutionMode, ForkedExecutionOptions } from '../../types/skill';
+import { SkillExecutionTracker } from './skill-execution-tracker';
+import { SkillImprover } from './skill-improver';
 
 /**
  * Skill Executor - Executes a skill with the Agent Loop
@@ -26,6 +28,17 @@ export class SkillExecutor {
     mode: SkillExecutionMode = 'normal',
     forkedOptions?: ForkedExecutionOptions
   ): Promise<string> {
+    const startTime = Date.now();
+    let userId = 'system'; // Default if not provided
+    
+    // Try to extract userId from conversationHistory if available
+    if (conversationHistory && conversationHistory.length > 0) {
+      const userMessage = conversationHistory.find((msg: any) => msg.role === 'user');
+      if (userMessage && userMessage.userId) {
+        userId = userMessage.userId;
+      }
+    }
+
     try {
       console.log(`🎯 Executing skill: ${skillName} (mode: ${mode})`);
 
@@ -129,10 +142,38 @@ Instruções adicionais:
 
       console.log(`✅ Skill execution completed: ${skillName}`);
 
+      // Track successful execution
+      const executionTime = Date.now() - startTime;
+      SkillExecutionTracker.track({
+        skillName,
+        userId,
+        success: true,
+        executionTimeMs: executionTime,
+        context: mode
+      });
+
       return result;
 
     } catch (error: any) {
       console.error(`❌ Skill execution error:`, error.message);
+      
+      // Track failed execution
+      const executionTime = Date.now() - startTime;
+      const errorType = SkillExecutor.classifyError(error);
+      
+      SkillExecutionTracker.track({
+        skillName,
+        userId,
+        success: false,
+        errorMessage: error.message,
+        errorType,
+        executionTimeMs: executionTime,
+        context: mode
+      });
+
+      // Check for improvement (async, non-blocking)
+      SkillExecutor.checkForImprovementAsync(skillName);
+
       return `Error executing skill "${skillName}": ${error.message}`;
     }
   }
@@ -162,4 +203,123 @@ Instruções adicionais:
 
     return this.execute(skillName, userInput, conversationHistory, needsReasoning, extraContext, conversationId);
   }
+
+  /**
+   * Classify error type for better pattern detection
+   * @param error - Error object
+   * @returns Error type classification
+   */
+  private static classifyError(error: any): string {
+    const message = error.message?.toLowerCase() || '';
+
+    // API errors
+    if (message.includes('api') || message.includes('request') || message.includes('http')) {
+      if (message.includes('401') || message.includes('unauthorized')) return 'api_auth';
+      if (message.includes('404') || message.includes('not found')) return 'api_not_found';
+      if (message.includes('429') || message.includes('rate limit')) return 'api_rate_limit';
+      if (message.includes('timeout') || message.includes('timed out')) return 'api_timeout';
+      return 'api_error';
+    }
+
+    // Validation errors
+    if (message.includes('invalid') || message.includes('validation') || message.includes('required')) {
+      return 'validation_error';
+    }
+
+    // Permission/access errors
+    if (message.includes('permission') || message.includes('access denied') || message.includes('forbidden')) {
+      return 'permission_error';
+    }
+
+    // File/resource errors
+    if (message.includes('file') || message.includes('directory') || message.includes('path')) {
+      if (message.includes('not found')) return 'file_not_found';
+      return 'file_error';
+    }
+
+    // Network errors
+    if (message.includes('network') || message.includes('connection') || message.includes('econnrefused')) {
+      return 'network_error';
+    }
+
+    // Timeout errors
+    if (message.includes('timeout')) {
+      return 'timeout_error';
+    }
+
+    // Parsing/format errors
+    if (message.includes('parse') || message.includes('json') || message.includes('syntax')) {
+      return 'parsing_error';
+    }
+
+    // Default
+    return 'unknown_error';
+  }
+
+  /**
+   * Check if skill needs improvement (async, non-blocking)
+   * @param skillName - Name of the skill
+   */
+  private static checkForImprovementAsync(skillName: string): void {
+    // Skip if auto-improvement is disabled
+    if (process.env.ENABLE_SKILL_AUTO_IMPROVEMENT === 'false') {
+      return;
+    }
+
+    // Run async without blocking
+    setImmediate(async () => {
+      try {
+        const result = await SkillImprover.checkAndImprove(skillName, false, false);
+        
+        if (result.success) {
+          console.log(`🔧 [Auto-Improvement] ${result.summary}`);
+          
+          // Send Telegram notification
+          await SkillExecutor.sendImprovementNotification(skillName, result);
+        } else if (result.confidence > 0) {
+          console.log(`⚠️  [Auto-Improvement] ${result.summary}`);
+        }
+      } catch (error: any) {
+        console.error(`❌ [Auto-Improvement] Error: ${error.message}`);
+      }
+    });
+  }
+
+  /**
+   * Send Telegram notification about skill improvement
+   * @param skillName - Name of the improved skill
+   * @param result - Improvement result
+   */
+  private static async sendImprovementNotification(
+    skillName: string,
+    result: any
+  ): Promise<void> {
+    try {
+      const { TelegramNotifier } = await import('../../services/telegram-notifier');
+      
+      if (!process.env.TELEGRAM_BOT_TOKEN || !process.env.TELEGRAM_ALLOWED_USER_IDS) {
+        return; // Skip if Telegram not configured
+      }
+
+      const notifier = new TelegramNotifier(
+        process.env.TELEGRAM_BOT_TOKEN,
+        process.env.TELEGRAM_ALLOWED_USER_IDS
+      );
+
+      const message = 
+        `🔧 **Skill Auto-Improved**\n\n` +
+        `**Skill:** \`${skillName}\`\n` +
+        `**Confidence:** ${(result.confidence * 100).toFixed(1)}%\n` +
+        `**Changes:** ${result.appliedChanges}\n` +
+        `**Summary:** ${result.summary}\n\n` +
+        `📝 Check changelog: \`.agents/skills/${skillName}/.changelog.md\``;
+
+      await notifier.sendToAllUsers(message);
+      console.log(`📲 Improvement notification sent to Telegram`);
+    } catch (error: any) {
+      console.error(`❌ Failed to send improvement notification: ${error.message}`);
+    }
+  }
 }
+
+

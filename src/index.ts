@@ -23,6 +23,7 @@ import { GrepTool } from './tools/grep-tool';
 import { GlobTool } from './tools/glob-tool';
 import { SaveToRepositoryTool } from './tools/save-to-repository-tool';
 import { CronTool } from './tools/cron-tool';
+import { NotebookLMTool } from './tools/notebooklm-tool'; // RAG com Google NotebookLM
 
 // Import services
 import { Heartbeat } from './services/heartbeat';
@@ -141,6 +142,7 @@ class GueClaw {
       new GrepTool(), // GrepTool: Fast regex search with ripgrep
       new GlobTool(), // GlobTool: Fast file pattern matching
       new SaveToRepositoryTool(), // Save files to centralized repository
+      new NotebookLMTool(), // NotebookLM: RAG completo com Google NotebookLM
     ]);
 
     console.log(`✅ Registered ${ToolRegistry.getAllNames().length} tools`);

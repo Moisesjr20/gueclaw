@@ -76,7 +76,9 @@ export const helpCommand: LocalCommand = {
       `• \`/context [show|create|reload]\` - Manage user context\n` +
       `• \`/compress\` - Force compress history\n` +
       `• \`/personality [name]\` - Change communication style\n` +
-      `• \`/cron [help|list|status]\` - Manage scheduled jobs\n\n` +
+      `• \`/cron [help|list|status]\` - Manage scheduled jobs\n` +
+      `• \`/improve <skill>\` - Auto-improve skill from failures\n` +
+      `• \`/improve-force <skill>\` - Force apply improvement\n\n` +
       `**Supported File Types:**\n` +
       `• PDF documents, CSV files, Text files\n` +
       `• Images, Audio/voice messages\n\n` +
@@ -1093,6 +1095,146 @@ export const cronCommand: LocalCommand = {
 };
 
 /**
+ * /improve <skill> - Analyze and improve a skill
+ */
+export const improveCommand: LocalCommand = {
+  type: 'local',
+  name: 'improve',
+  description: 'Analyze and improve a skill based on failure patterns',
+  aliases: ['melhorar'],
+  run: async (args: string[], context: CommandContext): Promise<CommandResult> => {
+    try {
+      // Lazy import to avoid circular dependencies
+      const { SkillImprover } = await import('../core/skills/skill-improver');
+      const { SkillExecutionTracker } = await import('../core/skills/skill-execution-tracker');
+
+      if (args.length === 0) {
+        return {
+          success: false,
+          message: 
+            `❌ **Usage:** \`/improve <skill-name>\`\n\n` +
+            `**Examples:**\n` +
+            `• \`/improve uazapi-whatsapp\`\n` +
+            `• \`/improve google-calendar-events\`\n\n` +
+            `**Info:** Analyzes recent failures and proposes fixes.\n` +
+            `Only applies if confidence ≥ 80%. Use \`/improve-force\` to override.`
+        };
+      }
+
+      const skillName = args[0];
+
+      // Send loading message
+      await context.ctx.reply('🔍 Analyzing skill failures and generating improvement proposal...');
+
+      // Get stats first
+      const stats = SkillExecutionTracker.getFailureStats(skillName, 7);
+
+      if (stats.totalExecutions === 0) {
+        return {
+          success: false,
+          message: `⚠️  No execution history found for skill **${skillName}** in the last 7 days.`
+        };
+      }
+
+      // Run improvement analysis
+      const result = await SkillImprover.checkAndImprove(skillName, true, false);
+
+      if (result.success) {
+        return {
+          success: true,
+          message: 
+            `✅ **Skill Improved: ${skillName}**\n\n` +
+            `**Confidence:** ${(result.confidence * 100).toFixed(1)}%\n` +
+            `**Changes Applied:** ${result.appliedChanges}\n` +
+            `**Summary:**\n${result.summary}\n\n` +
+            `📝 See changelog at \`.agents/skills/${skillName}/.changelog.md\``
+        };
+      } else {
+        let message = `⚠️  **Analysis Complete for ${skillName}**\n\n`;
+        message += `**Stats (last 7 days):**\n`;
+        message += `• Executions: ${stats.totalExecutions}\n`;
+        message += `• Failures: ${stats.totalFailures} (${(stats.failureRate * 100).toFixed(1)}%)\n`;
+        message += `• Recent failures (24h): ${stats.recentFailures}\n`;
+        message += `• Pattern detected: ${stats.hasPattern ? '✅ Yes' : '❌ No'}\n\n`;
+
+        if (result.confidence > 0) {
+          message += `**Confidence:** ${(result.confidence * 100).toFixed(1)}%\n`;
+          message += `**Status:** ${result.summary}\n\n`;
+          message += `💡 Use \`/improve-force ${skillName}\` to apply anyway.`;
+        } else {
+          message += result.summary;
+        }
+
+        return {
+          success: false,
+          message
+        };
+      }
+
+    } catch (error) {
+      return {
+        success: false,
+        message: `❌ Error: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
+    }
+  }
+};
+
+/**
+ * /improve-force <skill> - Force apply improvement even with low confidence
+ */
+export const improveForceCommand: LocalCommand = {
+  type: 'local',
+  name: 'improve-force',
+  description: 'Force apply skill improvement regardless of confidence',
+  aliases: ['melhorar-forcar'],
+  run: async (args: string[], context: CommandContext): Promise<CommandResult> => {
+    try {
+      const { SkillImprover } = await import('../core/skills/skill-improver');
+
+      if (args.length === 0) {
+        return {
+          success: false,
+          message: 
+            `❌ **Usage:** \`/improve-force <skill-name>\`\n\n` +
+            `⚠️  **Warning:** This bypasses the 80% confidence threshold.\n` +
+            `Only use if you trust the LLM's analysis.`
+        };
+      }
+
+      const skillName = args[0];
+
+      await context.ctx.reply('⚡ Force-applying improvement...');
+
+      const result = await SkillImprover.checkAndImprove(skillName, true, true);
+
+      if (result.success) {
+        return {
+          success: true,
+          message: 
+            `✅ **Skill Improved (FORCED): ${skillName}**\n\n` +
+            `**Confidence:** ${(result.confidence * 100).toFixed(1)}%\n` +
+            `**Changes Applied:** ${result.appliedChanges}\n` +
+            `**Summary:**\n${result.summary}\n\n` +
+            `📝 See changelog at \`.agents/skills/${skillName}/.changelog.md\``
+        };
+      } else {
+        return {
+          success: false,
+          message: `❌ ${result.summary}\n\nError: ${result.error || 'Unknown'}`
+        };
+      }
+
+    } catch (error) {
+      return {
+        success: false,
+        message: `❌ Error: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
+    }
+  }
+};
+
+/**
  * Export all commands as an array for registration
  */
 export const allTelegramCommands = [
@@ -1114,6 +1256,8 @@ export const allTelegramCommands = [
   insightsCommand,
   personalityCommand,
   cronCommand,
+  improveCommand,
+  improveForceCommand,
   
   // PromptCommands
   reviewCommand,

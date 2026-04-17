@@ -111,7 +111,7 @@ export class DatabaseConnection {
       )
     `);
 
-    // Skills execution history
+    // Skills execution history (Feature 2.1: Auto-improvement)
     db.exec(`
       CREATE TABLE IF NOT EXISTS skill_executions (
         id TEXT PRIMARY KEY,
@@ -119,6 +119,8 @@ export class DatabaseConnection {
         user_id TEXT NOT NULL,
         success INTEGER NOT NULL,
         error_message TEXT,
+        error_type TEXT,
+        context TEXT,
         execution_time_ms INTEGER,
         timestamp INTEGER DEFAULT (strftime('%s', 'now'))
       )
@@ -169,6 +171,12 @@ export class DatabaseConnection {
       
       CREATE INDEX IF NOT EXISTS idx_skill_executions_user 
       ON skill_executions(user_id, timestamp);
+
+      CREATE INDEX IF NOT EXISTS idx_skill_executions_name_success
+      ON skill_executions(skill_name, success, timestamp DESC);
+
+      CREATE INDEX IF NOT EXISTS idx_skill_executions_name_timestamp
+      ON skill_executions(skill_name, timestamp DESC);
 
       CREATE INDEX IF NOT EXISTS idx_traces_conversation
       ON execution_traces(conversation_id, created_at);
