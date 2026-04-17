@@ -1,5 +1,6 @@
 // 💬 Chat API Update - Suporte para File URLs
 // Exemplo de como atualizar o endpoint de chat para processar arquivos
+// @ts-nocheck - Exemplos de código para referência (não compilável standalone)
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import { NextRequest, NextResponse } from 'next/server';
