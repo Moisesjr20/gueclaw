@@ -134,6 +134,10 @@ tail -n 100 /root/.pm2/logs/gueclaw-agent-out.log | grep "401\|403\|Unauthorized
 | 2026-04-20 | Nova chave gerada e configurada |
 | 2026-04-20 | `.env.example` sanitizado |
 | 2026-04-20 | Script de atualização VPS criado |
+| 2026-04-20 | `DASHBOARD_API_KEY` adicionada ao `/opt/gueclaw-agent/.env` |
+| 2026-04-20 | Serviço `gueclaw-agent` reiniciado com `--update-env` |
+| 2026-04-20 | ✅ **Validação bem-sucedida**: Chave antiga retorna 401, nova retorna 200 |
+| 2026-04-20 | 🔒 **Incidente RESOLVIDO**: Sistema seguro novamente |
 
 ---
 
@@ -143,8 +147,11 @@ tail -n 100 /root/.pm2/logs/gueclaw-agent-out.log | grep "401\|403\|Unauthorized
 - [x] Chave antiga removida do Vercel
 - [x] Nova chave adicionada ao Vercel (Production)
 - [x] `.env.example` limpo de dados sensíveis
-- [ ] **PENDENTE**: Atualizar chave na VPS (manual via SSH)
-- [ ] **PENDENTE**: Verificar logs de acesso suspeito
+- [x] ✅ **COMPLETO**: Chave atualizada na VPS (`/opt/gueclaw-agent/.env`)
+- [x] ✅ **COMPLETO**: Serviço PM2 reiniciado com `--update-env`
+- [x] ✅ **VALIDADO**: Chave antiga rejeitada (401 Unauthorized)
+- [x] ✅ **VALIDADO**: Chave nova funcionando (200 OK)
+- [ ] **PENDENTE**: Verificar logs de acesso suspeito (últimos 20 dias)
 - [ ] **PENDENTE**: Implementar pre-commit hooks
 - [ ] **PENDENTE**: Configurar monitoramento de segurança
 
