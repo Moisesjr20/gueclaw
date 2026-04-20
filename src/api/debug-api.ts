@@ -148,6 +148,17 @@ export class DebugAPI {
       }
     });
 
+    // Create a new conversation explicitly (used by "Nova Conversa")
+    this.app.post('/api/conversations', this.auth(), (req: Request, res: Response) => {
+      try {
+        const { userId = 'dashboard-user', provider = 'dashboard' } = req.body as { userId?: string; provider?: string };
+        const conversation = this.memoryManager.createConversation(userId, provider);
+        res.status(201).json({ id: conversation.id, userId: conversation.userId, provider: conversation.provider, created_at: conversation.createdAt });
+      } catch (err: any) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
     // Tail PM2 logs
     this.app.get('/api/logs/tail', this.auth(), (req: Request, res: Response) => {
       try {
@@ -232,10 +243,12 @@ export class DebugAPI {
     // Chat — send message (web interface)
     // ──────────────────────────────────────────────────────────
     this.app.post('/api/chat', this.auth(), async (req: Request, res: Response) => {
-      const { userId = 'dashboard-user', message, provider: providerName } = req.body as { 
+      const { userId = 'dashboard-user', message, provider: providerName, conversationId: existingConvId, forceNew } = req.body as { 
         userId?: string; 
         message: string;
         provider?: string;
+        conversationId?: string;
+        forceNew?: boolean;
       };
       
       if (!message || typeof message !== 'string') {
@@ -244,7 +257,17 @@ export class DebugAPI {
 
       const startMs = Date.now();
       try {
-        const conversation = this.memoryManager.getConversation(userId, providerName || 'dashboard');
+        let conversation;
+        if (existingConvId) {
+          // Continue specific conversation
+          conversation = { id: existingConvId } as any;
+        } else if (forceNew) {
+          // Create a brand new conversation
+          conversation = this.memoryManager.createConversation(userId, providerName || 'dashboard');
+        } else {
+          // Get or create (default behavior)
+          conversation = this.memoryManager.getConversation(userId, providerName || 'dashboard');
+        }
         this.memoryManager.addUserMessage(conversation.id, message);
         const history = this.memoryManager.getRecentMessages(conversation.id);
 

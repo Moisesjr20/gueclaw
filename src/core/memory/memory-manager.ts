@@ -24,6 +24,13 @@ export class MemoryManager {
   }
 
   /**
+   * Force-create a new conversation
+   */
+  public createConversation(userId: string, provider: string = 'dashboard'): Conversation {
+    return this.conversationRepo.create(userId, provider);
+  }
+
+  /**
    * Add a user message
    */
   public addUserMessage(conversationId: string, content: string, metadata?: Record<string, any>): Message {

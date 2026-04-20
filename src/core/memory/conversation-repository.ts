@@ -12,15 +12,15 @@ export class ConversationRepository {
    * Create or get existing conversation for a user
    */
   public getOrCreate(userId: string, provider: string = 'deepseek'): Conversation {
-    // Try to get the most recent conversation
+    // Try to get the most recent conversation for this user+provider
     const stmt = this.db.prepare(`
       SELECT * FROM conversations 
-      WHERE user_id = ? 
+      WHERE user_id = ? AND provider = ?
       ORDER BY updated_at DESC 
       LIMIT 1
     `);
 
-    let conversation = stmt.get(userId) as Conversation | undefined;
+    let conversation = stmt.get(userId, provider) as Conversation | undefined;
 
     if (!conversation) {
       // Create new conversation
@@ -42,6 +42,15 @@ export class ConversationRepository {
     }
 
     return conversation;
+  }
+
+  /**
+   * Force-create a new conversation (ignores existing)
+   */
+  public create(userId: string, provider: string = 'dashboard'): Conversation {
+    const id = randomUUID();
+    this.db.prepare(`INSERT INTO conversations (id, user_id, provider) VALUES (?, ?, ?)`).run(id, userId, provider);
+    return { id, userId, provider, createdAt: Date.now(), updatedAt: Date.now() };
   }
 
   /**

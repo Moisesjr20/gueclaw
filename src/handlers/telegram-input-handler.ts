@@ -321,7 +321,11 @@ export class TelegramInputHandler {
         const ageMinutes = (now - stats.mtimeMs) / 1000 / 60;
 
         if (ageMinutes > olderThanMinutes) {
-          fs.unlinkSync(filePath);
+          if (stats.isDirectory()) {
+            fs.rmSync(filePath, { recursive: true, force: true });
+          } else {
+            fs.unlinkSync(filePath);
+          }
           cleaned++;
         }
       }
