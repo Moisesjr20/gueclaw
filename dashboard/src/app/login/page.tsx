@@ -78,6 +78,18 @@ function LoginForm() {
 
           {/* Formulário */}
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Campo de username oculto para acessibilidade */}
+            <input
+              type="text"
+              name="username"
+              autoComplete="username"
+              value="admin"
+              readOnly
+              className="sr-only"
+              tabIndex={-1}
+              aria-hidden="true"
+            />
+            
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-2">
                 Senha
@@ -89,6 +101,7 @@ function LoginForm() {
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-4 py-3 bg-gray-900/50 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 placeholder="Digite sua senha"
+                autoComplete="current-password"
                 required
                 autoFocus
                 disabled={loading}
