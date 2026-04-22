@@ -342,21 +342,30 @@ class GueClaw {
 
       if (!task) {
         await ctx.editMessageReplyMarkup({ inline_keyboard: [] });
-        await ctx.reply('❌ Tarefa não encontrada ou expirou (limite: 24h). Por favor, envie sua solicitação novamente.');
+        await this.bot.api.sendMessage(
+          ctx.chat?.id || ctx.from?.id,
+          '❌ Tarefa não encontrada ou expirou (limite: 24h). Por favor, envie sua solicitação novamente.'
+        );
         return;
       }
 
       if (!recoveryManager.canRetry(taskId)) {
         await ctx.editMessageReplyMarkup({ inline_keyboard: [] });
-        await ctx.reply('❌ Limite de tentativas atingido (máximo: 3). Por favor, reformule sua solicitação.');
+        await this.bot.api.sendMessage(
+          task.chatId,
+          '❌ Limite de tentativas atingido (máximo: 3). Por favor, reformule sua solicitação.'
+        );
         return;
       }
 
       // Remove keyboard from error message
       await ctx.editMessageReplyMarkup({ inline_keyboard: [] });
       
-      // Show retry indicator
-      await ctx.reply('🔄 Retomando tarefa com contexto recuperado...');
+      // Show retry indicator (retry count will be incremented on next save if error occurs again)
+      await this.bot.api.sendMessage(
+        task.chatId,
+        `🔄 Retomando tarefa com contexto recuperado...\n\n📊 Tentativa ${task.retryCount + 1}/3`
+      );
 
       // Restore conversation from saved state
       const conversation = this.controller['memoryManager'].getConversation(task.userId);
@@ -380,26 +389,50 @@ class GueClaw {
         .pop();
 
       if (!lastUserMessage) {
-        await ctx.reply('❌ Não foi possível recuperar a mensagem original. Por favor, tente novamente.');
+        await this.bot.api.sendMessage(
+          task.chatId,
+          '❌ Não foi possível recuperar a mensagem original. Por favor, tente novamente.'
+        );
         return;
       }
 
-      // Create synthetic message context
+      // Create proper synthetic context with bot methods
       const syntheticCtx = {
         ...ctx,
         message: {
           text: lastUserMessage.content,
           message_id: ctx.callbackQuery.message.message_id + 1,
+          from: {
+            id: parseInt(task.userId, 10),
+            is_bot: false,
+            first_name: ctx.from?.first_name || 'User',
+          },
+          chat: {
+            id: task.chatId,
+            type: 'private' as const,
+          },
+          date: Math.floor(Date.now() / 1000),
         },
         from: {
           id: parseInt(task.userId, 10),
+          is_bot: false,
+          first_name: ctx.from?.first_name || 'User',
         },
         chat: {
           id: task.chatId,
+          type: 'private' as const,
+        },
+        // Add reply method using bot.api
+        reply: async (text: string, options?: any) => {
+          return await this.bot.api.sendMessage(task.chatId, text, options);
+        },
+        // Add replyWithPhoto method
+        replyWithPhoto: async (photo: any, options?: any) => {
+          return await this.bot.api.sendPhoto(task.chatId, photo, options);
         },
       };
 
-      // Re-run through agent controller
+      // Re-run through agent controller with proper context
       await this.controller.handleMessage(syntheticCtx as any);
 
       // If successful, delete the task
@@ -407,7 +440,17 @@ class GueClaw {
 
     } catch (error: any) {
       console.error('❌ Error resuming task:', error);
-      await ctx.reply('❌ Erro ao retomar a tarefa. Por favor, tente novamente.');
+      try {
+        const chatId = ctx.chat?.id || ctx.from?.id;
+        if (chatId) {
+          await this.bot.api.sendMessage(
+            chatId,
+            '❌ Erro ao retomar a tarefa. Por favor, tente novamente.'
+          );
+        }
+      } catch (sendError) {
+        console.error('❌ Failed to send error message:', sendError);
+      }
     }
   }
 
@@ -418,11 +461,20 @@ class GueClaw {
     await ctx.answerCallbackQuery({ text: 'Tarefa cancelada' });
     
     const recoveryManager = ErrorRecoveryManager.getInstance();
+    const task = recoveryManager.getTask(taskId);
     recoveryManager.deleteTask(taskId);
     
     // Remove keyboard from error message
     await ctx.editMessageReplyMarkup({ inline_keyboard: [] });
-    await ctx.reply('✅ Tarefa cancelada. Envie uma nova mensagem quando quiser.');
+    
+    // Send confirmation using bot.api
+    const chatId = task?.chatId || ctx.chat?.id || ctx.from?.id;
+    if (chatId) {
+      await this.bot.api.sendMessage(
+        chatId,
+        '✅ Tarefa cancelada. Envie uma nova mensagem quando quiser.'
+      );
+    }
   }
 
   /**
