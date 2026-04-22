@@ -111,11 +111,6 @@ export interface WebhookTriggerConfig {
   rateLimit?: number;
 
   /**
-   * Webhook configuration (when type = 'webhook')
-   */
-  webhook?: WebhookTriggerConfig;
-
-  /**
    * IP whitelist (optional)
    */
   ipWhitelist?: string[];
@@ -144,6 +139,11 @@ export interface CronTrigger {
    * File watch configuration (when type = 'file')
    */
   fileWatch?: FileWatchConfig;
+
+  /**
+   * Webhook trigger configuration (when type = 'webhook')
+   */
+  webhook?: WebhookTriggerConfig;
 }
 
 /**

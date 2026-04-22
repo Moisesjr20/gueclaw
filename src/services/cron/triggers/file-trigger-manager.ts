@@ -5,6 +5,7 @@
  */
 
 import chokidar from 'chokidar';
+import type { FSWatcher } from 'chokidar';
 import type { FileWatchConfig } from '../cron-types';
 
 export interface WatcherConfig {
@@ -14,7 +15,7 @@ export interface WatcherConfig {
 }
 
 export class FileTriggerManager {
-  private watchers = new Map<string, chokidar.FSWatcher>();
+  private watchers = new Map<string, FSWatcher>();
   private debounceTimers = new Map<string, NodeJS.Timeout>();
 
   /**

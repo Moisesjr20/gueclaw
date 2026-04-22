@@ -86,7 +86,7 @@ export class CronTool extends BaseTool {
           },
           webhookAllowedMethods: {
             type: 'array',
-            items: { type: 'string', enum: ['POST', 'GET'] },
+            items: { type: 'string' },
             description: 'Allowed HTTP methods for webhook (default: [POST])'
           },
           deliver: {
