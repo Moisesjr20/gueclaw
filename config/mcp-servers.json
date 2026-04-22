@@ -41,14 +41,6 @@
       }
     },
 
-    "memory": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-memory"],
-      "env": {
-        "MEMORY_FILE_PATH": "${env:WORKSPACE_ROOT}/data/memory/mcp-memory.jsonl"
-      }
-    },
-
     "gueclaw-memory": {
       "command": "npx",
       "args": ["-y", "tsx", "src/mcp/memory-server.ts"],
