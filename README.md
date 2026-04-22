@@ -1,16 +1,27 @@
 # 🤖 GueClaw Agent - VPS Edition
 
-**GueClaw** é um agente de IA pessoal projetado para operar completamente em uma VPS, com controle total do ambiente via Telegram. Alimentado por múltiplos LLMs (GitHub Copilot/OpenAI, DeepSeek, etc.), ele gerencia Docker, executa comandos, processa arquivos multimodais e pode criar suas próprias skills.
+**GueClaw** é um agente de IA pessoal projetado para operar completamente em uma VPS, com controle total do ambiente via Telegram. Alimentado por múltiplos LLMs com **Smart Routing automático** (GitHub Copilot, DeepSeek, OpenRouter, Anthropic, Gemini), ele gerencia Docker, executa comandos, processa arquivos multimodais e pode criar suas próprias skills.
 
 ---
 
 ## ✨ Características Principais
 
-### 🧠 **Multi-LLM Support**
-- **GitHub Copilot / OpenAI**: GPT-4o, GPT-4 Turbo para tarefas gerais (recomendado)
-- **DeepSeek Fast**: Raciocínio rápido para tarefas gerais alternativo
-- **DeepSeek Reasoner**: Raciocínio estendido para programação e tarefas complexas
-- Seleção flexível de provedor via configuração
+### 🧠 **Multi-LLM Support com Smart Routing**
+- **Smart Model Routing**: Escolha automática entre modelo rápido/barato e poderoso baseado na complexidade da tarefa
+- **GitHub Copilot OAuth**: Claude 4.5, GPT-5.4, Gemini 3 via Copilot Pro ($10/mo)
+- **OpenRouter**: Acesso a 200+ modelos (Claude, GPT, Gemini, Llama, Qwen, etc)
+- **DeepSeek**: Fast (deepseek-chat) + Reasoner (deepseek-reasoner)
+- **Anthropic Direct**: Claude Opus 4.7, Sonnet 4.6, Haiku 4.5
+- **Google Gemini**: Gemini 3 Pro/Flash via AI Studio
+- **OpenAI Direct**: GPT-5.4, GPT-5.3 Codex
+- Seleção flexível: automática ou manual via configuração
+
+### 🔀 **Intelligent Model Selection**
+O GueClaw analisa cada mensagem e escolhe automaticamente o melhor modelo:
+- **Tarefas simples** (greetings, perguntas rápidas) → Modelo rápido/barato (DeepSeek Fast)
+- **Tarefas complexas** (código, debugging, análise) → Modelo poderoso (GitHub Copilot)
+- **Economia de ~45%** vs usar sempre modelo caro
+- **Zero troca manual** de modelos
 
 ### 🛠️ **Controle Total da VPS**
 - Execução de comandos shell com acesso total
@@ -76,15 +87,32 @@
 
 ## 🚀 Instalação
 
-### 1. Clone o Repositório
+### Método 1: One-Line Installer (Recomendado)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Moisesjr20/gueclaw/main/scripts/install.sh | bash
+```
+
+Isso irá:
+- ✅ Verificar pré-requisitos (Node.js 20+, npm, git)
+- ✅ Clonar o repositório
+- ✅ Instalar dependências e build
+- ✅ Wizard de configuração interativo
+- ✅ Setup PM2 (auto-start on boot)
+
+📖 **[Guia completo de instalação](INSTALL.md)**
+
+### Método 2: Instalação Manual
+
+#### 1. Clone o Repositório
 
 ```bash
 cd /opt  # ou diretório de sua escolha
-git clone https://github.com/seu-usuario/gueclaw-agent.git
+git clone https://github.com/Moisesjr20/gueclaw.git gueclaw-agent
 cd gueclaw-agent
 ```
 
-### 2. Instale Dependências
+#### 2. Instale Dependências
 
 ```bash
 # Certifique-se de que o Node.js 20+ está instalado
@@ -94,7 +122,13 @@ node --version
 npm install
 ```
 
-### 3. Configure Variáveis de Ambiente
+#### 3. Build
+
+```bash
+npm run build
+```
+
+#### 4. Configure Variáveis de Ambiente
 
 ```bash
 cp .env.example .env
@@ -252,6 +286,150 @@ Aqui está um resumo do documento:
 ```
 
 ---
+
+## 🧠 Configuração Multi-LLM
+
+GueClaw v2.1.0 suporta múltiplos provedores de LLM com **Smart Model Routing** automático!
+
+### Provedores Suportados
+
+| Provider | Models | Cost | Use Case |
+|----------|--------|------|----------|
+| **GitHub Copilot OAuth** | Claude 4.5, GPT-5.4, Gemini 3 | $10/mo | ⭐ Best overall |
+| **DeepSeek** | deepseek-chat, deepseek-reasoner | $0.14-0.55/M | 💰 Cheapest |
+| **OpenRouter** | 200+ models | Pay-as-you-go | 🔀 Most flexible |
+| **Anthropic** | Claude Opus/Sonnet/Haiku | $3-15/M | 🧠 Most powerful |
+| **Gemini** | Gemini 3 Pro/Flash | Free tier | 🆓 Free option |
+| **OpenAI** | GPT-5.4, GPT-5.3 Codex | $0.50-15/M | 🏢 Enterprise |
+
+### Smart Model Routing
+
+O GueClaw escolhe automaticamente o modelo mais adequado para cada tarefa:
+
+```
+User: "Olá"
+→ Simple task (4 chars, no keywords)
+→ DeepSeek Fast ($0.14/M) ✅
+
+User: "Debug este código Python:\n```python\ndef foo():\n  ..."
+→ Complex task (multiline, code block, keyword: "debug")
+→ GitHub Copilot Claude 4.5 ✅
+```
+
+**Economia**: ~45% de custo vs usar sempre modelo caro  
+**Qualidade**: Zero falhas em tarefas complexas
+
+### Configuração Rápida
+
+#### 1. GitHub Copilot (Recomendado)
+
+```bash
+# .env
+GITHUB_COPILOT_USE_OAUTH=true
+GITHUB_COPILOT_MODEL=claude-sonnet-4.5
+
+# Smart routing (usa DeepSeek para tarefas simples)
+SMART_ROUTING_ENABLED=true
+SMART_ROUTING_CHEAP_PROVIDER=deepseek
+SMART_ROUTING_CHEAP_MODEL=deepseek-chat
+
+# Autentica via OAuth
+npm run copilot:auth
+```
+
+#### 2. OpenRouter (200+ Modelos)
+
+```bash
+# .env
+OPENROUTER_API_KEY=sk-or-xxx
+OPENROUTER_MODEL=anthropic/claude-sonnet-4.5
+
+# Veja todos os modelos disponíveis
+# https://openrouter.ai/models
+```
+
+#### 3. DeepSeek (Mais Barato)
+
+```bash
+# .env
+DEEPSEEK_API_KEY=sk-xxx
+DEEPSEEK_MODEL_FAST=deepseek-chat
+DEEPSEEK_MODEL_REASONING=deepseek-reasoner
+
+SMART_ROUTING_ENABLED=true
+```
+
+#### 4. Anthropic (Claude Direto)
+
+```bash
+# .env
+ANTHROPIC_API_KEY=sk-ant-xxx
+ANTHROPIC_MODEL=claude-sonnet-4-6
+```
+
+#### 5. Google Gemini (Free Tier)
+
+```bash
+# .env
+GEMINI_API_KEY=xxx
+GEMINI_MODEL=gemini-3-pro-preview
+```
+
+### Configuração de Smart Routing
+
+```bash
+# .env
+SMART_ROUTING_ENABLED=true           # Ativa routing automático
+SMART_ROUTING_CHEAP_PROVIDER=deepseek # Provider para tarefas simples
+SMART_ROUTING_CHEAP_MODEL=deepseek-chat
+SMART_ROUTING_MAX_CHARS=160          # Máx. caracteres para simple
+SMART_ROUTING_MAX_WORDS=28           # Máx. palavras para simple
+DEBUG_ROUTING=true                   # Log de routing decisions
+```
+
+### Keywords de Complexidade
+
+Estas keywords acionam automaticamente modelo poderoso:
+
+```typescript
+debug, implement, refactor, patch, analyze, architecture, 
+design, compare, benchmark, optimize, review, terminal, 
+tool, test, plan, delegate, cron, docker, deploy, migrate, 
+database, sql, api, function, class, algorithm, performance, 
+security, bug, fix, problem
+```
+
+### Múltiplos Providers Simultaneamente
+
+Você pode configurar vários providers ao mesmo tempo:
+
+```bash
+# Primary: GitHub Copilot
+GITHUB_COPILOT_USE_OAUTH=true
+GITHUB_COPILOT_MODEL=claude-sonnet-4.5
+
+# Fallback: OpenRouter
+OPENROUTER_API_KEY=sk-or-xxx
+OPENROUTER_MODEL=anthropic/claude-sonnet-4.5
+
+# Cheap tasks: DeepSeek
+DEEPSEEK_API_KEY=sk-xxx
+
+# Smart routing
+SMART_ROUTING_ENABLED=true
+SMART_ROUTING_CHEAP_PROVIDER=deepseek
+SMART_ROUTING_CHEAP_MODEL=deepseek-chat
+```
+
+O GueClaw usará automaticamente:
+- DeepSeek para tarefas simples (greetings, perguntas curtas)
+- GitHub Copilot para tarefas complexas (código, debugging)
+- OpenRouter como fallback se Copilot falhar
+
+📖 **[Análise completa do sistema Multi-LLM](ANALISE-MULTI-LLM-SOLUTION.md)**
+
+---
+
 ## 📁 Context Files
 
 O GueClaw agora suporta **Context Files** — arquivos de contexto pessoal que são automaticamente injetados em cada conversa, eliminando a necessidade de repetir informações sobre você, seus projetos e preferências.
@@ -408,7 +586,71 @@ Para documentação detalhada sobre API, troubleshooting e exemplos avançados, 
 📚 **[docs/cron-scheduler.md](docs/cron-scheduler.md)**
 
 ---
-## �️ Arquitetura DVACE
+
+## 🔄 Atualizando o GueClaw
+
+Mantenha seu GueClaw sempre atualizado com as últimas features e correções:
+
+### Método 1: Update Script (Recomendado)
+
+```bash
+cd ~/gueclaw-agent
+./scripts/update.sh
+```
+
+O script irá:
+- ✅ Fazer backup do `.env`
+- ✅ Detectar mudanças locais (stash se necessário)
+- ✅ Fazer pull do GitHub
+- ✅ Atualizar dependências (`npm install`)
+- ✅ Rebuild TypeScript
+- ✅ Reiniciar PM2 automaticamente
+
+### Método 2: Manual
+
+```bash
+cd ~/gueclaw-agent
+
+# Backup .env
+cp .env .env.backup
+
+# Pull updates
+git pull origin main
+
+# Update dependencies
+npm install
+
+# Rebuild
+npm run build
+
+# Restart
+pm2 restart gueclaw-agent
+```
+
+### Verificar Versão
+
+```bash
+# No Telegram
+/version
+
+# Ou via CLI
+cat package.json | grep version
+```
+
+### Changelog
+
+Veja o que mudou em cada versão:
+
+- **v2.1.0** (22/04/2026) - Multi-LLM + Smart Routing, One-line installer
+- **v2.0.0** (22/04/2026) - Error Recovery System, Continue button
+- **v1.9.0** - Context Files, Cron Scheduler
+- **v1.8.0** - Subagentes paralelos, DOE architecture
+
+📖 **[CHANGELOG completo](CHANGELOG.md)**
+
+---
+
+## 🏗️ Arquitetura DVACE
 
 **GueClaw** implementa a arquitetura **DVACE** (inspired by Claude Desktop's `dvace` codebase), garantindo execução real de ferramentas e rastreamento preciso de tarefas.
 

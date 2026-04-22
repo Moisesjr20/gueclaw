@@ -23,6 +23,16 @@ export interface ILLMProvider {
     messages: Message[],
     options?: CompletionOptions
   ): AsyncGenerator<string, void, unknown>;
+
+  /**
+   * Get current model name (optional)
+   */
+  getModel?(): string;
+
+  /**
+   * Set model name (optional)
+   */
+  setModel?(model: string): void;
 }
 
 export interface CompletionOptions {
