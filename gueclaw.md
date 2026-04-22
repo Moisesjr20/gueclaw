@@ -18,6 +18,7 @@ O **GueClaw** é um agente de IA pessoal projetado para operar em VPS (Virtual P
 - **Memória Persistente**: SQLite com WAL + context files
 - **Cron Scheduler**: Agendamento de tarefas recorrentes
 - **Subagentes Paralelos**: Delegação de tarefas isoladas e execução paralela
+- **Error Recovery System**: Recuperação inteligente de tarefas interrompidas com botões inline no Telegram
 - **Cost Tracking**: Monitoramento de tokens e custos LLM
 
 ---
@@ -133,11 +134,15 @@ D:\Clientes de BI\projeto GueguelClaw\
 │   │   ├── cost-tracker/         # Rastreamento de custos
 │   │   ├── mcp/                  # Model Context Protocol
 │   │   ├── context-compressor/   # Compressão de contexto
-│   │   └── memory-extractor/     # Extração de memórias
+│   │   ├── memory-extractor/     # Extração de memórias
+│   │   └── error-recovery-manager.ts # Gerenciamento de recuperação de erros
+│   ├── scripts/                  # Scripts utilitários
+│   │   └── error-log-mapper.ts   # Análise de logs de erro
 │   ├── types/                    # Definições de tipos
 │   │   ├── command-types.ts      # Tipos DVACE
 │   │   ├── agent-state.ts        # Estado do agente
-│   │   └── query-state.ts        # Estado da query
+│   │   ├── query-state.ts        # Estado da query
+│   │   └── errors.ts             # Custom error classes
 │   └── index.ts                  # Entry point
 ├── .agents/                      # Skills modulares
 │   ├── skills/                   # Skills disponíveis
@@ -145,6 +150,10 @@ D:\Clientes de BI\projeto GueguelClaw\
 │   └── mcp/                      # MCP servers
 ├── dashboard/                    # Dashboard web (Vercel)
 ├── data/                         # SQLite e dados
+│   ├── recovery/                 # Tarefas interrompidas (Error Recovery)
+│   │   └── interrupted-tasks.json
+│   ├── memory/                   # Memórias extraídas
+│   └── *.db                      # Bancos SQLite
 ├── logs/                         # Logs do sistema
 ├── scripts/                      # Scripts utilitários
 ├── tests/                        # Testes Jest
@@ -602,7 +611,354 @@ npm run validate
 
 ---
 
-## 🚀 Desenvolvimento
+## � Error Recovery System
+
+Sistema inteligente de recuperação de erros que permite ao usuário retomar tarefas interrompidas diretamente no Telegram.
+
+### Visão Geral
+
+Quando o agente atinge limites operacionais ou encontra erros inesperados, o sistema de recuperação:
+1. **Salva o contexto completo** da tarefa interrompida
+2. **Apresenta botões inline** no Telegram ([Continue] [Cancelar])
+3. **Permite retomar** a tarefa exatamente de onde parou
+4. **Limita tentativas** (máximo 3 retries em 24 horas)
+5. **Limpa automaticamente** tarefas expiradas
+
+### Tipos de Erro Recuperáveis
+
+| Tipo | Descrição | Quando Ocorre |
+|------|-----------|---------------|
+| `MAX_ITERATIONS` | Limite de 10 iterações atingido | Tarefas muito complexas |
+| `UNEXPECTED_ERROR` | Erro genérico inesperado | Exceções não tratadas |
+| `TOOL_ERROR` | Falha na execução de ferramenta | Timeout, permissão negada, etc |
+
+### Arquitetura
+
+```typescript
+interface InterruptedTask {
+  taskId: string;              // UUID único
+  userId: string;              // ID Telegram
+  chatId: number;              // Chat Telegram
+  conversationId: string;      // ID da conversa
+  errorType: ErrorType;        // Tipo do erro
+  errorMessage: string;        // Mensagem descritiva
+  conversationHistory: any[];  // Histórico completo
+  attemptedAction?: string;    // Última ação tentada
+  retryCount: number;          // Contador de tentativas
+  maxRetries: number;          // Limite (padrão: 3)
+  createdAt: number;           // Timestamp criação
+  expiresAt: number;           // Timestamp expiração (24h)
+  metadata?: Record<string, any>; // Dados extras
+}
+```
+
+### Componentes
+
+#### 1. ErrorRecoveryManager
+
+Gerenciador singleton que controla todo o ciclo de vida das tarefas interrompidas.
+
+**Responsabilidades:**
+- Salvar estado de tarefas interrompidas
+- Validar possibilidade de retry
+- Restaurar contexto completo
+- Limpar tarefas expiradas
+
+**Métodos:**
+```typescript
+class ErrorRecoveryManager {
+  saveInterruptedTask(task: Omit<InterruptedTask, 'taskId' | 'retryCount' | 'createdAt' | 'expiresAt'>): string
+  getTask(taskId: string): InterruptedTask | undefined
+  canRetry(taskId: string): boolean
+  restoreTask(taskId: string): InterruptedTask
+  cancelTask(taskId: string): void
+  cleanupExpiredTasks(): number
+  getStats(): RecoveryStats
+}
+```
+
+#### 2. Custom Error Classes
+
+Erros especializados que carregam contexto completo:
+
+```typescript
+// Base class
+class RecoverableError extends Error {
+  conversationHistory: any[];
+  errorType: ErrorType;
+  attemptedAction?: string;
+}
+
+// Erro de limite de iterações
+class MaxIterationsError extends RecoverableError {
+  constructor(maxIterations: number, attemptedTools: string[], history: any[])
+}
+```
+
+#### 3. Telegram Handler Integration
+
+Interface inline no Telegram para controle do usuário:
+
+```typescript
+// Em telegram-output-handler.ts
+async sendRecoverableError(
+  ctx: any,
+  error: RecoverableError,
+  taskId: string,
+  errorType: ErrorType,
+  attemptedAction?: string
+): Promise<void>
+```
+
+**Interface do Telegram:**
+```
+⚠️ Erro Recuperável: MAX_ITERATIONS
+
+🔄 Limite de 10 iterações atingido.
+
+Última ação: Análise de logs
+Tentativas restantes: 3/3
+
+Você pode continuar de onde parou:
+
+[Continue ▶️] [Cancelar ❌]
+```
+
+#### 4. Callback Query Handler
+
+Sistema de callbacks para botões inline:
+
+```typescript
+// Em index.ts
+bot.on('callback_query:data', async (ctx) => {
+  const data = ctx.callbackQuery.data;
+  
+  if (data.startsWith('continue_')) {
+    await handleContinueTask(ctx, taskId);
+  } else if (data.startsWith('cancel_')) {
+    await handleCancelTask(ctx, taskId);
+  }
+});
+```
+
+### Fluxo de Recuperação
+
+```
+┌─────────────────┐
+│  Tarefa Normal  │
+└────────┬────────┘
+         │
+         ▼
+  ┌──────────────┐
+  │ Erro Ocorre  │
+  └──────┬───────┘
+         │
+         ▼
+┌────────────────────┐
+│ ErrorRecoveryMgr   │
+│ .saveInterrupted() │
+└────────┬───────────┘
+         │
+         ▼
+┌────────────────────┐
+│ Telegram Handler   │
+│ .sendRecoverable() │
+└────────┬───────────┘
+         │
+         ▼
+┌────────────────────┐
+│ Usuário vê botões  │
+│ [Continue][Cancel] │
+└────────┬───────────┘
+         │
+    ┌────┴────┐
+    │         │
+    ▼         ▼
+┌─────────┐ ┌─────────┐
+│Continue │ │ Cancel  │
+└────┬────┘ └────┬────┘
+     │           │
+     ▼           ▼
+┌─────────┐ ┌─────────┐
+│ Restore │ │ Delete  │
+│ Context │ │  Task   │
+└────┬────┘ └────┬────┘
+     │           │
+     ▼           ▼
+┌─────────┐ ┌─────────┐
+│  Retry  │ │  Done   │
+│  Task   │ │         │
+└─────────┘ └─────────┘
+```
+
+### Persistência
+
+**Arquivo**: `data/recovery/interrupted-tasks.json`
+
+```json
+{
+  "tasks": [
+    {
+      "taskId": "abc-123-xyz",
+      "userId": "123456789",
+      "chatId": 123456789,
+      "conversationId": "conv_abc",
+      "errorType": "MAX_ITERATIONS",
+      "errorMessage": "Limite de 10 iterações atingido",
+      "conversationHistory": [...],
+      "attemptedAction": "Análise de logs",
+      "retryCount": 1,
+      "maxRetries": 3,
+      "createdAt": 1713820800000,
+      "expiresAt": 1713907200000,
+      "metadata": {
+        "errorStack": "..."
+      }
+    }
+  ]
+}
+```
+
+### Limites e Regras
+
+- **Max Retries**: 3 tentativas por tarefa
+- **Expiration**: 24 horas (86400000ms)
+- **Cleanup**: Automático a cada 1 hora
+- **Storage**: JSON file-based (sincronizado)
+
+### Comandos de Diagnóstico
+
+```bash
+# Mapear erros nos logs
+npm run errors:map
+
+# Limpar tarefas expiradas manualmente
+npm run errors:cleanup
+
+# Exemplo de saída do errors:map
+📊 Error Log Analysis Report
+Generated: 2026-04-22T18:30:00.000Z
+
+🔍 Analyzed Files: 5 log files
+
+📈 Error Summary:
+- MAX_ITERATIONS: 3 occurrences
+- JSON_PARSE_ERROR: 2 occurrences
+- FILE_NOT_FOUND: 1 occurrence
+
+🚨 Critical Errors (severity: high):
+- [MAX_ITERATIONS] agent-loop.ts:217 (3x)
+  → Limite de iterações atingido
+  
+⚠️ Warnings (severity: medium):
+- [JSON_PARSE_ERROR] memory-extractor.ts:45 (2x)
+  → Erro ao parsear JSON do LLM
+```
+
+### Melhorias Recentes (v2.0.0)
+
+#### MemoryExtractor - Parsing Robusto
+**Problema**: LLM retornava JSON com markdown (` ```json ... ``` `).
+
+**Solução**:
+```typescript
+// Antes: Falhava com markdown
+JSON.parse(response)
+
+// Depois: Remove markdown automaticamente
+const cleanJson = response
+  .replace(/```(?:json)?\s*/g, '')
+  .replace(/```\s*$/g, '')
+  .trim();
+```
+
+#### AgentController - Callback Query Fix
+**Problema**: Processamento duplicado no catch causava erro com `callback_query`.
+
+**Solução**:
+```typescript
+// Antes: Reprocessava mensagem (ERRO!)
+const input = await this.inputHandler.processMessage(ctx);
+
+// Depois: Extrai diretamente do contexto
+const userId = ctx.from?.id.toString();
+const chatId = ctx.chat?.id;
+```
+
+### Integração com Agent Loop
+
+O Agent Loop agora lança exceções recuperáveis em vez de retornar strings de erro:
+
+```typescript
+// Antes (agent-loop.ts)
+return `⚠️ Max iterations (${maxIterations}) reached`;
+
+// Depois
+throw new MaxIterationsError(
+  maxIterations,
+  attemptedTools,
+  conversationHistory
+);
+```
+
+Essas exceções são capturadas no `AgentController`:
+
+```typescript
+try {
+  response = await this.agentLoop.start(...);
+} catch (error) {
+  if (error instanceof MaxIterationsError) {
+    // Salvar e enviar botão de recovery
+  } else if (error instanceof RecoverableError) {
+    // Salvar e enviar botão genérico
+  } else {
+    // Erro não recuperável
+  }
+}
+```
+
+### Exemplo de Uso
+
+**Cenário**: Tarefa complexa atinge 10 iterações
+
+```
+User: Analise todos os logs, containers Docker, 
+      processos, uso de memória e gere relatório completo
+
+Agent: [Executando...]
+       🔄 Iteration 1/10...
+       🔄 Iteration 2/10...
+       ...
+       🔄 Iteration 10/10...
+       
+       ⚠️ Erro Recuperável: MAX_ITERATIONS
+       
+       🔄 Limite de 10 iterações atingido.
+       
+       Última ação: Gerando relatório consolidado
+       Tentativas restantes: 3/3
+       
+       Você pode continuar de onde parou:
+       
+       [Continue ▶️] [Cancelar ❌]
+
+User: [Clica em Continue ▶️]
+
+Agent: ✅ Retomando tarefa...
+       🔄 Contexto restaurado (10 mensagens)
+       
+       [Continua execução...]
+       🔄 Iteration 11/10 (retry 1)...
+       ✅ Relatório completo gerado!
+```
+
+**Ver documentação completa em:** 
+- `docs/error-recovery-system.md`
+- `ERROR-RECOVERY-IMPLEMENTATION.md`
+
+---
+
+## �🚀 Desenvolvimento
 
 ### Scripts Úteis
 
@@ -768,6 +1124,14 @@ Logs são armazenados em `logs/` com rotação automática:
 - ✅ Cron scheduler
 - ✅ Cost tracking
 - ✅ MCP integration
+- ✅ **Error Recovery System**: Sistema inteligente de recuperação de tarefas
+  - ErrorRecoveryManager com persistência JSON
+  - Custom error classes (RecoverableError, MaxIterationsError)
+  - Botões inline no Telegram ([Continue] [Cancelar])
+  - Limite de 3 retries por tarefa em 24 horas
+  - Script de análise de logs (npm run errors:map)
+- ✅ **MemoryExtractor**: Parsing robusto de JSON com markdown
+- ✅ **AgentController**: Fix em callback_query para evitar processamento duplicado
 
 ---
 
