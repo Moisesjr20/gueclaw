@@ -111,10 +111,14 @@ function parseInterval(intervalStr: string): CronSchedule {
  * @returns Next execution timestamp
  */
 export function calculateNextRun(schedule: CronSchedule, fromTime: Date = new Date()): Date {
+  let nextRun: Date;
+
   switch (schedule.type) {
     case 'once': {
       const targetTime = new Date(schedule.value);
-      return targetTime > fromTime ? targetTime : fromTime;
+      nextRun = targetTime > fromTime ? targetTime : fromTime;
+      // No jitter for 'once' type
+      return nextRun;
     }
 
     case 'interval': {
@@ -127,7 +131,8 @@ export function calculateNextRun(schedule: CronSchedule, fromTime: Date = new Da
       const unit = match[2];
       const multiplier = unit === 'm' ? 60000 : unit === 'h' ? 3600000 : 86400000;
 
-      return new Date(fromTime.getTime() + amount * multiplier);
+      nextRun = new Date(fromTime.getTime() + amount * multiplier);
+      break;
     }
 
     case 'cron': {
@@ -135,15 +140,36 @@ export function calculateNextRun(schedule: CronSchedule, fromTime: Date = new Da
         const interval = CronParser.parse(schedule.value, {
           currentDate: fromTime
         });
-        return interval.next().toDate();
+        nextRun = interval.next().toDate();
       } catch (error) {
         throw new Error(`Failed to parse cron expression: ${schedule.value}`);
       }
+      break;
     }
 
     default:
       throw new Error(`Unknown schedule type: ${(schedule as any).type}`);
   }
+
+  // Apply jitter if configured (only for recurring jobs)
+  if (schedule.jitter && schedule.jitter > 0) {
+    nextRun = applyJitter(nextRun, schedule.jitter);
+  }
+
+  return nextRun;
+}
+
+/**
+ * Apply random jitter (time offset) to a date
+ * 
+ * @param date Base date/time
+ * @param jitterMinutes Jitter range in minutes (±jitterMinutes)
+ * @returns Date with random offset applied
+ */
+function applyJitter(date: Date, jitterMinutes: number): Date {
+  // Generate random offset between -jitterMinutes and +jitterMinutes
+  const offsetMs = (Math.random() * 2 - 1) * jitterMinutes * 60000;
+  return new Date(date.getTime() + offsetMs);
 }
 
 /**
