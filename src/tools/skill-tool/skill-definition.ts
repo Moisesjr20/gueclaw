@@ -6,6 +6,7 @@
  */
 
 import { z } from 'zod';
+import type { SkillHooks } from '../../types/skill-hooks';
 
 /**
  * Skill metadata from frontmatter
@@ -53,6 +54,11 @@ export interface SkillDefinition {
   metadata: SkillMetadata;
   content: string;
   filePath: string;
+  
+  /**
+   * Lifecycle hooks for auto-configuration
+   */
+  hooks?: SkillHooks;
 }
 
 /**
