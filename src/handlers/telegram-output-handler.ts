@@ -203,6 +203,49 @@ export class TelegramOutputHandler {
   }
 
   /**
+   * Send recoverable error message with Continue button
+   */
+  public static async sendRecoverableError(
+    ctx: Context, 
+    error: string, 
+    taskId: string,
+    errorType: 'MAX_ITERATIONS' | 'UNEXPECTED_ERROR' | 'TOOL_ERROR',
+    attemptedAction?: string
+  ): Promise<void> {
+    const safe = TelegramFormatter.escapeHtml(error);
+    
+    // Emoji baseado no tipo de erro
+    const emoji = errorType === 'MAX_ITERATIONS' ? '🔄' : '❌';
+    
+    // Mensagem customizada baseada no tipo
+    let actionHint = '';
+    if (errorType === 'MAX_ITERATIONS') {
+      actionHint = '\n\n💡 <b>Dica:</b> Tente dividir a tarefa em passos menores ou clique em Continue para tentar novamente.';
+    } else if (errorType === 'UNEXPECTED_ERROR') {
+      actionHint = '\n\n💡 <b>Dica:</b> Clique em Continue para tentar novamente ou reformule sua pergunta.';
+    }
+
+    if (attemptedAction) {
+      actionHint += `\n\n<i>Ação tentada: ${TelegramFormatter.escapeHtml(attemptedAction)}</i>`;
+    }
+
+    await ctx.reply(
+      `${emoji} <b>Erro Recuperável:</b> ${safe}${actionHint}`,
+      {
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '🔄 Continue', callback_data: `continue:${taskId}` },
+              { text: '❌ Cancelar', callback_data: `cancel:${taskId}` }
+            ]
+          ]
+        }
+      }
+    );
+  }
+
+  /**
    * Send success message
    */
   public static async sendSuccess(ctx: Context, message: string): Promise<void> {

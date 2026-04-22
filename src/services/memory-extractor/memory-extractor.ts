@@ -152,17 +152,39 @@ Responda APENAS com o array JSON, sem texto adicional.`;
    */
   private parseLLMResponse(responseContent: string): any[] {
     try {
-      // Extract JSON from markdown code blocks if present
-      const jsonMatch = responseContent.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-      const jsonString = jsonMatch ? jsonMatch[1] : responseContent;
+      // Remove markdown code blocks if present
+      let jsonString = responseContent.trim();
+      
+      // Try to extract JSON from markdown code blocks
+      const jsonMatch = jsonString.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+      if (jsonMatch) {
+        jsonString = jsonMatch[1].trim();
+      }
+      
+      // Remove any remaining backticks
+      jsonString = jsonString.replace(/^`+|`+$/g, '').trim();
 
       // Parse JSON
-      const parsed = JSON.parse(jsonString.trim());
+      const parsed = JSON.parse(jsonString);
 
       // Ensure it's an array
-      return Array.isArray(parsed) ? parsed : [];
-    } catch (err) {
-      console.error('[MemoryExtractor] Failed to parse LLM response:', err);
+      if (Array.isArray(parsed)) {
+        return parsed;
+      }
+      
+      // If parsed is an object with an array property, try to extract it
+      if (parsed && typeof parsed === 'object') {
+        const possibleArrays = Object.values(parsed).filter(Array.isArray);
+        if (possibleArrays.length > 0) {
+          return possibleArrays[0] as any[];
+        }
+      }
+      
+      console.warn('[MemoryExtractor] Response is not an array:', typeof parsed);
+      return [];
+    } catch (err: any) {
+      console.error('[MemoryExtractor] Failed to parse LLM response:', err.message);
+      console.error('[MemoryExtractor] Raw response:', responseContent.substring(0, 200));
       return [];
     }
   }

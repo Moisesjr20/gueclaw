@@ -1,5 +1,6 @@
 import { Context } from 'grammy';
 import { TelegramInput, NO_REPLY, Message } from '../types';
+import { MaxIterationsError, RecoverableError } from '../types/errors';
 import { TelegramInputHandler } from '../handlers/telegram-input-handler';
 import { TelegramOutputHandler } from '../handlers/telegram-output-handler';
 import { CommandHandler } from '../handlers/command-handler';
@@ -14,6 +15,7 @@ import { ProviderFactory } from '../core/providers/provider-factory';
 import { ToolRegistry } from '../tools/tool-registry';
 import { ContextCompressor } from '../services/context-compressor';
 import { MemoryManagerService } from '../services/memory-extractor';
+import { ErrorRecoveryManager } from '../services/error-recovery-manager';
 import { loadProjectContext } from '../core/context';
 import * as fs from 'fs';
 import pdfParse from 'pdf-parse';
@@ -195,7 +197,113 @@ export class AgentController {
 
     } catch (error: any) {
       console.error('❌ Error in AgentController:', error);
-      await TelegramOutputHandler.sendError(ctx, 'An unexpected error occurred. Please try again.');
+      
+      // Obter userId e chatId do contexto sem processar novamente
+      const userId = ctx.from?.id.toString();
+      const chatId = ctx.chat?.id;
+      
+      if (!userId || !chatId) {
+        await TelegramOutputHandler.sendError(ctx, 'An unexpected error occurred. Please try again.');
+        return;
+      }
+
+      const conversation = this.memoryManager.getConversation(userId);
+      const history = this.memoryManager.getRecentMessages(conversation.id);
+      const recoveryManager = ErrorRecoveryManager.getInstance();
+      
+      // Tratar MaxIterationsError (erro recuperável)
+      if (error instanceof MaxIterationsError) {
+        const taskId = recoveryManager.saveInterruptedTask({
+          userId,
+          chatId,
+          conversationId: conversation.id,
+          errorType: 'MAX_ITERATIONS',
+          errorMessage: error.message,
+          conversationHistory: error.conversationHistory || history,
+          attemptedTools: error.attemptedAction,
+          metadata: {
+            timestamp: new Date().toISOString(),
+          },
+        });
+
+        // Enviar erro recuperável com botão Continue se ainda puder retomar
+        if (recoveryManager.canRetry(taskId)) {
+          await TelegramOutputHandler.sendRecoverableError(
+            ctx,
+            error.message,
+            taskId,
+            'MAX_ITERATIONS',
+            error.attemptedAction
+          );
+        } else {
+          await TelegramOutputHandler.sendError(
+            ctx, 
+            'Maximum iterations reached multiple times. Please try a simpler request or break it into smaller steps.'
+          );
+        }
+        return;
+      }
+
+      // Tratar outros erros recuperáveis
+      if (error instanceof RecoverableError) {
+        const taskId = recoveryManager.saveInterruptedTask({
+          userId,
+          chatId,
+          conversationId: conversation.id,
+          errorType: error.errorType,
+          errorMessage: error.message,
+          conversationHistory: error.conversationHistory || history,
+          attemptedTools: error.attemptedAction,
+          metadata: {
+            timestamp: new Date().toISOString(),
+          },
+        });
+
+        if (recoveryManager.canRetry(taskId)) {
+          await TelegramOutputHandler.sendRecoverableError(
+            ctx,
+            error.message,
+            taskId,
+            error.errorType,
+            error.attemptedAction
+          );
+        } else {
+          await TelegramOutputHandler.sendError(
+            ctx,
+            'This error occurred multiple times. Please try a different approach.'
+          );
+        }
+        return;
+      }
+      
+      // Erro genérico não esperado
+      const taskId = recoveryManager.saveInterruptedTask({
+        userId,
+        chatId,
+        conversationId: conversation.id,
+        errorType: 'UNEXPECTED_ERROR',
+        errorMessage: error.message || 'An unexpected error occurred',
+        conversationHistory: history,
+        metadata: {
+          errorStack: error.stack,
+          timestamp: new Date().toISOString(),
+        },
+      });
+
+      // Enviar erro recuperável se ainda puder retomar
+      if (recoveryManager.canRetry(taskId)) {
+        await TelegramOutputHandler.sendRecoverableError(
+          ctx,
+          'An unexpected error occurred. Click Continue to retry or reformulate your request.',
+          taskId,
+          'UNEXPECTED_ERROR'
+        );
+      } else {
+        await TelegramOutputHandler.sendError(
+          ctx, 
+          'An unexpected error occurred after multiple retries. Please reformulate your request.'
+        );
+      }
     }
   }
 

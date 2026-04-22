@@ -26,7 +26,9 @@
     "security:audit": "python3 scripts/security-audit-vps.py",
     "security:install": "powershell -ExecutionPolicy Bypass -File scripts/install-security-audit.ps1",
     "security:install:test": "powershell -ExecutionPolicy Bypass -File scripts/install-security-audit.ps1 -TestNow",
-    "password:generate": "node scripts/generate-password-hash.js"
+    "password:generate": "node scripts/generate-password-hash.js",
+    "errors:map": "ts-node src/scripts/error-log-mapper.ts",
+    "errors:cleanup": "ts-node -e \"require('./dist/services/error-recovery-manager').ErrorRecoveryManager.getInstance().cleanupExpiredTasks()\""
   },
   "keywords": [
     "ai-agent",

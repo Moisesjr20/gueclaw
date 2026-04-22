@@ -5,6 +5,7 @@ import { ProviderFactory } from './core/providers/provider-factory';
 import { ToolRegistry } from './tools/tool-registry';
 import { AgentController } from './core/agent-controller';
 import { DebugAPI } from './api/debug-api';
+import { ErrorRecoveryManager } from './services/error-recovery-manager';
 
 // Import tools
 import { VPSCommandTool } from './tools/vps-command-tool';
@@ -296,10 +297,132 @@ class GueClaw {
       await ctx.reply(summary, { parse_mode: 'Markdown' });
     });
 
+    // Handle callback queries (inline button clicks)
+    this.bot.on('callback_query:data', async (ctx) => {
+      await this.handleCallbackQuery(ctx);
+    });
+
     // Handle errors
     this.bot.catch((err) => {
       console.error('❌ Bot error:', err);
     });
+  }
+
+  /**
+   * Handle callback query from inline buttons
+   */
+  private async handleCallbackQuery(ctx: any): Promise<void> {
+    const data = ctx.callbackQuery.data;
+    
+    if (!data) {
+      await ctx.answerCallbackQuery({ text: 'Invalid callback data' });
+      return;
+    }
+
+    const [action, taskId] = data.split(':');
+
+    if (action === 'continue') {
+      await this.handleContinueTask(ctx, taskId);
+    } else if (action === 'cancel') {
+      await this.handleCancelTask(ctx, taskId);
+    } else {
+      await ctx.answerCallbackQuery({ text: 'Unknown action' });
+    }
+  }
+
+  /**
+   * Resume interrupted task
+   */
+  private async handleContinueTask(ctx: any, taskId: string): Promise<void> {
+    try {
+      await ctx.answerCallbackQuery({ text: '🔄 Retomando tarefa...' });
+      
+      const recoveryManager = ErrorRecoveryManager.getInstance();
+      const task = recoveryManager.getTask(taskId);
+
+      if (!task) {
+        await ctx.editMessageReplyMarkup({ inline_keyboard: [] });
+        await ctx.reply('❌ Tarefa não encontrada ou expirou (limite: 24h). Por favor, envie sua solicitação novamente.');
+        return;
+      }
+
+      if (!recoveryManager.canRetry(taskId)) {
+        await ctx.editMessageReplyMarkup({ inline_keyboard: [] });
+        await ctx.reply('❌ Limite de tentativas atingido (máximo: 3). Por favor, reformule sua solicitação.');
+        return;
+      }
+
+      // Remove keyboard from error message
+      await ctx.editMessageReplyMarkup({ inline_keyboard: [] });
+      
+      // Show retry indicator
+      await ctx.reply('🔄 Retomando tarefa com contexto recuperado...');
+
+      // Restore conversation from saved state
+      const conversation = this.controller['memoryManager'].getConversation(task.userId);
+      
+      // Add saved history back if not already present
+      const currentHistory = this.controller['memoryManager'].getRecentMessages(conversation.id);
+      if (currentHistory.length === 0 && task.conversationHistory.length > 0) {
+        console.log(`📝 Restoring ${task.conversationHistory.length} messages from saved state`);
+        task.conversationHistory.forEach((msg: any) => {
+          if (msg.role === 'user') {
+            this.controller['memoryManager'].addUserMessage(conversation.id, msg.content);
+          } else if (msg.role === 'assistant') {
+            this.controller['memoryManager'].addAssistantMessage(conversation.id, msg.content);
+          }
+        });
+      }
+
+      // Get the last user message to retry
+      const lastUserMessage = task.conversationHistory
+        .filter((m: any) => m.role === 'user')
+        .pop();
+
+      if (!lastUserMessage) {
+        await ctx.reply('❌ Não foi possível recuperar a mensagem original. Por favor, tente novamente.');
+        return;
+      }
+
+      // Create synthetic message context
+      const syntheticCtx = {
+        ...ctx,
+        message: {
+          text: lastUserMessage.content,
+          message_id: ctx.callbackQuery.message.message_id + 1,
+        },
+        from: {
+          id: parseInt(task.userId, 10),
+        },
+        chat: {
+          id: task.chatId,
+        },
+      };
+
+      // Re-run through agent controller
+      await this.controller.handleMessage(syntheticCtx as any);
+
+      // If successful, delete the task
+      recoveryManager.deleteTask(taskId);
+
+    } catch (error: any) {
+      console.error('❌ Error resuming task:', error);
+      await ctx.reply('❌ Erro ao retomar a tarefa. Por favor, tente novamente.');
+    }
+  }
+
+  /**
+   * Cancel interrupted task
+   */
+  private async handleCancelTask(ctx: any, taskId: string): Promise<void> {
+    await ctx.answerCallbackQuery({ text: 'Tarefa cancelada' });
+    
+    const recoveryManager = ErrorRecoveryManager.getInstance();
+    recoveryManager.deleteTask(taskId);
+    
+    // Remove keyboard from error message
+    await ctx.editMessageReplyMarkup({ inline_keyboard: [] });
+    await ctx.reply('✅ Tarefa cancelada. Envie uma nova mensagem quando quiser.');
   }
 
   /**

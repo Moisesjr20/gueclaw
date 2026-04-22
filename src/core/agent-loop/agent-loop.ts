@@ -1,5 +1,6 @@
 import { ILLMProvider, CompletionOptions } from '../providers/base-provider';
 import { Message, AgentAction, ToolCall, NO_REPLY } from '../../types';
+import { MaxIterationsError } from '../../types/errors';
 import { ToolRegistry } from '../../tools/tool-registry';
 import { IdentityLoader } from '../../utils/identity-loader';
 import { TraceRepository } from '../../api/trace-repository';
@@ -213,18 +214,8 @@ export class AgentLoop {
               } catch { /* non-critical */ }
             }
             
-            finalResponse = (
-              `I apologize, but I reached the maximum number of reasoning steps (${this.maxIterations}) ` +
-              `before completing the task.\n\n` +
-              `**What I was trying to do:**\n` +
-              `I wanted to execute: ${attemptedTools}\n\n` +
-              `**What you can do:**\n` +
-              `1. Try breaking the task into smaller, more specific steps\n` +
-              `2. Provide more details or clarify what you need\n` +
-              `3. If this is a complex task, consider asking for just one part at a time\n\n` +
-              `**Technical details:** The agent is limited to ${this.maxIterations} iterations to prevent infinite loops.`
-            );
-            break;
+            // Throw recoverable error so AgentController can save state and show Continue button
+            throw new MaxIterationsError(this.maxIterations, attemptedTools, this.conversationHistory);
           }
           
           // Add the assistant message with tool_calls to history BEFORE executing
