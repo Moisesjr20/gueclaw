@@ -6,6 +6,7 @@ import { GitHubCopilotOAuthProvider } from './github-copilot-oauth-provider';
 import { AnthropicProvider } from './anthropic-provider';
 import { OpenRouterProvider } from './openrouter-provider';
 import { GeminiProvider } from './gemini-provider';
+import { OllamaCloudProvider } from './ollama-cloud-provider';
 import { TelegramNotifier } from '../../services/telegram-notifier';
 import {
   chooseModel,
@@ -127,11 +128,15 @@ export class ProviderFactory {
     if (process.env.OPENROUTER_API_KEY) {
       const openrouterProvider = new OpenRouterProvider(
         process.env.OPENROUTER_API_KEY,
-        process.env.OPENROUTER_MODEL || 'anthropic/claude-sonnet-4.5',
+        process.env.OPENROUTER_MODEL || 'anthropic/claude-3-opus-200k',
         process.env.OPENROUTER_APP_NAME || 'GueClaw-Agent'
       );
       this.providers.set('openrouter', openrouterProvider);
       this.providers.set('router', openrouterProvider);
+
+      // Define OpenRouter as the default LLM provider
+      this.defaultProvider = 'openrouter';
+      this.defaultModel = openrouterProvider.getModel();
 
       console.log(`✅ OpenRouter provider initialized (model: ${openrouterProvider.getModel()})`);
     }
@@ -146,6 +151,21 @@ export class ProviderFactory {
       this.providers.set('google', geminiProvider);
 
       console.log(`✅ Gemini provider initialized (model: ${geminiProvider.getModel()})`);
+    }
+
+    // Ollama Cloud (Multi-model - deepseek-v4-flash, llama-3.2, etc.)
+    if (process.env.OLLAMA_CLOUD_API_KEY) {
+      const ollamaProvider = new OllamaCloudProvider(
+        process.env.OLLAMA_CLOUD_API_KEY,
+        process.env.OLLAMA_CLOUD_BASE_URL,
+        process.env.OLLAMA_CLOUD_MODEL || 'deepseek-v4-flash',
+        parseInt(process.env.OLLAMA_CLOUD_MAX_TOKENS || '4096'),
+        parseFloat(process.env.OLLAMA_CLOUD_TEMPERATURE || '0.7')
+      );
+      this.providers.set('ollama', ollamaProvider);
+      this.providers.set('ollama-cloud', ollamaProvider);
+
+      console.log(`✅ Ollama Cloud provider initialized (model: ${ollamaProvider.getModel()})`);
     }
 
     if (this.providers.size === 0) {

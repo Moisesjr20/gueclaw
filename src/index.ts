@@ -27,6 +27,11 @@ import { CronTool } from './tools/cron-tool';
 import { NotebookLMTool } from './tools/notebooklm-tool'; // RAG com Google NotebookLM
 import { SessionSearchTool } from './tools/session-search-tool'; // FTS5 session search
 import { DelegateTool } from './tools/delegate-tool'; // Delegate tasks to isolated subagents
+// Document Governance Tools (Ollama Cloud + Mayan EDMS)
+import { DocumentUploadTool } from './tools/document-upload-tool';
+import { DocumentQueryTool } from './tools/document-query-tool';
+import { DocumentAnalyzeTool } from './tools/document-analyze-tool';
+import { DocumentAuditTool } from './tools/document-audit-tool';
 
 // Import services
 import { Heartbeat } from './services/heartbeat';
@@ -148,6 +153,11 @@ class GueClaw {
       new NotebookLMTool(), // NotebookLM: RAG completo com Google NotebookLM
       new SessionSearchTool(), // SessionSearch: FTS5-based conversation search
       new DelegateTool(), // DelegateTask: Spawn isolated subagents for parallel execution
+      // Document Governance Tools (Ollama Cloud + Mayan EDMS)
+      new DocumentUploadTool(), // Upload documents with security analysis
+      new DocumentQueryTool(), // Search documents in Mayan EDMS
+      new DocumentAnalyzeTool(), // AI-powered document analysis
+      new DocumentAuditTool(), // Generate governance audit reports
     ]);
 
     console.log(`✅ Registered ${ToolRegistry.getAllNames().length} tools`);
