@@ -17,8 +17,7 @@ build/
 data/*.db
 data/*.sqlite
 data/github-token.json
-tmp/*
-!tmp/.gitkeep
+tmp/
 logs/*
 !logs/.gitkeep
 
@@ -63,3 +62,6 @@ __pycache__/
 # Claude Code repository - awaiting legal clearance
 claude-code/
 tmp/claude-code/
+
+# Modelos externos (repos git embutidos — usar submodules se necessário)
+modelos/
