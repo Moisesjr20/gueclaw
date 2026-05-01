@@ -1,6 +1,7 @@
 import { ConversationRepository } from './conversation-repository';
 import { MessageRepository } from './message-repository';
 import { Message, Conversation } from '../../types';
+import { RAGService } from '../../services/rag-service';
 
 /**
  * Memory Manager - Facade for conversation and message management
@@ -9,11 +10,18 @@ export class MemoryManager {
   private conversationRepo: ConversationRepository;
   private messageRepo: MessageRepository;
   private memoryWindowSize: number;
+  private ragEnabled: boolean = false;
 
   constructor() {
     this.conversationRepo = new ConversationRepository();
     this.messageRepo = new MessageRepository();
     this.memoryWindowSize = parseInt(process.env.MEMORY_WINDOW_SIZE || '10', 10);
+    
+    // Check if RAG is enabled (requires GEMINI_API_KEY)
+    if (process.env.GEMINI_API_KEY) {
+      this.ragEnabled = true;
+      console.log('🧠 RAG (Semantic Memory) enabled via pgvector');
+    }
   }
 
   /**
@@ -42,6 +50,19 @@ export class MemoryManager {
     });
 
     this.conversationRepo.touch(conversationId);
+    
+    // Asynchronous semantic indexing
+    if (this.ragEnabled) {
+      const conversation = this.conversationRepo.getById(conversationId);
+      if (conversation) {
+        RAGService.getInstance().storeMemory(conversation.userId, content, {
+          role: 'user',
+          conversationId,
+          messageId: message.id
+        }).catch(err => console.error('❌ RAG Indexing Error:', err));
+      }
+    }
+
     return message;
   }
 
@@ -57,7 +78,36 @@ export class MemoryManager {
     });
 
     this.conversationRepo.touch(conversationId);
+
+    // Asynchronous semantic indexing
+    if (this.ragEnabled) {
+      const conversation = this.conversationRepo.getById(conversationId);
+      if (conversation) {
+        RAGService.getInstance().storeMemory(conversation.userId, content, {
+          role: 'assistant',
+          conversationId,
+          messageId: message.id
+        }).catch(err => console.error('❌ RAG Indexing Error:', err));
+      }
+    }
+
     return message;
+  }
+
+  /**
+   * Search relevant memories semantically (RAG)
+   */
+  public async searchSemanticContext(userId: string, query: string, limit: number = 3): Promise<string> {
+    if (!this.ragEnabled) return '';
+
+    const results = await RAGService.getInstance().searchMemories(userId, query, limit);
+    if (results.length === 0) return '';
+
+    const context = results
+      .map(r => `[Relacionado (${Math.round(r.similarity * 100)}%)]: ${r.content}`)
+      .join('\n\n');
+
+    return `\n--- CONTEXTO SEMÂNTICO RECUPERADO ---\n${context}\n--------------------------------------\n`;
   }
 
   /**

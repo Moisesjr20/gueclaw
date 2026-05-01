@@ -5,6 +5,7 @@ import * as path from 'path';
 import pdfParse from 'pdf-parse';
 import * as Papa from 'papaparse';
 import { AudioTool } from '../tools/audio-tool';
+import { SecurityMonitor } from '../services/security-monitor';
 
 /**
  * Telegram Input Handler - Processes incoming messages and files
@@ -54,6 +55,14 @@ export class TelegramInputHandler {
       // Authorization check
       if (!this.isAuthorized(userId)) {
         console.warn(`🚫 Unauthorized access attempt from user ${userId}`);
+        
+        // Report to admin
+        await SecurityMonitor.getInstance().reportUnauthorizedBotAccess(
+          userId,
+          ctx.from?.username,
+          ctx.message?.text || ctx.message?.caption || '[No text content]'
+        );
+
         await ctx.reply('⛔ Access denied. You are not authorized to use this bot.');
         return null;
       }

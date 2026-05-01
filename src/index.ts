@@ -41,6 +41,8 @@ import { CronScheduler } from './services/cron/cron-scheduler';
 import { initializeCommands } from './commands/command-initializer'; // DVACE - Phase 1.4
 import * as path from 'path';
 
+import { SecurityMonitor } from './services/security-monitor';
+
 /**
  * GueClaw Agent - Main Entry Point
  */
@@ -48,6 +50,7 @@ class GueClaw {
   private bot: Bot;
   private controller: AgentController;
   private heartbeat?: Heartbeat;
+  private securityMonitor?: SecurityMonitor;
   private cronScheduler?: CronScheduler;
 
   constructor() {
@@ -524,14 +527,19 @@ class GueClaw {
       console.log(`💾 Database: ${process.env.DATABASE_PATH || './data/gueclaw.db'}`);
       console.log(`🔧 Tools: ${ToolRegistry.getAllNames().join(', ')}`);
       console.log('\n✅ Bot is running! Send a message to get started.\n');
+// Start heartbeat monitor
+const notifier = new TelegramNotifier(
+  process.env.TELEGRAM_BOT_TOKEN!,
+  process.env.TELEGRAM_ALLOWED_USER_IDS!
+);
+this.heartbeat = new Heartbeat(notifier);
+this.heartbeat.start();
 
-      // Start heartbeat monitor
-      const notifier = new TelegramNotifier(
-        process.env.TELEGRAM_BOT_TOKEN!,
-        process.env.TELEGRAM_ALLOWED_USER_IDS!
-      );
-      this.heartbeat = new Heartbeat(notifier);
-      this.heartbeat.start();
+// Start Security Monitor (unauthorized access alerts)
+this.securityMonitor = SecurityMonitor.getInstance();
+this.securityMonitor.startSshMonitoring(15); // Check every 15 minutes
+
+await this.bot.start();
 
       // Start Debug API (local only, port 3742)
       if (process.env.DISABLE_DEBUG_API !== 'true') {
@@ -551,6 +559,7 @@ class GueClaw {
     console.log('\n🛑 Shutting down GueClaw Agent...');
     
     this.heartbeat?.stop();
+    this.securityMonitor?.stop();
     this.cronScheduler?.stop();
     await MCPManager.getInstance().shutdown();
     await this.bot.stop();

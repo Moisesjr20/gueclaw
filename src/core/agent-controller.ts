@@ -152,14 +152,17 @@ export class AgentController {
       // Add user message to memory
       this.memoryManager.addUserMessage(conversation.id, userInputText);
 
+      // Perform semantic search (RAG) using pgvector
+      const semanticContext = await this.memoryManager.searchSemanticContext(input.userId, userInputText, 5);
+
       // Compact old messages if threshold exceeded
       await this.compactIfNeeded(conversation.id, input.userId);
 
       // Get conversation history
       const history = this.memoryManager.getRecentMessages(conversation.id);
 
-      // Build enriched system prompt context (memory + skills manifest)
-      const enrichment = this.buildEnrichment(input.userId);
+      // Build enriched system prompt context (memory + skills manifest + RAG)
+      const enrichment = this.buildEnrichment(input.userId, semanticContext);
 
       // Route to appropriate skill
       const skillName = await this.skillRouter.route(userInputText, this.availableSkills);
@@ -365,13 +368,18 @@ export class AgentController {
 
   /**
    * Build an enrichment block injected at the top of the system prompt.
-   * Contains: USER_ID for memory tool, persistent memory, and skill manifest.
+   * Contains: USER_ID for memory tool, persistent memory, skill manifest, and RAG context.
    */
-  private buildEnrichment(userId: string): string {
+  private buildEnrichment(userId: string, semanticContext: string = ''): string {
     const parts: string[] = [];
 
     // USER_ID so the LLM can pass it to memory_write tool
     parts.push(`USER_ID (use em chamadas à ferramenta memory_write): ${userId}`);
+
+    // Add semantic context from RAG (pgvector)
+    if (semanticContext) {
+      parts.push(semanticContext);
+    }
 
     // User context from .gueclaw/ (Feature 1.1: Context Files)
     const userContext = loadProjectContext();
@@ -526,11 +534,14 @@ export class AgentController {
     // Add user message
     this.memoryManager.addUserMessage(conversation.id, prompt);
 
+    // Perform semantic search (RAG)
+    const semanticContext = await this.memoryManager.searchSemanticContext(userId, prompt, 5);
+
     // Build history for LLM
     const history = this.memoryManager.getRecentMessages(conversation.id);
 
-    // Build enrichment (memory, skills, context files, etc)
-    const enrichment = this.buildEnrichment(userId);
+    // Build enrichment (memory, skills, context files, RAG, etc)
+    const enrichment = this.buildEnrichment(userId, semanticContext);
 
     // Use general agent loop
     const provider = ProviderFactory.getFastProvider();
