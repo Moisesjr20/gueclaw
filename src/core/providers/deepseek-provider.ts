@@ -201,8 +201,11 @@ export class DeepSeekProvider implements ILLMProvider {
     if (message.tool_calls && message.tool_calls.length > 0) {
       toolCalls = message.tool_calls.map((tc: any) => ({
         id: tc.id,
-        name: tc.function.name,
-        arguments: JSON.parse(tc.function.arguments),
+        type: 'function',
+        function: {
+          name: tc.function.name,
+          arguments: JSON.parse(tc.function.arguments),
+        },
       }));
     }
 
