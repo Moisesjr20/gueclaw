@@ -28,7 +28,7 @@ show_banner() {
   echo -e "${CYAN}║     ${GREEN}╚═╝  ╚═══╝ ╚═════╝ ╚══════╝ ╚═════╝╚══════╝╚═╝  ╚═╝ ╚══╝╚══╝${NC}     ${CYAN}║${NC}"
   echo -e "${CYAN}║                                                            ║${NC}"
   echo -e "${CYAN}║          ${YELLOW}Personal AI Agent for VPS with Telegram${NC}          ${CYAN}║${NC}"
-  echo -e "${CYAN}║                      ${BLUE}v2.0.0${NC}                           ${CYAN}║${NC}"
+  echo -e "${CYAN}║                      ${BLUE}v2.2.0${NC}                           ${CYAN}║${NC}"
   echo -e "${CYAN}╚════════════════════════════════════════════════════════════╝${NC}"
   echo ""
 }
@@ -193,36 +193,57 @@ setup_config() {
   # LLM Provider Selection
   echo -e "${CYAN}2. LLM Provider Selection${NC}"
   echo "   Choose your preferred provider:"
-  echo "   1) GitHub Copilot (Recommended - supports multiple models)"
-  echo "   2) OpenRouter (200+ models, pay-as-you-go)"
-  echo "   3) DeepSeek (Fast and cheap)"
-  echo "   4) Anthropic Claude (Direct)"
-  echo "   5) Google Gemini"
-  echo "   6) OpenAI"
+  echo "   1) OpenRouter (Recommended - 200+ models, CoT Routing com 7 especialistas)"
+  echo "   2) DeepSeek (Fast e barato)"
+  echo "   3) Anthropic Claude (Direto)"
+  echo "   4) Google Gemini"
+  echo "   5) OpenAI"
+  echo "   6) GitHub Copilot (OAuth)"
   read -rp "   Choice (1-6): " llm_choice
-  
+
   case "$llm_choice" in
     1)
-      echo "   GitHub Copilot setup:"
-      echo "   - Run 'npm run copilot:auth' after installation to authenticate"
-      sed -i.bak "s/GITHUB_COPILOT_USE_OAUTH=.*/GITHUB_COPILOT_USE_OAUTH=true/" .env
-      sed -i.bak "s/GITHUB_COPILOT_MODEL=.*/GITHUB_COPILOT_MODEL=claude-sonnet-4.5/" .env
-      ;;
-    2)
-      read -rp "   OpenRouter API Key: " openrouter_key
+      read -rp "   OpenRouter API Key (sk-or-...): " openrouter_key
       cat >> .env << EOF
 
-# OpenRouter Configuration
+# OpenRouter — gateway unificado para todos os modelos especialistas
 OPENROUTER_API_KEY=$openrouter_key
 OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
-OPENROUTER_MODEL=anthropic/claude-sonnet-4.5
+OPENROUTER_MODEL=deepseek/deepseek-r1
 EOF
+
+      # CoT Routing setup
+      echo ""
+      echo -e "${CYAN}3. CoT Routing (DeepSeek R1 classifica cada mensagem para 7 especialistas)${NC}"
+      read -rp "   Ativar CoT Routing automático? (Y/n) " -n 1
+      echo ""
+      if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+        cat >> .env << EOF
+
+# CoT Routing — triage inteligente via DeepSeek R1
+ROUTER_COT_ENABLED=true
+ROUTER_TRIAGE_MODEL=deepseek/deepseek-r1
+
+# Modelos especialistas por categoria (padrões recomendados)
+ROUTER_MODEL_REASONING=deepseek/deepseek-r1
+ROUTER_MODEL_AGENTIC=moonshotai/kimi-k2
+ROUTER_MODEL_TEXT=qwen/qwen3-235b-a22b
+ROUTER_MODEL_FAST=google/gemma-3-27b-it
+ROUTER_MODEL_LONGOUTPUT=thudm/glm-z1-32b
+ROUTER_MODEL_CODE=deepseek/deepseek-r1
+ROUTER_MODEL_FALLBACK=deepseek/deepseek-chat-v3-0324
+EOF
+        log_success "CoT Routing ativado com 7 modelos especialistas"
+      else
+        echo "ROUTER_COT_ENABLED=false" >> .env
+        log_info "CoT Routing desativado — usando heurística local"
+      fi
       ;;
-    3)
+    2)
       read -rp "   DeepSeek API Key: " deepseek_key
       sed -i.bak "s/DEEPSEEK_API_KEY=.*/DEEPSEEK_API_KEY=$deepseek_key/" .env
       ;;
-    4)
+    3)
       read -rp "   Anthropic API Key: " anthropic_key
       cat >> .env << EOF
 
@@ -231,24 +252,64 @@ ANTHROPIC_API_KEY=$anthropic_key
 ANTHROPIC_MODEL=claude-sonnet-4-6
 EOF
       ;;
-    5)
+    4)
       read -rp "   Google AI API Key: " gemini_key
       cat >> .env << EOF
 
 # Google Gemini Configuration
 GEMINI_API_KEY=$gemini_key
-GEMINI_MODEL=gemini-3-pro-preview
+GEMINI_MODEL=gemini-2.0-flash
 EOF
       ;;
-    6)
+    5)
       read -rp "   OpenAI API Key: " openai_key
       sed -i.bak "s/OPENAI_API_KEY=.*/OPENAI_API_KEY=$openai_key/" .env
-      sed -i.bak "s/OPENAI_MODEL=.*/OPENAI_MODEL=gpt-5.4/" .env
+      sed -i.bak "s/OPENAI_MODEL=.*/OPENAI_MODEL=gpt-4o/" .env
+      ;;
+    6)
+      echo "   GitHub Copilot setup:"
+      echo "   - Execute 'npm run copilot:auth' após a instalação para autenticar"
+      sed -i.bak "s/GITHUB_COPILOT_USE_OAUTH=.*/GITHUB_COPILOT_USE_OAUTH=true/" .env
+      sed -i.bak "s/GITHUB_COPILOT_MODEL=.*/GITHUB_COPILOT_MODEL=claude-sonnet-4.5/" .env
       ;;
   esac
-  
+
   echo ""
-  log_success "Configuration saved to .env"
+
+  # RAG Setup (optional)
+  echo -e "${CYAN}4. RAG Profundo — Busca semântica em documentos (PostgreSQL + pgvector)${NC}"
+  echo "   Requer Docker instalado e rodando."
+  read -rp "   Ativar RAG? (y/N) " -n 1
+  echo ""
+  if [[ $REPLY =~ ^[Yy]$ ]]; then
+    read -rp "   Senha do PostgreSQL RAG: " rag_password
+    if [ -z "$rag_password" ]; then
+      rag_password="changeme_$(date +%s)"
+    fi
+    cat >> .env << EOF
+
+# RAG Profundo — PostgreSQL + pgvector
+RAG_POSTGRES_URL=postgresql://gueclaw:${rag_password}@localhost:5433/gueclaw_rag
+RAG_DOCUMENTS_DIR=./data/documents
+RAG_EMBEDDING_MODEL=openai/text-embedding-3-small
+RAG_CHUNK_SIZE=500
+RAG_CHUNK_OVERLAP=50
+RAG_TOP_K=5
+EOF
+    # Update docker-compose password
+    if [ -f "deploy/postgres-rag/docker-compose.yml" ]; then
+      sed -i.bak "s/POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=${rag_password}/" deploy/postgres-rag/docker-compose.yml
+      rm -f deploy/postgres-rag/docker-compose.yml.bak
+    fi
+    log_success "RAG configurado — suba o PostgreSQL com:"
+    echo "     docker compose -f deploy/postgres-rag/docker-compose.yml up -d"
+    SETUP_RAG=true
+  else
+    log_info "RAG desativado — você pode ativar depois editando o .env"
+    SETUP_RAG=false
+  fi
+
+  log_success "Configuração salva em .env"
   rm -f .env.bak
 }
 
@@ -284,27 +345,29 @@ show_next_steps() {
   echo ""
   echo -e "${CYAN}Next Steps:${NC}"
   echo ""
-  echo "  1. Authenticate with your LLM provider:"
-  echo "     cd ~/gueclaw-agent"
-  
+  echo "  1. Suba o PostgreSQL RAG (se ativado):"
+  echo "     docker compose -f deploy/postgres-rag/docker-compose.yml up -d"
+
   if grep -q "GITHUB_COPILOT_USE_OAUTH=true" .env 2>/dev/null; then
-    echo "     npm run copilot:auth"
+    echo ""
+    echo "  2. Autentique o GitHub Copilot:"
+    echo "     cd ~/gueclaw-agent && npm run copilot:auth"
   fi
-  
+
   echo ""
-  echo "  2. Start GueClaw:"
+  echo "  3. Inicie o GueClaw:"
   if command -v pm2 &> /dev/null; then
-    echo "     pm2 logs gueclaw-agent    # View logs"
-    echo "     pm2 restart gueclaw-agent # Restart"
-    echo "     pm2 stop gueclaw-agent    # Stop"
+    echo "     pm2 logs gueclaw-agent    # Ver logs"
+    echo "     pm2 restart gueclaw-agent # Reiniciar"
+    echo "     pm2 stop gueclaw-agent    # Parar"
   else
     echo "     npm start"
-    echo "     # or"
-    echo "     npm run dev    # Development mode with auto-reload"
+    echo "     # ou em desenvolvimento:"
+    echo "     npm run dev"
   fi
-  
+
   echo ""
-  echo "  3. Send a message to your Telegram bot!"
+  echo "  4. Envie uma mensagem para o seu bot no Telegram!"
   echo ""
   echo -e "${CYAN}Useful Commands:${NC}"
   echo "  /start   - Start conversation"
