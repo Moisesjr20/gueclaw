@@ -278,7 +278,7 @@ export class DebugAPI {
         if (skillName && SkillLoader.skillExists(skillName)) {
           response = await SkillExecutor.executeAuto(skillName, message, history, enrichment, conversation.id);
         } else {
-          const provider = ProviderFactory.getFastProvider();
+          const provider = ProviderFactory.getProvider();
           const agentLoop = new AgentLoop(provider, history, undefined, enrichment, undefined, conversation.id);
           response = await agentLoop.run(message);
         }
@@ -324,7 +324,7 @@ export class DebugAPI {
         if (skillName && SkillLoader.skillExists(skillName)) {
           response = await SkillExecutor.executeAuto(skillName, input, history, enrichment, conversation.id);
         } else {
-          const provider = ProviderFactory.getFastProvider();
+          const provider = ProviderFactory.getProvider();
           const agentLoop = new AgentLoop(provider, history, undefined, enrichment, undefined, conversation.id);
           response = await agentLoop.run(input);
         }

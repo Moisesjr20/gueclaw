@@ -51,8 +51,8 @@ export class SkillExecutor {
 
       // Determine which provider to use
       const provider: ILLMProvider = useReasoning
-        ? ProviderFactory.getReasoningProvider()
-        : ProviderFactory.getFastProvider();
+        ? ProviderFactory.getProvider()
+        : ProviderFactory.getProvider();
 
       console.log(`🧠 Using provider: ${provider.name} (reasoning: ${useReasoning})`);
 

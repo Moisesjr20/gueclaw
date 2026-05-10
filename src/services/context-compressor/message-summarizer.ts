@@ -14,7 +14,7 @@ export class MessageSummarizer {
     provider?: ILLMProvider
   ) {
     // Use fast provider (DeepSeek) for summarization to save costs
-    this.provider = provider || ProviderFactory.getFastProvider();
+    this.provider = provider || ProviderFactory.getProvider();
   }
 
   /**

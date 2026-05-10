@@ -1,4 +1,3 @@
-import { OllamaCloudProvider } from '../core/providers/ollama-cloud-provider';
 import { Message } from '../types';
 
 /**
@@ -55,8 +54,6 @@ export interface SecurityAlert {
 }
 
 export class DocumentSecurityAnalyzer {
-  private ollamaProvider?: OllamaCloudProvider;
-
   // Regex patterns para detecção de PII
   private patterns: Record<PIICategory, RegExp> = {
     cpf: /^(\d{3}\.?\d{3}\.?\d{3}-?\d{2})|(\d{11})$/,
@@ -74,9 +71,7 @@ export class DocumentSecurityAnalyzer {
     ip_address: /\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/,
   };
 
-  constructor(ollamaProvider?: OllamaCloudProvider) {
-    this.ollamaProvider = ollamaProvider;
-  }
+  constructor() {}
 
   /**
    * Analyze document text for PII and classify security level
@@ -137,33 +132,7 @@ export class DocumentSecurityAnalyzer {
    * Detect sensitive topics using AI (Ollama Cloud)
    */
   public async detectSensitiveTopics(text: string): Promise<string[]> {
-    if (!this.ollamaProvider) {
-      return this.detectSensitiveTopicsSimple(text);
-    }
-
-    try {
-      const messages: Message[] = [
-        {
-          conversationId: 'document-security-analysis',
-          role: 'user',
-          content: `Analyze this text and identify sensitive topics (financial, legal, medical, personal, confidential business information, passwords, credentials). Return ONLY a JSON array of topic strings. Text: "${text.substring(0, 2000)}"`,
-        },
-      ];
-
-      const response = await this.ollamaProvider.generateCompletion(messages);
-      const content = response.content.trim();
-
-      // Parse JSON response
-      const jsonMatch = content.match(/\[.*\]/s);
-      if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]);
-      }
-
-      return [];
-    } catch (error) {
-      console.warn('[SecurityAnalyzer] AI topic detection failed:', error);
-      return this.detectSensitiveTopicsSimple(text);
-    }
+    return this.detectSensitiveTopicsSimple(text);
   }
 
   /**

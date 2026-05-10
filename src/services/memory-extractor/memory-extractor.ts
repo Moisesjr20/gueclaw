@@ -18,7 +18,7 @@ export class MemoryExtractor {
 
   constructor(config?: Partial<MemoryExtractionConfig>, provider?: ILLMProvider) {
     this.config = { ...DEFAULT_MEMORY_EXTRACTION_CONFIG, ...config };
-    this.provider = provider || ProviderFactory.getFastProvider();
+    this.provider = provider || ProviderFactory.getProvider();
   }
 
   /**

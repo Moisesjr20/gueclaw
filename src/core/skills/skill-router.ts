@@ -11,7 +11,7 @@ export class SkillRouter {
 
   constructor() {
     // Use fast provider for routing (cheap and quick)
-    this.provider = ProviderFactory.getFastProvider();
+    this.provider = ProviderFactory.getProvider();
   }
 
   /**

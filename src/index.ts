@@ -114,18 +114,11 @@ class GueClaw {
       process.exit(1);
     }
 
-    // Check if at least one LLM provider is configured
-    const hasGitHubCopilot = process.env.GITHUB_COPILOT_USE_OAUTH === 'true' || 
-                             process.env.GITHUB_COPILOT_API_KEY || 
-                             process.env.OPENAI_API_KEY;
-    const hasDeepSeek = process.env.DEEPSEEK_API_KEY;
-
-    if (!hasGitHubCopilot && !hasDeepSeek) {
-      console.error('❌ No LLM provider configured!');
-      console.error('   Please configure at least one of:');
-      console.error('   - GitHub Copilot (GITHUB_COPILOT_USE_OAUTH=true)');
-      console.error('   - OpenAI (OPENAI_API_KEY)');
-      console.error('   - DeepSeek (DEEPSEEK_API_KEY)');
+    // Check OpenRouter API key (único provider suportado)
+    if (!process.env.OPENROUTER_API_KEY) {
+      console.error('❌ OPENROUTER_API_KEY não configurada!');
+      console.error('   Adicione ao .env: OPENROUTER_API_KEY=sk-or-...');
+      console.error('   Obtenha em: https://openrouter.ai/keys');
       process.exit(1);
     }
 

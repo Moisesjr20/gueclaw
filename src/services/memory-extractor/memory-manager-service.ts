@@ -56,7 +56,7 @@ export class MemoryManagerService {
     }
 
     try {
-      const provider = ProviderFactory.getFastProvider();
+      const provider = ProviderFactory.getProvider();
       if (provider) {
         this.extractor = new MemoryExtractor(this.config, provider);
         this.extractorInitialized = true;
