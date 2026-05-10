@@ -174,10 +174,10 @@ export class AgentController {
         console.log(`🎯 Using skill: ${skillName}`);
         response = await SkillExecutor.executeAuto(skillName, userInputText, history, enrichment, conversation.id);
       } else {
-        // Use general agent loop
+        // Use general agent loop with CoT routing
         console.log(`💭 Using general reasoning (no specific skill)`);
-        
-        const provider = ProviderFactory.getFastProvider();
+
+        const { provider } = await ProviderFactory.getProviderForMessage(userInputText);
         const agentLoop = new AgentLoop(provider, history, undefined, enrichment, undefined, conversation.id);
         response = await agentLoop.run(userInputText);
       }
@@ -543,8 +543,8 @@ export class AgentController {
     // Build enrichment (memory, skills, context files, RAG, etc)
     const enrichment = this.buildEnrichment(userId, semanticContext);
 
-    // Use general agent loop
-    const provider = ProviderFactory.getFastProvider();
+    // Use general agent loop with CoT routing
+    const { provider } = await ProviderFactory.getProviderForMessage(prompt);
     const agentLoop = new AgentLoop(provider, history, undefined, enrichment, undefined, conversation.id);
     const response = await agentLoop.run(prompt);
 

@@ -14,6 +14,8 @@ import {
   logRoutingDecision,
   RouteConfig,
 } from './smart-routing';
+import { CotTriage } from '../../services/llm-router/cot-triage';
+import { logTriageDecision } from '../../services/llm-router/router-logger';
 
 /**
  * Provider Factory - Creates and manages LLM provider instances with smart routing
@@ -124,12 +126,12 @@ export class ProviderFactory {
       console.log(`✅ Anthropic provider initialized (model: ${anthropicProvider.getModel()})`);
     }
 
-    // OpenRouter (200+ models)
+    // OpenRouter (200+ models via CoT routing)
     if (process.env.OPENROUTER_API_KEY) {
       const openrouterProvider = new OpenRouterProvider(
         process.env.OPENROUTER_API_KEY,
-        process.env.OPENROUTER_MODEL || 'anthropic/claude-3-opus-200k',
-        process.env.OPENROUTER_APP_NAME || 'GueClaw-Agent'
+        process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1',
+        process.env.OPENROUTER_MODEL || 'deepseek/deepseek-r1'
       );
       this.providers.set('openrouter', openrouterProvider);
       this.providers.set('router', openrouterProvider);
@@ -211,33 +213,40 @@ export class ProviderFactory {
   }
 
   /**
-   * Get provider for a specific message using smart routing
-   * This automatically chooses between cheap/fast model and powerful model
+   * Get provider for a specific message using CoT semantic triage (or heuristic fallback).
+   * When OPENROUTER_API_KEY is set and ROUTER_COT_ENABLED=true, DeepSeek R1 classifies the
+   * message and routes to the best specialist model on OpenRouter.
    */
-  public static getProviderForMessage(message: string): {
+  public static async getProviderForMessage(message: string): Promise<{
     provider: ILLMProvider;
-    reason: 'simple' | 'complex' | 'default';
-  } {
+    reason: 'simple' | 'complex' | 'default' | 'cot';
+  }> {
+    // CoT path — requires OpenRouter
+    if (this.hasProvider('openrouter')) {
+      const decision = await CotTriage.classify(message);
+      logTriageDecision(message, decision);
+
+      const provider = this.getProvider('openrouter');
+      if (provider.setModel) provider.setModel(decision.model);
+
+      return { provider, reason: decision.usedCot ? 'cot' : 'simple' };
+    }
+
+    // Legacy rule-based path (no OpenRouter)
     const decision = chooseModel(
       message,
       this.routingConfig,
       this.defaultProvider,
       this.defaultModel
     );
-
     logRoutingDecision(message, decision);
 
     const provider = this.getProvider(decision.provider);
-    
-    // Update model if needed
     if (provider.setModel && provider.getModel && decision.model !== provider.getModel()) {
       provider.setModel(decision.model);
     }
 
-    return {
-      provider,
-      reason: decision.reason,
-    };
+    return { provider, reason: decision.reason };
   }
 
   /**

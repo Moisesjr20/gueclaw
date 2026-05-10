@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  postgres-rag:
+    image: pgvector/pgvector:pg17
+    container_name: gueclaw-postgres-rag
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: gueclaw_rag
+      POSTGRES_USER: ${RAG_POSTGRES_USER:-gueclaw}
+      POSTGRES_PASSWORD: ${RAG_POSTGRES_PASSWORD:-changeme}
+    ports:
+      - "5433:5432"
+    volumes:
+      - /opt/gueclaw/postgres-rag:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${RAG_POSTGRES_USER:-gueclaw} -d gueclaw_rag"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+networks:
+  default:
+    name: gueclaw-rag-network

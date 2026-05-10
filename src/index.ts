@@ -27,13 +27,13 @@ import { CronTool } from './tools/cron-tool';
 import { NotebookLMTool } from './tools/notebooklm-tool'; // RAG com Google NotebookLM
 import { SessionSearchTool } from './tools/session-search-tool'; // FTS5 session search
 import { DelegateTool } from './tools/delegate-tool'; // Delegate tasks to isolated subagents
-// Document Governance Tools (Ollama Cloud + Mayan EDMS)
-import { DocumentUploadTool } from './tools/document-upload-tool';
-import { DocumentQueryTool } from './tools/document-query-tool';
-import { DocumentAnalyzeTool } from './tools/document-analyze-tool';
-import { DocumentAuditTool } from './tools/document-audit-tool';
+import { RagIndexTool } from './tools/rag-index-tool';
+import { RagSearchTool } from './tools/rag-search-tool';
+import { RagAnalyzeTool } from './tools/rag-analyze-tool';
+import { RagAuditTool } from './tools/rag-audit-tool';
 
 // Import services
+import { RagDatabase } from './services/rag/rag-database';
 import { Heartbeat } from './services/heartbeat';
 import { TelegramNotifier } from './services/telegram-notifier';
 import { TaskTracker } from './core/task-tracker';
@@ -156,11 +156,10 @@ class GueClaw {
       new NotebookLMTool(), // NotebookLM: RAG completo com Google NotebookLM
       new SessionSearchTool(), // SessionSearch: FTS5-based conversation search
       new DelegateTool(), // DelegateTask: Spawn isolated subagents for parallel execution
-      // Document Governance Tools (Ollama Cloud + Mayan EDMS)
-      new DocumentUploadTool(), // Upload documents with security analysis
-      new DocumentQueryTool(), // Search documents in Mayan EDMS
-      new DocumentAnalyzeTool(), // AI-powered document analysis
-      new DocumentAuditTool(), // Generate governance audit reports
+      new RagIndexTool(),
+      new RagSearchTool(),
+      new RagAnalyzeTool(),
+      new RagAuditTool(),
     ]);
 
     console.log(`✅ Registered ${ToolRegistry.getAllNames().length} tools`);
@@ -497,6 +496,13 @@ class GueClaw {
     try {
       console.log('🚀 Starting GueClaw Agent...');
 
+      // Connect RAG database (optional — silently skipped if RAG_POSTGRES_URL not set)
+      try {
+        await RagDatabase.getInstance().connect();
+      } catch (ragErr: any) {
+        console.warn(`⚠️ RAG database skipped: ${ragErr.message}`);
+      }
+
       // Initialize MCP servers and register their tools
       const mcpConfigPath = path.resolve(
         process.env.WORKSPACE_ROOT ?? process.cwd(),
@@ -564,6 +570,7 @@ await this.bot.start();
     await MCPManager.getInstance().shutdown();
     await this.bot.stop();
     DatabaseConnection.close();
+    await RagDatabase.getInstance().close();
     
     console.log('✅ Shutdown complete');
     process.exit(0);

@@ -11,7 +11,7 @@ import { CostTracker } from '../../services/cost-tracker';
  */
 export class OpenRouterProvider implements ILLMProvider {
   readonly name = 'openrouter';
-  readonly supportsToolCalls = false; // OpenRouter API does not expose tool calls in the same format; can be extended
+  readonly supportsToolCalls = true;
   readonly supportsStreaming = false; // Not implemented for free tier
   private client: AxiosInstance;
   private model: string;
@@ -43,12 +43,20 @@ export class OpenRouterProvider implements ILLMProvider {
   }
 
   async generateCompletion(messages: Message[], opts?: CompletionOptions): Promise<LLMResponse> {
-    const payload = {
+    const payload: Record<string, any> = {
       model: this.model,
       messages,
       max_tokens: opts?.maxTokens ?? this.maxTokens,
       temperature: opts?.temperature ?? this.temperature,
     };
+
+    if (opts?.tools?.length) {
+      payload.tools = opts.tools.map(t => ({
+        type: 'function',
+        function: { name: t.name, description: t.description, parameters: t.parameters },
+      }));
+      payload.tool_choice = 'auto';
+    }
     const start = Date.now();
     const resp = await this.client.post('/chat/completions', payload);
     const duration = (Date.now() - start) / 1000;
