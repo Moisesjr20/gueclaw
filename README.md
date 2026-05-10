@@ -1,27 +1,43 @@
 # 🤖 GueClaw Agent - VPS Edition
 
-**GueClaw** é um agente de IA pessoal projetado para operar completamente em uma VPS, com controle total do ambiente via Telegram. Alimentado por múltiplos LLMs com **Smart Routing automático** (GitHub Copilot, DeepSeek, OpenRouter, Anthropic, Gemini), ele gerencia Docker, executa comandos, processa arquivos multimodais e pode criar suas próprias skills.
+**GueClaw** é um agente de IA pessoal projetado para operar completamente em uma VPS, com controle total do ambiente via Telegram. Alimentado por múltiplos LLMs com **CoT Routing automático** (DeepSeek R1 classifica cada mensagem e roteia para 7 especialistas via OpenRouter), inclui **RAG Profundo** (PostgreSQL + pgvector para busca semântica em documentos), gerencia Docker, executa comandos, processa arquivos multimodais e pode criar suas próprias skills.
 
 ---
 
 ## ✨ Características Principais
 
-### 🧠 **Multi-LLM Support com Smart Routing**
-- **Smart Model Routing**: Escolha automática entre modelo rápido/barato e poderoso baseado na complexidade da tarefa
-- **GitHub Copilot OAuth**: Claude 4.5, GPT-5.4, Gemini 3 via Copilot Pro ($10/mo)
-- **OpenRouter**: Acesso a 200+ modelos (Claude, GPT, Gemini, Llama, Qwen, etc)
-- **DeepSeek**: Fast (deepseek-chat) + Reasoner (deepseek-reasoner)
-- **Anthropic Direct**: Claude Opus 4.7, Sonnet 4.6, Haiku 4.5
-- **Google Gemini**: Gemini 3 Pro/Flash via AI Studio
-- **OpenAI Direct**: GPT-5.4, GPT-5.3 Codex
-- Seleção flexível: automática ou manual via configuração
+### 🔀 **CoT Routing — 7 Modelos Especialistas**
 
-### 🔀 **Intelligent Model Selection**
-O GueClaw analisa cada mensagem e escolhe automaticamente o melhor modelo:
-- **Tarefas simples** (greetings, perguntas rápidas) → Modelo rápido/barato (DeepSeek Fast)
-- **Tarefas complexas** (código, debugging, análise) → Modelo poderoso (GitHub Copilot)
-- **Economia de ~45%** vs usar sempre modelo caro
-- **Zero troca manual** de modelos
+O GueClaw usa **DeepSeek R1 como triage inteligente**: cada mensagem é classificada com Chain-of-Thought antes de ser roteada para o modelo mais adequado.
+
+| Categoria | Modelo Padrão | Quando usar |
+|-----------|--------------|-------------|
+| `reasoning` | deepseek/deepseek-r1 | Matemática, lógica, análise estratégica |
+| `agentic` | moonshotai/kimi-k2 | Docker, shell, automação, ferramentas |
+| `text` | qwen/qwen3-235b-a22b | Redação, emails, relatórios, tradução |
+| `fast` | google/gemma-3-27b-it | Saudações, perguntas simples, respostas rápidas |
+| `longoutput` | thudm/glm-z1-32b | Documentos longos, código extenso |
+| `code` | deepseek/deepseek-r1 | TypeScript, Python, debugging, review |
+| `fallback` | deepseek/deepseek-chat-v3-0324 | Qualquer categoria não reconhecida |
+
+**Fallback automático**: se o CoT falhar (rede, JSON inválido), usa heurística local instantânea (regex + comprimento).
+
+### 📚 **RAG Profundo (PostgreSQL + pgvector)**
+
+Indexe documentos e faça buscas semânticas com embeddings de alta qualidade:
+
+- **PostgreSQL + pgvector**: armazenamento vetorial com operador `<=>` (cosine distance)
+- **Embedding**: `openai/text-embedding-3-small` via OpenRouter (1536 dimensões)
+- **Segurança**: análise de PII automática, classificação `public/internal/confidential/secret`
+- **Chunking**: parágrafos de ~500 tokens com overlap configurável
+- **4 ferramentas RAG**: index, search, analyze, audit
+
+### 🧠 **Multi-LLM Support**
+- **OpenRouter**: Acesso a 200+ modelos — único API key para todos os especialistas
+- **DeepSeek**: Fast (deepseek-chat) + Reasoner (deepseek-r1) direto
+- **Anthropic Direct**: Claude Opus 4.7, Sonnet 4.6, Haiku 4.5
+- **Google Gemini**: Gemini Pro/Flash via AI Studio
+- **OpenAI Direct**: GPT-4o, GPT-4 Turbo
 
 ### 🛠️ **Controle Total da VPS**
 - Execução de comandos shell com acesso total
@@ -32,7 +48,7 @@ O GueClaw analisa cada mensagem e escolhe automaticamente o melhor modelo:
 ### 📚 **Sistema de Skills Modular**
 - Hot-reload de skills sem reiniciar o agente
 - Skill de **self-improvement**: o agente pode criar suas próprias skills
-- Sistema de roteamento inteligente para escolher a skill apropriada
+- Roteamento inteligente para escolher a skill apropriada
 
 ### 🎛️ **Multimodal Input/Output**
 - ✅ **Input**: PDF, CSV, imagens, áudio/voz, texto
@@ -44,23 +60,20 @@ O GueClaw analisa cada mensagem e escolhe automaticamente o melhor modelo:
 - Histórico de conversas com janela de contexto configurável
 - Cleanup automático de conversas antigas
 
-### � **Context Files** (Novo!)
+### 📁 **Context Files**
 - Sistema de contexto pessoal injetado automaticamente em cada conversa
 - Elimina a necessidade de repetir informações sobre você, preferências e projetos
-- Arquivos `.gueclaw/context.md` e `.gueclaw/projects/*.md` carregados silenciosamente
 - Gerenciamento via comando `/context [show|create|reload]`
-- Suporte a múltiplos projetos com contextos específicos
-### 👥 **Subagentes Paralelos** (Novo!)
+
+### 👥 **Subagentes Paralelos**
 - Sistema de delegação de tarefas para execução paralela
 - Contexto isolado: cada subagente tem seu próprio histórico
-- Restricted toolsets: ferramentas bloqueadas para segurança (delegate, clarify, memory_write, etc)
-- Timeout e error isolation: falha em uma tarefa não afeta outras
 - Max concurrent: 3-5 tarefas simultâneas com queue FIFO
-- Performance: ~3x mais rápido que execução sequencial
-- Use cases: análise de múltiplos arquivos, operações independentes, paralelização de builds/testes
-### �🔒 **Segurança**
+
+### 🔒 **Segurança**
 - Whitelist estrita baseada em IDs do Telegram
-- Variáveis de ambiente para credenciais VPS
+- Análise automática de PII em documentos indexados
+- Varredura de segurança diária da VPS (SecurityMonitor)
 - Logs detalhados de todas as operações
 
 ---
@@ -68,142 +81,99 @@ O GueClaw analisa cada mensagem e escolhe automaticamente o melhor modelo:
 ## 📋 Pré-requisitos
 
 ### VPS Requirements
-- **OS**: Ubuntu 20.04+ / Debian 11+ (recomendado)
-- **RAM**: Mínimo 2GB (recomendado 4GB+)
-- **Disk**: 10GB+ livres
+- **OS**: Ubuntu 20.04+ / Debian 11+
+- **RAM**: Mínimo 2GB (recomendado 4GB+ com RAG)
+- **Disk**: 20GB+ livres (incluindo PostgreSQL)
 - **Node.js**: v20.0.0+
-- **Docker**: Instalado e rodando (opcional mas recomendado)
+- **Docker**: Instalado e rodando (obrigatório para RAG)
 
 ### Serviços Externos
 - **Telegram Bot Token**: Crie um bot via [@BotFather](https://t.me/BotFather)
-- **LLM API Key**: Escolha uma das opções:
-  - **OpenAI API**: [platform.openai.com](https://platform.openai.com) (recomendado)
-  - **GitHub Models**: Token GitHub com Copilot subscription
-  - **DeepSeek API**: [platform.deepseek.com](https://platform.deepseek.com)
-
-> 💡 **Configurar GitHub Copilot?** Veja o guia detalhado em [GITHUB-COPILOT-SETUP.md](GITHUB-COPILOT-SETUP.md)
+- **OpenRouter API Key**: [openrouter.ai](https://openrouter.ai) — único key para todos os modelos
 
 ---
 
 ## 🚀 Instalação
 
-### Método 1: One-Line Installer (Recomendado)
+### 1. Clone o Repositório
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Moisesjr20/gueclaw/main/scripts/install.sh | bash
-```
-
-Isso irá:
-- ✅ Verificar pré-requisitos (Node.js 20+, npm, git)
-- ✅ Clonar o repositório
-- ✅ Instalar dependências e build
-- ✅ Wizard de configuração interativo
-- ✅ Setup PM2 (auto-start on boot)
-
-📖 **[Guia completo de instalação](INSTALL.md)**
-
-### Método 2: Instalação Manual
-
-#### 1. Clone o Repositório
-
-```bash
-cd /opt  # ou diretório de sua escolha
+cd /opt
 git clone https://github.com/Moisesjr20/gueclaw.git gueclaw-agent
 cd gueclaw-agent
 ```
 
-#### 2. Instale Dependências
+### 2. Instale Dependências e Build
 
 ```bash
-# Certifique-se de que o Node.js 20+ está instalado
-node --version
-
-# Instale as dependências
 npm install
-```
-
-#### 3. Build
-
-```bash
 npm run build
 ```
 
-#### 4. Configure Variáveis de Ambiente
+### 3. Configure Variáveis de Ambiente
 
 ```bash
 cp .env.example .env
-nano .env  # ou use vim/editor de sua preferência
+nano .env
 ```
 
-Preencha as variáveis essenciais:
+#### Configuração Mínima (sem RAG)
 
 ```env
 # Telegram
 TELEGRAM_BOT_TOKEN=123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11
-TELEGRAM_ALLOWED_USER_IDS=123456789,987654321
+TELEGRAM_ALLOWED_USER_IDS=123456789
 
-# LLM Provider (escolha uma das opções)
-# Opção 1: GitHub Copilot / OpenAI (recomendado)
-OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxx
-OPENAI_MODEL=gpt-4o
-DEFAULT_PROVIDER=github-copilot
+# OpenRouter (principal)
+OPENROUTER_API_KEY=sk-or-xxxxxxxxxxxxx
+OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+OPENROUTER_MODEL=deepseek/deepseek-r1
 
-# Opção 2: DeepSeek (alternativo)
-# DEEPSEEK_API_KEY=sk-xxxxxxxxxxxxx
-# DEEPSEEK_BASE_URL=https://api.deepseek.com/v1
-# DEEPSEEK_MODEL_FAST=deepseek-chat
-# DEEPSEEK_MODEL_REASONING=deepseek-reasoner
-# DEFAULT_PROVIDER=deepseek
-
-# Agent Configuration
+# Agent
 MAX_ITERATIONS=5
 MEMORY_WINDOW_SIZE=10
-
-# VPS Configuration (para o agente acessar a própria VPS)
-VPS_HOST=localhost
-VPS_PORT=22
-VPS_USER=root
-VPS_SSH_KEY_PATH=/root/.ssh/id_rsa
 ```
 
-### 4. Crie Diretórios Necessários
+#### Ativar CoT Routing (Recomendado)
 
-```bash
-mkdir -p data tmp logs .agents/skills
+```env
+# CoT Triage — classifica via DeepSeek R1
+ROUTER_COT_ENABLED=true
+ROUTER_TRIAGE_MODEL=deepseek/deepseek-r1
+
+# Modelos especialistas (override por categoria)
+ROUTER_MODEL_REASONING=deepseek/deepseek-r1
+ROUTER_MODEL_AGENTIC=moonshotai/kimi-k2
+ROUTER_MODEL_TEXT=qwen/qwen3-235b-a22b
+ROUTER_MODEL_FAST=google/gemma-3-27b-it
+ROUTER_MODEL_LONGOUTPUT=thudm/glm-z1-32b
+ROUTER_MODEL_CODE=deepseek/deepseek-r1
+ROUTER_MODEL_FALLBACK=deepseek/deepseek-chat-v3-0324
 ```
 
-### 5. Compile o TypeScript
+#### Ativar RAG Profundo (PostgreSQL + pgvector)
 
-```bash
-npm run build
+```env
+# PostgreSQL RAG
+RAG_POSTGRES_URL=postgresql://gueclaw:changeme@localhost:5433/gueclaw_rag
+RAG_DOCUMENTS_DIR=./data/documents
+RAG_EMBEDDING_MODEL=openai/text-embedding-3-small
+RAG_CHUNK_SIZE=500
+RAG_CHUNK_OVERLAP=50
+RAG_TOP_K=5
 ```
 
-### 6. Teste a Instalação
+### 4. Suba o PostgreSQL RAG (se usar RAG)
 
 ```bash
+docker compose -f deploy/postgres-rag/docker-compose.yml up -d
+```
+
+### 5. Crie Diretórios e Inicie
+
+```bash
+mkdir -p data/documents tmp logs .agents/skills
 npm run dev
-```
-
-Você deve ver:
-
-```
-✅ Environment variables validated
-✅ Database connected at ./data/gueclaw.db
-📊 Database schema initialized
-✅ DeepSeek providers initialized (fast + reasoner)
-🔧 Registered tools...
-✅ Registered 4 tools
-📚 Loading skills...
-✅ Loaded 2 skills
-
-╔══════════════════════════════════════════════════╗
-║        🤖 GueClaw Agent - VPS Edition           ║
-║        Powered by DeepSeek & Telegram           ║
-╚══════════════════════════════════════════════════╝
-
-🚀 Starting GueClaw Agent...
-📡 Telegram polling started
-✅ Bot is running! Send a message to get started.
 ```
 
 ---
@@ -212,15 +182,14 @@ Você deve ver:
 
 ### Comandos do Bot
 
-No Telegram, use os seguintes comandos:
-
 - `/start` - Mensagem de boas-vindas
 - `/help` - Mostrar ajuda
-- `/stats` - Ver estatísticas do agente (skills carregadas)
+- `/stats` - Ver estatísticas do agente
 - `/reload` - Recarregar skills (hot-reload)
-- `/context [show|create|reload]` - Gerenciar arquivos de contexto pessoal
+- `/context [show|create|reload]` - Gerenciar contexto pessoal
 - `/cost [today|week|month]` - Ver custos de uso do LLM
 - `/tasks` - Listar tarefas ativas
+- `/cron list|status|delete|pause|trigger` - Gerenciar jobs agendados
 
 ### Exemplos de Uso
 
@@ -229,345 +198,169 @@ No Telegram, use os seguintes comandos:
 ```
 📱 Você: Mostre o uso de disco da VPS
 
-🤖 GueClaw: [Executa: df -h]
+🤖 GueClaw: [Router → agentic → kimi-k2]
+[Executa: df -h]
 Filesystem      Size  Used Avail Use% Mounted on
 /dev/vda1        80G   45G   32G  59% /
-...
 ```
 
-#### 2. **Docker Management**
+#### 2. **Busca em Documentos (RAG)**
+
+```
+📱 Você: Quais foram as despesas de marketing em março?
+
+🤖 GueClaw: [Router → reasoning → deepseek-r1]
+[rag_search: "despesas de marketing março"]
+🔍 3 resultado(s) encontrado(s):
+---
+**[1] relatorio-q1-2026.pdf** (91.2% relevância)
+🔒 confidential | 🏷️ financeiro | Chunk #3
+
+...R$ 45.000 em campanhas de marketing digital em março...
+```
+
+#### 3. **Indexar Documentos no RAG**
+
+```
+📱 Você: Indexe o arquivo /data/contratos/contrato-cliente-abc.pdf
+
+🤖 GueClaw: [rag_index: index /data/contratos/contrato-cliente-abc.pdf]
+✅ Indexado com sucesso!
+📄 Hash: a3f9e2b1...
+🧩 Chunks: 12
+🔒 Segurança: confidential
+🔍 PII detectado: 3 ocorrência(s)
+```
+
+#### 4. **Docker Management**
 
 ```
 📱 Você: Liste todos os containers Docker
 
-🤖 GueClaw: [Executa: docker ps -a]
+🤖 GueClaw: [Router → agentic → kimi-k2]
+[Executa: docker ps -a]
 CONTAINER ID   IMAGE          STATUS         NAMES
 abc123...      nginx:latest   Up 2 days      web-server
 def456...      postgres:14    Up 5 days      database
 ```
 
-#### 3. **Criação de Skills**
+#### 5. **Criação de Skills**
 
 ```
 📱 Você: Crie uma skill para fazer backup do PostgreSQL
 
-🤖 GueClaw: [Usa skill: self-improvement]
-✅ Skill 'postgres-backup' criada com sucesso!
-
+🤖 GueClaw: [Router → code → deepseek-r1]
+✅ Skill 'postgres-backup' criada!
 Localização: .agents/skills/postgres-backup/SKILL.md
-
-Para usar: "Faça um backup do banco de dados postgres"
-```
-
-#### 4. **Processamento de Arquivos**
-
-```
-📱 Você: [Envia um PDF]
-         Resuma este documento
-
-🤖 GueClaw: [Processa o PDF]
-Aqui está um resumo do documento:
-- Contém 15 páginas sobre...
-- Principais tópicos: ...
-```
-
-#### 5. **APIs Externas**
-
-```
-📱 Você: Faça uma requisição GET para https://api.github.com/repos/torvalds/linux
-
-🤖 GueClaw: [Executa: api_request]
-{
-  "name": "linux",
-  "full_name": "torvalds/linux",
-  "stargazers_count": 150000,
-  ...
-}
 ```
 
 ---
 
-## 🧠 Configuração Multi-LLM
+## 📚 RAG Profundo
 
-GueClaw v2.1.0 suporta múltiplos provedores de LLM com **Smart Model Routing** automático!
+O GueClaw inclui um sistema completo de RAG (Retrieval-Augmented Generation) baseado em PostgreSQL + pgvector para busca semântica em documentos corporativos.
 
-### Provedores Suportados
-
-| Provider | Models | Cost | Use Case |
-|----------|--------|------|----------|
-| **GitHub Copilot OAuth** | Claude 4.5, GPT-5.4, Gemini 3 | $10/mo | ⭐ Best overall |
-| **DeepSeek** | deepseek-chat, deepseek-reasoner | $0.14-0.55/M | 💰 Cheapest |
-| **OpenRouter** | 200+ models | Pay-as-you-go | 🔀 Most flexible |
-| **Anthropic** | Claude Opus/Sonnet/Haiku | $3-15/M | 🧠 Most powerful |
-| **Gemini** | Gemini 3 Pro/Flash | Free tier | 🆓 Free option |
-| **OpenAI** | GPT-5.4, GPT-5.3 Codex | $0.50-15/M | 🏢 Enterprise |
-
-### Smart Model Routing
-
-O GueClaw escolhe automaticamente o modelo mais adequado para cada tarefa:
+### Arquitetura
 
 ```
-User: "Olá"
-→ Simple task (4 chars, no keywords)
-→ DeepSeek Fast ($0.14/M) ✅
-
-User: "Debug este código Python:\n```python\ndef foo():\n  ..."
-→ Complex task (multiline, code block, keyword: "debug")
-→ GitHub Copilot Claude 4.5 ✅
+Documento → RagIndexer → chunks → embeddings → PostgreSQL (pgvector)
+Pergunta  → embedding  → cosine distance search → top-K chunks → LLM
 ```
 
-**Economia**: ~45% de custo vs usar sempre modelo caro  
-**Qualidade**: Zero falhas em tarefas complexas
-
-### Configuração Rápida
-
-#### 1. GitHub Copilot (Recomendado)
+### Setup PostgreSQL + pgvector
 
 ```bash
-# .env
-GITHUB_COPILOT_USE_OAUTH=true
-GITHUB_COPILOT_MODEL=claude-sonnet-4.5
+# Suba o container
+docker compose -f deploy/postgres-rag/docker-compose.yml up -d
 
-# Smart routing (usa DeepSeek para tarefas simples)
-SMART_ROUTING_ENABLED=true
-SMART_ROUTING_CHEAP_PROVIDER=deepseek
-SMART_ROUTING_CHEAP_MODEL=deepseek-chat
-
-# Autentica via OAuth
-npm run copilot:auth
+# Configure o .env
+RAG_POSTGRES_URL=postgresql://gueclaw:SENHA_FORTE@localhost:5433/gueclaw_rag
 ```
 
-#### 2. OpenRouter (200+ Modelos)
+O schema é criado automaticamente na primeira conexão (`document_metadata` + `document_chunks` com `vector(1536)`).
 
-```bash
-# .env
-OPENROUTER_API_KEY=sk-or-xxx
-OPENROUTER_MODEL=anthropic/claude-sonnet-4.5
+### 4 Ferramentas RAG
 
-# Veja todos os modelos disponíveis
-# https://openrouter.ai/models
+| Ferramenta | Descrição |
+|------------|-----------|
+| `rag_index` | Indexa arquivos PDF/texto; actions: `index`, `remove` |
+| `rag_search` | Busca semântica com filtros de tags/segurança/arquivo |
+| `rag_analyze` | Retorna contexto formatado para injeção no prompt |
+| `rag_audit` | Auditoria: `list`, `stats`, `get` de documentos indexados |
+
+### Níveis de Segurança
+
+- `public` — documento sem restrições
+- `internal` — uso interno da empresa
+- `confidential` — acesso restrito
+- `secret` — máxima restrição
+
+A classificação é automática via análise de PII (regex) no momento da indexação.
+
+### Exemplo de Fluxo Completo
+
 ```
-
-#### 3. DeepSeek (Mais Barato)
-
-```bash
-# .env
-DEEPSEEK_API_KEY=sk-xxx
-DEEPSEEK_MODEL_FAST=deepseek-chat
-DEEPSEEK_MODEL_REASONING=deepseek-reasoner
-
-SMART_ROUTING_ENABLED=true
+1. Indexar: rag_index {action: "index", filePath: "/docs/relatorio.pdf", tags: ["financeiro"]}
+2. Buscar:  rag_search {query: "despesas Q1 2026", topK: 5, tags: ["financeiro"]}
+3. Analisar: rag_analyze {query: "despesas Q1", minSimilarity: 0.4} → bloco para prompt
+4. Auditar: rag_audit {action: "stats"} → total docs, chunks, tamanho
 ```
-
-#### 4. Anthropic (Claude Direto)
-
-```bash
-# .env
-ANTHROPIC_API_KEY=sk-ant-xxx
-ANTHROPIC_MODEL=claude-sonnet-4-6
-```
-
-#### 5. Google Gemini (Free Tier)
-
-```bash
-# .env
-GEMINI_API_KEY=xxx
-GEMINI_MODEL=gemini-3-pro-preview
-```
-
-### Configuração de Smart Routing
-
-```bash
-# .env
-SMART_ROUTING_ENABLED=true           # Ativa routing automático
-SMART_ROUTING_CHEAP_PROVIDER=deepseek # Provider para tarefas simples
-SMART_ROUTING_CHEAP_MODEL=deepseek-chat
-SMART_ROUTING_MAX_CHARS=160          # Máx. caracteres para simple
-SMART_ROUTING_MAX_WORDS=28           # Máx. palavras para simple
-DEBUG_ROUTING=true                   # Log de routing decisions
-```
-
-### Keywords de Complexidade
-
-Estas keywords acionam automaticamente modelo poderoso:
-
-```typescript
-debug, implement, refactor, patch, analyze, architecture, 
-design, compare, benchmark, optimize, review, terminal, 
-tool, test, plan, delegate, cron, docker, deploy, migrate, 
-database, sql, api, function, class, algorithm, performance, 
-security, bug, fix, problem
-```
-
-### Múltiplos Providers Simultaneamente
-
-Você pode configurar vários providers ao mesmo tempo:
-
-```bash
-# Primary: GitHub Copilot
-GITHUB_COPILOT_USE_OAUTH=true
-GITHUB_COPILOT_MODEL=claude-sonnet-4.5
-
-# Fallback: OpenRouter
-OPENROUTER_API_KEY=sk-or-xxx
-OPENROUTER_MODEL=anthropic/claude-sonnet-4.5
-
-# Cheap tasks: DeepSeek
-DEEPSEEK_API_KEY=sk-xxx
-
-# Smart routing
-SMART_ROUTING_ENABLED=true
-SMART_ROUTING_CHEAP_PROVIDER=deepseek
-SMART_ROUTING_CHEAP_MODEL=deepseek-chat
-```
-
-O GueClaw usará automaticamente:
-- DeepSeek para tarefas simples (greetings, perguntas curtas)
-- GitHub Copilot para tarefas complexas (código, debugging)
-- OpenRouter como fallback se Copilot falhar
-
-📖 **[Análise completa do sistema Multi-LLM](ANALISE-MULTI-LLM-SOLUTION.md)**
 
 ---
 
-## 📁 Context Files
+## 🔀 CoT Routing — Como Funciona
 
-O GueClaw agora suporta **Context Files** — arquivos de contexto pessoal que são automaticamente injetados em cada conversa, eliminando a necessidade de repetir informações sobre você, seus projetos e preferências.
-
-### Como Funciona
-
-1. **Crie o contexto inicial:**
-   ```bash
-   # No Telegram
-   /context create
-   ```
-
-2. **Edite o arquivo `.gueclaw/context.md`** com suas informações:
-   ```markdown
-   # GueClaw Context File
-   
-   ## 👤 Who Am I
-   - **Nome:** Moisés
-   - **Fuso Horário:** America/Sao_Paulo
-   - **Idioma Preferido:** pt-BR
-   
-   ## ⚙️ My Preferences
-   - Sempre gerar testes para código novo
-   - Usar TypeScript strict mode
-   - Seguir Clean Architecture
-   
-   ## 🚀 Active Projects
-   ### GueClaw Agent
-   - Tech Stack: Node.js, TypeScript, Telegram Bot API
-   - Status: Production
-   ```
-
-3. **O contexto é carregado automaticamente** na próxima conversa!
-
-### Comandos Disponíveis
-
-- `/context show` - Ver arquivos de contexto carregados
-- `/context create` - Criar template de contexto padrão
-- `/context reload` - Forçar recarregamento do cache
-
-### Estrutura de Arquivos
+### Fluxo de Classificação
 
 ```
-.gueclaw/
-├── context.md          # Contexto principal (sempre carregado)
-├── preferences.md      # Preferências opcionais
-├── projects/           # Contextos específicos por projeto
-│   ├── project-a.md
-│   └── project-b.md
-└── README.md          # Documentação
+Mensagem do usuário
+       ↓
+ROUTER_COT_ENABLED=true?
+       ↓ sim              ↓ não
+DeepSeek R1 (8s timeout)  Heurística local (instantânea)
+       ↓
+JSON: {category, confidence, reasoning}
+       ↓
+Válido? categoria em lista?
+       ↓ sim         ↓ não
+Roteia para       Fallback para
+especialista      heurística
 ```
 
-### Priorização
+### Heurística Local (Fallback)
 
-Os arquivos são carregados nesta ordem:
-1. `.gueclaw/context.md` (principal)
-2. `.gueclaw/preferences.md` (se existir)
-3. `.gueclaw/projects/*.md` (todos os arquivos)
+Quando o CoT não está disponível ou falha:
 
-### Segurança
+```
+mensagem ≤ 6 palavras e sem keywords → fast
+contém: typescript|python|código|debug|função → code
+contém: docker|kubectl|bash|execute|deploy → agentic
+contém: analise|compare|calcule|demonstre → reasoning
+contém: escreva|redija|artigo|relatório → text
+padrão → fallback
+```
 
-⚠️ **IMPORTANTE:** 
-- A pasta `.gueclaw/` está no `.gitignore` por padrão
-- **NUNCA** commite estes arquivos (contêm dados pessoais)
-- Não inclua secrets — use variáveis de ambiente
+### Configuração de Logging
+
+```env
+DEBUG_ROUTING=true   # Loga: 🔀 Router [code] → deepseek-r1 (CoT, 91.2%, 234ms)
+```
 
 ---
 
 ## ⏰ Cron Scheduler
 
-O GueClaw agora suporta **agendamento de tarefas automatizadas** que executam prompts em horários específicos, intervalos regulares ou datas únicas.
+Agendamento de tarefas automatizadas com acesso a todas as ferramentas.
 
-### Características
-
-- ✅ **4 Formatos de Schedule:** Intervalos simples (`30m`, `2h`), cron expressions (`0 7 * * *`), ISO timestamps, execuções únicas
-- ✅ **Execução via AgentLoop:** Jobs têm acesso a todas as ferramentas e contexto
-- ✅ **3 Modos de Entrega:** Telegram, arquivo local, ou silencioso
-- ✅ **Gerenciamento Completo:** Criar, listar, pausar, retomar, deletar, executar manualmente
-- ✅ **Histórico de Execuções:** Saída, duração, tokens usados, ferramentas chamadas
-
-### Comandos Disponíveis
+### Comandos
 
 ```bash
-# Listar todos os jobs
-/cron list
-
-# Ver status do scheduler
-/cron status
-
-# Deletar um job
-/cron delete <job-id>
-
-# Pausar/retomar um job
-/cron pause <job-id>
-/cron resume <job-id>
-
-# Executar manualmente
-/cron trigger <job-id>
-
-# Ajuda
-/cron help
-```
-
-### Exemplos de Uso
-
-#### 1. Agenda Diária (Via LLM)
-
-```
-📱 Você: Crie um job chamado 'Agenda Diária' que todo dia às 7h me envie um resumo dos eventos do Google Calendar
-
-🤖 GueClaw: [Usa cron_manager tool]
-✅ Job criado com sucesso!
-
-📋 Agenda Diária
-⏰ Schedule: 0 7 * * * (At 7:00 AM every day)
-📤 Delivery: telegram
-🆔 ID: abc-123-def
-
-Próxima execução: amanhã às 7:00
-```
-
-#### 2. Backup Diário
-
-```
-📱 Você: Crie um job de backup diário às 2h que execute o backup do banco de dados, mas não me envie mensagem
-
-🤖 GueClaw: ✅ Job de backup criado!
-O backup será executado às 2h silenciosamente.
-Output será salvo em data/cron/output/
-```
-
-#### 3. Relatório Semanal
-
-```
-📱 Você: Toda segunda às 9h me envie um relatório com estatísticas dos últimos 7 dias
-
-🤖 GueClaw: ✅ Job 'Relatório Semanal' criado!
-Próxima execução: segunda-feira 09:00
+/cron list              # Listar todos os jobs
+/cron status            # Status do scheduler
+/cron delete <job-id>   # Deletar job
+/cron pause <job-id>    # Pausar
+/cron resume <job-id>   # Retomar
+/cron trigger <job-id>  # Executar agora
 ```
 
 ### Formatos de Schedule
@@ -576,126 +369,16 @@ Próxima execução: segunda-feira 09:00
 |---------|---------|-----------|
 | **Intervalo** | `30m`, `2h`, `1d` | A cada X minutos/horas/dias |
 | **Cron** | `0 7 * * *` | Todo dia às 7h |
-| **ISO** | `2026-04-17T14:00` | Execução única no horário especificado |
-| **Once** | `once 30m` | Daqui a 30 minutos (desabilita após executar) |
-
-### Documentação Completa
-
-Para documentação detalhada sobre API, troubleshooting e exemplos avançados, consulte:
-
-📚 **[docs/cron-scheduler.md](docs/cron-scheduler.md)**
-
----
-
-## 🔄 Atualizando o GueClaw
-
-Mantenha seu GueClaw sempre atualizado com as últimas features e correções:
-
-### Método 1: Update Script (Recomendado)
-
-```bash
-cd ~/gueclaw-agent
-./scripts/update.sh
-```
-
-O script irá:
-- ✅ Fazer backup do `.env`
-- ✅ Detectar mudanças locais (stash se necessário)
-- ✅ Fazer pull do GitHub
-- ✅ Atualizar dependências (`npm install`)
-- ✅ Rebuild TypeScript
-- ✅ Reiniciar PM2 automaticamente
-
-### Método 2: Manual
-
-```bash
-cd ~/gueclaw-agent
-
-# Backup .env
-cp .env .env.backup
-
-# Pull updates
-git pull origin main
-
-# Update dependencies
-npm install
-
-# Rebuild
-npm run build
-
-# Restart
-pm2 restart gueclaw-agent
-```
-
-### Verificar Versão
-
-```bash
-# No Telegram
-/version
-
-# Ou via CLI
-cat package.json | grep version
-```
-
-### Changelog
-
-Veja o que mudou em cada versão:
-
-- **v2.1.0** (22/04/2026) - Multi-LLM + Smart Routing, One-line installer
-- **v2.0.0** (22/04/2026) - Error Recovery System, Continue button
-- **v1.9.0** - Context Files, Cron Scheduler
-- **v1.8.0** - Subagentes paralelos, DOE architecture
-
-📖 **[CHANGELOG completo](CHANGELOG.md)**
+| **ISO** | `2026-04-17T14:00` | Execução única |
+| **Once** | `once 30m` | Daqui a 30 minutos, uma vez |
 
 ---
 
 ## 🏗️ Arquitetura DVACE
 
-**GueClaw** implementa a arquitetura **DVACE** (inspired by Claude Desktop's `dvace` codebase), garantindo execução real de ferramentas e rastreamento preciso de tarefas.
+**DVACE** garante que o agente nunca reporte sucesso sem execução real de ferramentas.
 
-### 🎯 Problema Resolvido
-
-**Antes (Falso-Positivo):**
-```
-❌ LLM: "Vou fazer X, Y e Z"
-   → Mas não chama ferramentas
-   → Sistema marca sucesso SEM execução real
-```
-
-**Depois (DVACE):**
-```
-✅ Query Loop: finish_reason='tool_calls'
-   → BLOQUEIA resposta até executar tools
-   → Valida tool_executions > 0
-   → Marca sucesso APENAS com evidência real
-```
-
-### 🧩 Componentes Principais
-
-#### 1. **Command System** 
-Sistema de comandos estruturados que separa execução imediata de prompts para o LLM.
-
-- **LocalCommand**: Execução direta sem LLM (ex: `/status`, `/version`)
-- **PromptCommand**: Instrui o LLM com ferramentas específicas (ex: `/review`, `/commit`)
-- **AllowedTools Patterns**: Restringe ferramentas por comando
-  - Exact match: `FileRead`, `Bash`
-  - Wildcards: `Bash(git *)`, `FileWrite(*)`
-  - Negation: `!Bash(rm *)`, `!SSHExec(*)`
-
-**Exemplo:**
-```typescript
-// PromptCommand com restrições de segurança
-{
-  name: '/review',
-  allowedTools: ['FileRead(*)', 'grep_search', '!SSHExec(*)'],
-  systemPrompt: 'Faça code review sem alterar nada'
-}
-```
-
-#### 2. **Query Loop com Estados Validados**
-
-ReAct Pattern com **validação de estados terminais**:
+### ReAct Pattern com Estados Validados
 
 ```
 START → THINKING → TOOL_USE → THINKING → SUCCESS
@@ -703,278 +386,137 @@ START → THINKING → TOOL_USE → THINKING → SUCCESS
       MAX_ITER         ERROR
 ```
 
-**Regras Críticas:**
-- ✅ `finish_reason='tool_calls'` → CONTINUA loop (executa tools)
-- ✅ `finish_reason='stop'` → TERMINA loop
-- ❌ NUNCA termina em estado `TOOL_USE` sem executar
+**Regras críticas:**
+- `finish_reason='tool_calls'` → CONTINUA loop (executa tools)
+- `finish_reason='stop'` → TERMINA loop
+- Phase com `tool_executions = 0` → BLOQUEIA `completed`
+- Estados terminais (`completed/failed/killed`) → IMUTÁVEIS
 
-#### 3. **Tool Orchestration**
+### Execução de Ferramentas
 
-Execução inteligente de ferramentas:
-
-- **Concurrent**: Read-only tools executam em paralelo (FileRead, grep_search)
-- **Serial**: Write tools executam sequencialmente (FileWrite, Bash, SSHExec)
-- **Zero Skipping**: `executions.length === toolCalls.length` (SEMPRE)
-
-**Benefícios:**
-- ⚡ 3x mais rápido em leitura de múltiplos arquivos
-- 🔒 Seguro para operações de escrita (sem race conditions)
-
-#### 4. **Task Tracking com Estados Terminais**
-
-Sistema de rastreamento multi-fase com **estados imutáveis**:
-
-```typescript
-interface Task {
-  id: string;
-  status: 'pending' | 'in_progress' | 'completed' | 'failed' | 'killed';
-  phases: Phase[];
-}
-
-interface Phase {
-  id: string;
-  status: 'pending' | 'in_progress' | 'completed' | 'failed' | 'killed';
-  tool_executions: number;  // ← VALIDAÇÃO CRÍTICA
-  type: 'planning' | 'execution' | 'validation';
-}
-```
-
-**Regras de Validação:**
-- ✅ Phase com `tool_executions > 0` → Pode marcar `completed`
-- ❌ Phase com `tool_executions = 0` → BLOQUEIA `completed`
-- ✅ Planning phases → Podem completar sem tools
-- 🔒 Estados terminais (`completed`/`failed`/`killed`) → **IMUTÁVEIS**
-
-#### 5. **Tool Permissions**
-
-Controle granular de ferramentas por comando:
-
-```typescript
-// /review permite apenas leitura e análise
-allowedTools: [
-  'FileRead(*)',
-  'grep_search',
-  'semantic_search',
-  '!FileWrite(*)',   // Negação: bloqueia escrita
-  '!Bash(*)',        // Negação: bloqueia bash
-  '!SSHExec(*)'      // Negação: bloqueia SSH
-]
-
-// /commit permite apenas git
-allowedTools: [
-  'Bash(git *)',     // Apenas comandos git
-  '!Bash(rm *)',     // Bloqueia comandos destrutivos
-  '!Bash(sudo *)'
-]
-```
-
-#### 6. **In-Memory State Manager**
-
-Substituiu SQLite por **estado em memória** (performance + simplicidade):
-
-```typescript
-class StateManager {
-  private state: {
-    tasks: Map<string, Task>;
-    sessions: Map<string, ConversationSession>;
-    counters: { taskCount: number };
-  }
-  
-  // Task CRUD
-  setTask(task: Task): void
-  getTask(id: string): Task | undefined
-  updateTask(id: string, updates: Partial<Task>): void
-  
-  // Test isolation
-  reset(): void  // Limpa state para testes
-}
-```
-
-**Vantagens:**
-- ⚡ 10x mais rápido (sem I/O de disco)
-- 🧪 Testes isolados (resetStateForTests())
-- 🐛 Zero bugs de database (UPDATE, transactions)
-
-### 📊 Cobertura de Testes
-
-**121+ testes DVACE validando a arquitetura:**
-
-- Phase 1: Command System (16 testes)
-- Phase 2: Query Loop Validation (15 testes)
-- Phase 3: Tool Orchestration (39 testes)
-- Phase 4: Task System (14 testes)
-- Phase 5: Tool Permissions (27 testes)
-- Phase 6: False-Positive Prevention (10 testes)
-
-**Teste Crítico (False-Positive Prevention):**
-```typescript
-test('NUNCA reporta sucesso sem execução real', async () => {
-  // LLM promete "fazer X, Y, Z" mas não chama tools
-  const result = await agentLoop.run('FASE 1: X, FASE 2: Y, FASE 3: Z');
-  
-  const task = taskTracker.getTask(taskId);
-  
-  // VALIDAÇÕES:
-  expect(task.status).not.toBe('completed');  // Não marca sucesso
-  expect(task.phases[0].tool_executions).toBe(0);  // Sem execuções
-  expect(result).not.toContain('✅');  // Sem confirmação falsa
-});
-```
-
-### 🔍 Documentação Técnica
-
-Para detalhes completos da implementação:
-
-- [CHECKLIST-DVACE-REFACTOR.md](CHECKLIST-DVACE-REFACTOR.md) - Checklist completo das 7 fases
-- [DVACE-SOLUTION-ANALYSIS.md](DVACE-SOLUTION-ANALYSIS.md) - Análise do problema original
-- [docs/architecture/command-system.md](docs/architecture/command-system.md) - Command System detalhado
+- **Concurrent**: ferramentas read-only executam em paralelo (⚡ 3x mais rápido)
+- **Serial**: ferramentas de escrita executam sequencialmente (🔒 sem race conditions)
+- **Zero Skipping**: `executions.length === toolCalls.length` sempre
 
 ---
 
-## �🏗️ Estrutura do Projeto
+## 📊 Cobertura de Testes
+
+**284 testes unitários** validando toda a arquitetura:
+
+| Suite | Testes |
+|-------|--------|
+| DVACE — Command System | 16 |
+| DVACE — Query Loop Validation | 15 |
+| DVACE — Tool Orchestration | 39 |
+| DVACE — Task System | 14 |
+| DVACE — Tool Permissions | 27 |
+| DVACE — False-Positive Prevention | 10 |
+| RAG — RagSearcher | 14 |
+| RAG — RagIndexer | 10 |
+| LLM Router — CotTriage | 16 |
+| LLM Router — RouterConfig | 13 |
+| **Total** | **284** |
+
+```bash
+# Rodar testes unitários
+npm run test:unit
+
+# Todos os testes
+npm test
+```
+
+---
+
+## 🏗️ Estrutura do Projeto
 
 ```
 gueclaw-agent/
 ├── .agents/
-│   └── skills/               # Skills modulares
-│       ├── self-improvement/ # Skill para criar skills
-│       └── vps-manager/      # Gerenciamento VPS/Docker
+│   └── skills/                    # Skills modulares (hot-reload)
+│       ├── self-improvement/
+│       └── vps-manager/
 ├── data/
-│   └── gueclaw.db           # SQLite database
-├── logs/                     # Logs do sistema
-├── tmp/                      # Arquivos temporários
+│   ├── gueclaw.db                 # SQLite (memória do agente)
+│   └── documents/                 # Documentos para indexar no RAG
+├── deploy/
+│   └── postgres-rag/
+│       └── docker-compose.yml     # PostgreSQL + pgvector
+├── DOE/
+│   ├── Directives.md              # Protocolo de qualidade
+│   └── PLANO-DE-TESTES.md        # Plano de testes
+├── Plans/
+│   └── PLANO-REFATORACAO-RAG-LLM-ROUTING.md
 ├── src/
 │   ├── core/
-│   │   ├── agent-loop/       # ReAct Pattern
-│   │   ├── memory/           # SQLite repositories
-│   │   ├── providers/        # LLM providers (DeepSeek)
-│   │   ├── skills/           # Sistema de skills
+│   │   ├── agent-loop/            # ReAct Pattern
+│   │   ├── memory/                # SQLite repositories
+│   │   ├── providers/             # LLM providers
+│   │   │   ├── openrouter-provider.ts
+│   │   │   ├── provider-factory.ts  # CoT routing wired here
+│   │   │   └── ...
+│   │   ├── skills/                # Sistema de skills
 │   │   └── agent-controller.ts
 │   ├── handlers/
 │   │   ├── telegram-input-handler.ts
 │   │   └── telegram-output-handler.ts
+│   ├── services/
+│   │   ├── llm-router/            # CoT Routing
+│   │   │   ├── cot-triage.ts      # DeepSeek R1 classifier
+│   │   │   ├── router-config.ts   # 7 specialist models
+│   │   │   └── router-logger.ts   # Routing decision logs
+│   │   └── rag/                   # RAG Profundo
+│   │       ├── rag-database.ts    # PostgreSQL singleton
+│   │       ├── rag-indexer.ts     # PDF/text → chunks → embeddings
+│   │       ├── rag-searcher.ts    # Cosine distance search
+│   │       └── security-analyzer.ts  # PII detection
 │   ├── tools/
 │   │   ├── base-tool.ts
 │   │   ├── tool-registry.ts
+│   │   ├── rag-index-tool.ts      # rag_index
+│   │   ├── rag-search-tool.ts     # rag_search
+│   │   ├── rag-analyze-tool.ts    # rag_analyze
+│   │   ├── rag-audit-tool.ts      # rag_audit
 │   │   ├── vps-command-tool.ts
 │   │   ├── docker-tool.ts
 │   │   ├── file-operations-tool.ts
 │   │   └── api-request-tool.ts
 │   ├── types/
-│   │   └── index.ts
-│   └── index.ts             # Entry point
-├── .env                      # Environment variables
+│   │   ├── index.ts
+│   │   └── routing-types.ts       # RouterCategory, TriageDecision
+│   └── index.ts                   # Entry point
+├── tests/
+│   └── unit/
+│       ├── llm-router/
+│       │   ├── cot-triage.test.ts
+│       │   └── router-config.test.ts
+│       └── rag/
+│           ├── rag-indexer.test.ts
+│           └── rag-searcher.test.ts
+├── .env
 ├── package.json
-├── tsconfig.json
-└── README.md
+└── tsconfig.json
 ```
-
----
-
-## 🔧 Desenvolvimento
-
-### Adicionar Nova Tool
-
-1. Crie arquivo em `src/tools/`:
-
-```typescript
-import { BaseTool } from './base-tool';
-import { ToolDefinition } from '../core/providers/base-provider';
-import { ToolResult } from '../types';
-
-export class MyCustomTool extends BaseTool {
-  public readonly name = 'my_custom_tool';
-  public readonly description = 'Description of what it does';
-
-  public getDefinition(): ToolDefinition {
-    return {
-      name: this.name,
-      description: this.description,
-      parameters: {
-        type: 'object',
-        properties: {
-          param1: {
-            type: 'string',
-            description: 'Parameter description',
-          },
-        },
-        required: ['param1'],
-      },
-    };
-  }
-
-  public async execute(args: Record<string, any>): Promise<ToolResult> {
-    try {
-      this.validate(args, ['param1']);
-      // Implement logic here
-      return this.success('Operation completed');
-    } catch (error: any) {
-      return this.error(error.message);
-    }
-  }
-}
-```
-
-2. Registre em `src/index.ts`:
-
-```typescript
-import { MyCustomTool } from './tools/my-custom-tool';
-
-ToolRegistry.registerAll([
-  // ...existing tools
-  new MyCustomTool(),
-]);
-```
-
-### Criar Nova Skill
-
-Use o próprio agente:
-
-```
-📱 Você: Crie uma skill para [descrição da funcionalidade]
-```
-
-Ou manualmente:
-
-1. Crie pasta: `.agents/skills/minha-skill/`
-2. Crie `SKILL.md` com frontmatter YAML
-3. Use `/reload` para carregar
 
 ---
 
 ## 🚦 Rodando em Produção
 
-### 1. Usando PM2 (Recomendado)
+### 1. PM2 (Recomendado)
 
 ```bash
-# Instale PM2
 npm install -g pm2
-
-# Inicie o agente
 pm2 start dist/index.js --name gueclaw-agent
-
-# Configure para iniciar no boot
-pm2 startup
-pm2 save
-
-# Monitorar
-pm2 monit
-
-# Logs
+pm2 startup && pm2 save
 pm2 logs gueclaw-agent
-
-# Restart
-pm2 restart gueclaw-agent
 ```
 
-### 2. Como Systemd Service
-
-Crie `/etc/systemd/system/gueclaw.service`:
+### 2. Systemd
 
 ```ini
 [Unit]
 Description=GueClaw AI Agent
-After=network.target
+After=network.target docker.service
 
 [Service]
 Type=simple
@@ -983,45 +525,83 @@ WorkingDirectory=/opt/gueclaw-agent
 ExecStart=/usr/bin/node dist/index.js
 Restart=always
 RestartSec=10
-StandardOutput=journal
-StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
 ```
 
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable gueclaw
-sudo systemctl start gueclaw
-sudo systemctl status gueclaw
+### Checklist de Deploy VPS
 
-# Logs
-journalctl -u gueclaw -f
+```bash
+# 1. PostgreSQL RAG
+docker compose -f deploy/postgres-rag/docker-compose.yml up -d
+
+# 2. Verificar conexão
+psql $RAG_POSTGRES_URL -c "SELECT extversion FROM pg_extension WHERE extname='vector';"
+
+# 3. .env produção
+ROUTER_COT_ENABLED=true
+RAG_POSTGRES_URL=postgresql://gueclaw:SENHA_FORTE@localhost:5433/gueclaw_rag
+
+# 4. Build e start
+npm run build
+pm2 restart gueclaw-agent
+```
+
+---
+
+## 🔧 Desenvolvimento
+
+### Adicionar Nova Tool
+
+```typescript
+// src/tools/my-tool.ts
+import { BaseTool } from './base-tool';
+export class MyTool extends BaseTool {
+  public readonly name = 'my_tool';
+  public readonly description = 'O que a tool faz';
+
+  public getDefinition(): ToolDefinition { /* ... */ }
+  
+  public async execute(args: Record<string, any>): Promise<ToolResult> {
+    try {
+      return this.success('OK');
+    } catch (err: any) {
+      return this.error(err.message);
+    }
+  }
+}
+```
+
+Registre em `src/index.ts`:
+```typescript
+import { MyTool } from './tools/my-tool';
+// na função registerTools():
+new MyTool(),
+```
+
+### Rodar Testes
+
+```bash
+npm run test:unit    # Apenas unitários (sem dependências externas)
+npm test             # Todos os testes
+npm run test:watch   # Watch mode
 ```
 
 ---
 
 ## 📊 Monitoramento
 
-### Logs
-
 ```bash
-# Ver logs em tempo real (PM2)
+# Logs PM2
 pm2 logs gueclaw-agent --lines 100
 
-# Ver logs do systemd
-journalctl -u gueclaw -f -n 100
+# Status RAG database
+/stats no Telegram
 
-# Logs do aplicativo
-tail -f logs/gueclaw.log
+# Logs de routing (se DEBUG_ROUTING=true)
+# 🔀 Router [code] → deepseek/deepseek-r1  (CoT, 91.2%, 234ms)
 ```
-
-### Estatísticas
-
-Use `/stats` no Telegram para ver:
-- Skills carregadas
-- Descrição de cada skill
 
 ---
 
@@ -1029,142 +609,61 @@ Use `/stats` no Telegram para ver:
 
 ### Whitelist de Usuários
 
-Apenas usuários em `TELEGRAM_ALLOWED_USER_IDS` podem usar o bot:
-
 ```env
 TELEGRAM_ALLOWED_USER_IDS=123456789,987654321
 ```
 
-Para descobrir seu Telegram ID:
-1. Envie mensagem para [@userinfobot](https://t.me/userinfobot)
-2. Adicione o ID no `.env`
-3. Reinicie o agente
+### Credenciais Seguras
 
-### Autenticação do Dashboard ✨ NOVO
+- Nunca commite `.env` — está no `.gitignore`
+- Use senha forte no `RAG_POSTGRES_URL`
+- Configure SSH key ao invés de senha para VPS
 
-O dashboard requer senha para acesso (substituiu a restrição de IP):
+### Varredura de Segurança
 
-```env
-# Senha em base64 para acessar o dashboard
-DASHBOARD_PASSWORD_HASH=R3VlQ2xhdzIwMjZAU2VjdXJl
-```
-
-**Senha padrão:** `GueClaw2026@Secure`
-
-**Como trocar a senha:**
-```bash
-# Gerar novo hash
-node scripts/generate-password-hash.js "MinhaSenhaForte@123"
-
-# Copiar o hash para .env e Vercel
-# Redeploy: cd dashboard && vercel --prod
-```
-
-**Vantagens sobre IP whitelist:**
-- ✅ Acesso de qualquer lugar (celular, trabalho, viagem)
-- ✅ Funciona com IP dinâmico e CGNAT
-- ✅ Mais seguro com senha forte
-- ✅ Auditável (logs de acesso)
-
-> 📖 **Guia completo:** [docs/security/AUTH-MIGRATION.md](docs/security/AUTH-MIGRATION.md)
-
-### Varredura de Segurança Diária ✨ NOVO
-
-Análise automática da VPS todos os dias às 6h da manhã:
-
-**O que é verificado:**
-- ✅ Portas abertas e inesperadas
-- ✅ Tentativas de invasão (failed logins)
-- ✅ Status dos containers Docker
-- ✅ Uso de CPU, memória e disco
-- ✅ Atualizações de segurança pendentes
-- ✅ Status da API GueClaw
-
-**Instalação:**
-```powershell
-# Windows PowerShell
-npm run security:install:test
-
-# Ou manual
-.\scripts\install-security-audit.ps1 -TestNow
-```
-
-Relatórios são enviados automaticamente via Telegram.
-
-> 📖 **Guia de instalação:** [docs/security/QUICKSTART-SECURITY.md](docs/security/QUICKSTART-SECURITY.md)
-
-### Credenciais VPS
-
-Configure SSH key ao invés de senha:
-
-```bash
-# Gere chave SSH (se não tiver)
-ssh-keygen -t rsa -b 4096
-
-# Adicione ao .env
-VPS_SSH_KEY_PATH=/root/.ssh/id_rsa
-```
-
-### Rate Limiting
-
-O handler de output implementa rate limiting automático para evitar bloqueios do Telegram.
+O `SecurityMonitor` faz varredura diária da VPS (portas, logins, containers, disco) e envia relatório via Telegram.
 
 ---
 
 ## ❓ Troubleshooting
 
+### RAG não conecta
+
+```
+⚠️ RAG database skipped: connect ECONNREFUSED
+```
+**Solução**: Suba o PostgreSQL: `docker compose -f deploy/postgres-rag/docker-compose.yml up -d`
+
+### CoT Routing lento
+
+Configure `ROUTER_COT_ENABLED=false` para usar heurística instantânea.
+
 ### Bot não responde
 
-1. Verifique se está rodando:
-   ```bash
-   pm2 status gueclaw-agent
-   # ou
-   systemctl status gueclaw
-   ```
-
-2. Verifique logs:
-   ```bash
-   pm2 logs gueclaw-agent
-   ```
-
-3. Verifique variáveis de ambiente:
-   ```bash
-   cat .env | grep TELEGRAM
-   ```
-
-### Erro de API DeepSeek
-
-```
-❌ DeepSeek API error: Unauthorized
+```bash
+pm2 status gueclaw-agent
+pm2 logs gueclaw-agent
 ```
 
-**Solução**: Verifique se `DEEPSEEK_API_KEY` está correto e possui créditos.
+---
 
-### Erro de permissão
+## 📝 Changelog
 
-```
-❌ Error: EACCES: permission denied
-```
+- **v2.2.0** (10/05/2026) — RAG Profundo (PostgreSQL + pgvector) + CoT Routing (7 especialistas) + 284 testes
+- **v2.1.0** (22/04/2026) — Multi-LLM + Smart Routing, One-line installer
+- **v2.0.0** (22/04/2026) — Error Recovery System, Continue button
+- **v1.9.0** — Context Files, Cron Scheduler
+- **v1.8.0** — Subagentes paralelos, DOE architecture
 
-**Solução**: Execute como root ou adicione sudo nos comandos sensíveis.
-
-### Database locked
-
-```
-❌ Error: database is locked
-```
-
-**Solução**: Certifique-se de que `ENABLE_WAL=true` no `.env`.
+📖 **[CHANGELOG completo](CHANGELOG.md)**
 
 ---
 
 ## 🤝 Contribuindo
 
-Contribuições são bem-vindas! Para adicionar features:
-
 1. Fork o projeto
 2. Crie uma branch: `git checkout -b feature/nova-feature`
-3. Commit: `git commit -am 'Add: nova feature'`
+3. Commit: `git commit -m 'feat: nova feature'`
 4. Push: `git push origin feature/nova-feature`
 5. Abra um Pull Request
 
@@ -1178,17 +677,11 @@ MIT License - veja [LICENSE](LICENSE) para detalhes.
 
 ## 🙏 Agradecimentos
 
-- **DeepSeek** - LLM Provider
-- **Grammy** - Telegram Bot Framework
-- **better-sqlite3** - SQLite wrapper
-- Comunidade Open Source
-
----
-
-## 📧 Suporte
-
-- 🐛 **Issues**: [GitHub Issues](https://github.com/seu-usuario/gueclaw-agent/issues)
-- 💬 **Discussões**: [GitHub Discussions](https://github.com/seu-usuario/gueclaw-agent/discussions)
+- **DeepSeek** — Triage CoT + modelos de reasoning/code
+- **OpenRouter** — Gateway unificado para 200+ modelos
+- **pgvector** — Extensão PostgreSQL para busca vetorial
+- **Grammy** — Telegram Bot Framework para Node.js
+- **pdf-parse** — Extração de texto de PDFs
 
 ---
 
