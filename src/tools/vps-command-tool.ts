@@ -83,10 +83,20 @@ export class VPSCommandTool extends BaseTool {
         console.log(`🖥️  Executing VPS command: ${command.substring(0, 200)}`);
       }
 
+      // apt/apt-get podem levar vários minutos — aumenta timeout padrão para esses casos
+      const isPackageManager = /\b(apt|apt-get|dpkg)\b/.test(command);
+      const defaultTimeout = isPackageManager ? 300000 : 30000; // 5min para apt, 30s padrão
+
       const options: any = {
-        timeout: Math.min(Number(timeout) || 30000, 120000), // cap at 2 min
+        timeout: Math.min(Number(timeout) || defaultTimeout, 600000), // cap em 10 min
         maxBuffer: 1024 * 1024 * 10,
         encoding: 'utf8' as BufferEncoding,
+        // Evita prompts interativos de apt/dpkg/needrestart (padrão do hermes-agent)
+        env: {
+          ...process.env,
+          DEBIAN_FRONTEND: 'noninteractive',
+          NEEDRESTART_MODE: 'a',
+        },
       };
 
       if (workingDir) {
