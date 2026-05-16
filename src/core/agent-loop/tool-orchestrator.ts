@@ -190,8 +190,39 @@ export class ToolOrchestrator {
   ): Promise<ToolExecution> {
     const startTime = Date.now();
     const toolName = toolCall.function.name;
-    const args = toolCall.function.arguments;
-    
+    const rawArgs: any = toolCall.function.arguments;
+
+    let args: Record<string, any>;
+    if (typeof rawArgs === 'string') {
+      const trimmed = rawArgs.trim();
+      if (!trimmed) {
+        args = {};
+      } else {
+        try {
+          let parsed = JSON.parse(trimmed);
+          // Some models (e.g. DeepSeek R1) double-encode arguments as JSON string inside JSON string
+          if (typeof parsed === 'string') {
+            parsed = JSON.parse(parsed);
+          }
+          args = parsed;
+        } catch (parseErr: any) {
+          return {
+            tool: toolName,
+            input: { _raw: rawArgs },
+            output: '',
+            success: false,
+            error: `Invalid tool arguments JSON: ${parseErr.message}. Raw: ${trimmed.substring(0, 200)}`,
+            timestamp: Date.now(),
+            duration: Date.now() - startTime,
+            toolCallId: toolCall.id,
+            iteration,
+          };
+        }
+      }
+    } else {
+      args = rawArgs || {};
+    }
+
     console.log(`   🔧 Executing: ${toolName}`);
     
     try {
