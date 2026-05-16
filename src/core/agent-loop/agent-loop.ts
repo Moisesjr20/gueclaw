@@ -259,25 +259,44 @@ export class AgentLoop {
             break;
           }
 
-          // 🛡️ GUARDRAIL: Force tool execution if iteration=1 and no tools called
-          // This prevents LLM from "planning" instead of "acting" on complex tasks
+          // 🛡️ GUARDRAIL A: Force tool execution if iteration=1 and no tools called
+          // Prevents LLM from "planning" instead of "acting" on the first turn
           if (iteration === 1 && this.state.totalToolExecutions === 0 && iteration < this.maxIterations) {
-            console.warn('⚠️  LLM did not execute any tools on first iteration');
-            console.warn('   Content appears to be planning/description, not execution');
-            console.warn('   Forcing tool-use retry with explicit instruction...');
-            
+            console.warn('⚠️  LLM did not execute any tools on first iteration — forcing retry');
             this.conversationHistory.push({
               conversationId: 'temp',
               role: 'user',
-              content: 
-                '[SYSTEM CRITICAL]: You described what you would do, but you did NOT execute any tools. ' +
-                'You MUST use the available tools (vps_execute_command, file_operations, docker_manage, etc.) to actually perform the task. ' +
-                'Execute the tools NOW, then report results.'
+              content:
+                '[SISTEMA CRÍTICO]: Você descreveu o que faria, mas NÃO chamou nenhuma ferramenta. ' +
+                'Use as ferramentas disponíveis (vps_execute_command, docker_manage, etc.) para executar ' +
+                'a tarefa AGORA. Execute as ferramentas e então reporte os resultados reais.',
             });
-            
-            // Transition to retry
             this.state = updateState(this.state, StateTransition.RECOVERY_ATTEMPT);
-            continue; // Force retry
+            continue;
+          }
+
+          // 🛡️ GUARDRAIL B: Detect fabricated execution results on ANY iteration
+          // DeepSeek R1 sometimes hallucinates command outputs, timing, and ✅ statuses
+          // without having called any tool — this catches those patterns.
+          if (
+            this.state.totalToolExecutions === 0 &&
+            this.detectsFakeExecution(response.content) &&
+            iteration < this.maxIterations
+          ) {
+            console.warn('🚨 HALLUCINATION DETECTED: response claims execution but totalToolExecutions=0');
+            console.warn('   Patterns matched in content — forcing tool-use retry');
+            this.conversationHistory.push({
+              conversationId: 'temp',
+              role: 'user',
+              content:
+                '[SISTEMA - ALUCINAÇÃO DETECTADA]: Sua resposta afirma ter executado comandos ou ' +
+                'mostra resultados de execução (✅, versões, timing), mas NENHUMA ferramenta foi chamada. ' +
+                'Isso é uma alucinação. NUNCA invente saídas de comandos, versões de pacotes ou status de execução. ' +
+                'Use as ferramentas (vps_execute_command, etc.) para executar de verdade e reporte ' +
+                'APENAS o que as ferramentas retornaram.',
+            });
+            this.state = updateState(this.state, StateTransition.RECOVERY_ATTEMPT);
+            continue;
           }
 
           // We have a final answer
@@ -755,6 +774,13 @@ Se o usuário pede uma ação que requer verificação/execução:
 • NUNCA responda com "suposições" ou "explicações teóricas"
 • SEMPRE baseie sua resposta em resultados REAIS de ferramentas
 
+🚨 REGRA CRÍTICA #3: NUNCA INVENTE RESULTADOS DE EXECUÇÃO
+• NUNCA mostre saída de comando que você não executou
+• NUNCA invente versões de pacotes, tempo de execução ou status
+• NUNCA use ✅ para indicar sucesso sem ter recebido confirmação da ferramenta
+• Se a ferramenta falhou ou não foi chamada, diga ISSO — não invente sucesso
+• Tabelas com resultados de execução SÓ podem ser geradas a partir de output real de ferramentas
+
 TAREFAS COMPLEXAS (Múltiplos Passos):
 1. Execute cada passo sequencialmente usando as ferramentas apropriadas
 2. Verifique que cada passo teve sucesso antes do próximo
@@ -772,6 +798,34 @@ REGRA ESPECIAL — NO_REPLY:
 Quando você já entregou a resposta completa através de uma ferramenta (ex: send_message), retorne EXATAMENTE a string "NO_REPLY" como conteúdo final — sem mais nada. Isso evita respostas duplicadas.
 
 Lembre-se: você tem controle total sobre o VPS. Seja preciso e cuidadoso com operações destrutivas.`;
+  }
+
+  /**
+   * Detects if a response is fabricating execution results without having called any tools.
+   * DeepSeek R1 and similar models sometimes hallucinate command outputs, timing info,
+   * and success checkmarks — this catches those patterns.
+   */
+  private detectsFakeExecution(content: string): boolean {
+    if (!content || content === NO_REPLY) return false;
+
+    const fakeExecutionPatterns = [
+      // Checkmark + past-tense success verb (PT/EN)
+      /✅\s*(atualizado|instalado|executado|concluído|feito|updated|installed|completed|done)/i,
+      // Table with ✅ in status column — typical hallucinated summary
+      /\|\s*✅\s*(?:Atualizado|Instalado|OK|Success|Concluído)/i,
+      // Fabricated timing ("Tempo: ⚡ 23 segundos")
+      /[Tt]empo[:\s]+[⚡🕐⏱️]?\s*\d+\s*segundo/i,
+      // apt fabricated output line
+      /0\s+upgraded?,\s*0\s+newly\s+installed/i,
+      // "0 upgradable packages" — apt list output
+      /0\s+upgradable\s+packages/i,
+      // Fabricated version after upgrade command
+      /(?:apt|dpkg).*(?:upgrade|install)[\s\S]{0,300}versão\s+\d+\.\d+/i,
+      // "Sistema 100% atualizado" — common hallucination
+      /[Ss]istema\s+100%\s+[Aa]tualizado/i,
+    ];
+
+    return fakeExecutionPatterns.some(pattern => pattern.test(content));
   }
 
   /**
