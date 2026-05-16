@@ -16,11 +16,12 @@ import { calculateNextRun } from '@/../../src/services/cron/schedule-parser';
  */
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const storage = CronStorage.getInstance();
-    const job = storage.getJob(params.id);
+    const job = storage.getJob(id);
 
     if (!job) {
       return NextResponse.json(
@@ -35,7 +36,7 @@ export async function GET(
     });
 
   } catch (error: any) {
-    console.error(`[CronAPI] GET /jobs/${params.id} error:`, error);
+    console.error(`[CronAPI] GET /jobs/${id} error:`, error);
     return NextResponse.json(
       { error: 'Failed to fetch job', message: error.message },
       { status: 500 }
@@ -56,14 +57,15 @@ export async function GET(
  */
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const storage = CronStorage.getInstance();
     const body = await req.json();
     const { action, name, prompt, tags, group } = body;
 
-    const job = storage.getJob(params.id);
+    const job = storage.getJob(id);
     if (!job) {
       return NextResponse.json(
         { error: 'Job not found' },
@@ -71,28 +73,17 @@ export async function PATCH(
       );
     }
 
-    // Handle actions
     if (action === 'pause') {
-      await storage.updateJob(params.id, { status: 'paused' });
-      return NextResponse.json({
-        success: true,
-        message: `Job "${job.name}" paused`
-      });
+      await storage.updateJob(id, { status: 'paused' });
+      return NextResponse.json({ success: true, message: `Job "${job.name}" paused` });
     }
 
     if (action === 'resume') {
       const nextRun = calculateNextRun(job.schedule, new Date());
-      await storage.updateJob(params.id, {
-        status: 'active',
-        nextRun: nextRun.toISOString()
-      });
-      return NextResponse.json({
-        success: true,
-        message: `Job "${job.name}" resumed`
-      });
+      await storage.updateJob(id, { status: 'active', nextRun: nextRun.toISOString() });
+      return NextResponse.json({ success: true, message: `Job "${job.name}" resumed` });
     }
 
-    // Handle updates
     const updates: any = {};
     if (name !== undefined) updates.name = name;
     if (prompt !== undefined) updates.prompt = prompt;
@@ -100,20 +91,14 @@ export async function PATCH(
     if (group !== undefined) updates.group = group;
 
     if (Object.keys(updates).length > 0) {
-      await storage.updateJob(params.id, updates);
-      return NextResponse.json({
-        success: true,
-        message: 'Job updated successfully'
-      });
+      await storage.updateJob(id, updates);
+      return NextResponse.json({ success: true, message: 'Job updated successfully' });
     }
 
-    return NextResponse.json({
-      success: true,
-      message: 'No changes made'
-    });
+    return NextResponse.json({ success: true, message: 'No changes made' });
 
   } catch (error: any) {
-    console.error(`[CronAPI] PATCH /jobs/${params.id} error:`, error);
+    console.error(`[CronAPI] PATCH /jobs/${id} error:`, error);
     return NextResponse.json(
       { error: 'Failed to update job', message: error.message },
       { status: 500 }
@@ -126,49 +111,36 @@ export async function PATCH(
  */
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const storage = CronStorage.getInstance();
     const scheduler = CronScheduler.getInstance();
 
-    const job = storage.getJob(params.id);
+    const job = storage.getJob(id);
     if (!job) {
-      return NextResponse.json(
-        { error: 'Job not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Job not found' }, { status: 404 });
     }
 
-    // Check if permanent
     if (job.permanent) {
-      return NextResponse.json(
-        { error: 'Cannot delete permanent job' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: 'Cannot delete permanent job' }, { status: 403 });
     }
 
-    // Unregister webhook if applicable
     if (job.trigger?.type === 'webhook') {
-      scheduler.unregisterJobWebhook(params.id);
+      scheduler.unregisterJobWebhook(id);
     }
 
-    const deleted = await storage.deleteJob(params.id);
+    const deleted = await storage.deleteJob(id);
 
     if (!deleted) {
-      return NextResponse.json(
-        { error: 'Failed to delete job' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to delete job' }, { status: 500 });
     }
 
-    return NextResponse.json({
-      success: true,
-      message: `Job "${job.name}" deleted successfully`
-    });
+    return NextResponse.json({ success: true, message: `Job "${job.name}" deleted successfully` });
 
   } catch (error: any) {
-    console.error(`[CronAPI] DELETE /jobs/${params.id} error:`, error);
+    console.error(`[CronAPI] DELETE /jobs/${id} error:`, error);
     return NextResponse.json(
       { error: 'Failed to delete job', message: error.message },
       { status: 500 }

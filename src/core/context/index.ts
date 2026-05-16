@@ -4,8 +4,8 @@
 
 export {
   ContextLoader,
-  ContextFile,
   getContextLoader,
   loadProjectContext,
   ensureDefaultContext,
 } from './context-loader';
+export type { ContextFile } from './context-loader';

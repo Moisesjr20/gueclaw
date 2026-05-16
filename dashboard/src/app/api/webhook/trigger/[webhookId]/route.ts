@@ -39,9 +39,9 @@ function getClientIp(req: NextRequest): string {
  */
 export async function POST(
   req: NextRequest,
-  { params }: { params: { webhookId: string } }
+  { params }: { params: Promise<{ webhookId: string }> }
 ) {
-  const { webhookId } = params;
+  const { webhookId } = await params;
 
   try {
     // Get managers
@@ -131,9 +131,9 @@ export async function POST(
  */
 export async function GET(
   req: NextRequest,
-  { params }: { params: { webhookId: string } }
+  { params }: { params: Promise<{ webhookId: string }> }
 ) {
-  const { webhookId } = params;
+  const { webhookId } = await params;
 
   try {
     const webhookManager = WebhookTriggerManager.getInstance();

@@ -15,14 +15,15 @@ import { CronStorage } from '@/../../src/services/cron/cron-storage';
  */
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const storage = CronStorage.getInstance();
     const searchParams = req.nextUrl.searchParams;
     const limit = parseInt(searchParams.get('limit') || '20');
 
-    const job = storage.getJob(params.id);
+    const job = storage.getJob(id);
     if (!job) {
       return NextResponse.json(
         { error: 'Job not found' },
@@ -30,7 +31,7 @@ export async function GET(
       );
     }
 
-    const outputs = storage.getJobOutputs(params.id, limit);
+    const outputs = storage.getJobOutputs(id, limit);
 
     return NextResponse.json({
       success: true,
@@ -40,7 +41,7 @@ export async function GET(
     });
 
   } catch (error: any) {
-    console.error(`[CronAPI] GET /jobs/${params.id}/outputs error:`, error);
+    console.error(`[CronAPI] GET /jobs/${id}/outputs error:`, error);
     return NextResponse.json(
       { error: 'Failed to fetch outputs', message: error.message },
       { status: 500 }

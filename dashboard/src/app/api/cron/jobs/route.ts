@@ -10,7 +10,8 @@ import { CronStorage } from '@/../../src/services/cron/cron-storage';
 import { CronScheduler } from '@/../../src/services/cron/cron-scheduler';
 import { parse, calculateNextRun, isValidSchedule } from '@/../../src/services/cron/schedule-parser';
 import { ConditionEvaluator } from '@/../../src/services/cron/condition-evaluator';
-import type { DeliveryTarget, TriggerType } from '@/../../src/services/cron/cron-types';
+import { WebhookTriggerManager } from '@/../../src/services/cron/triggers/webhook-trigger-manager';
+import type { DeliveryTarget } from '@/../../src/services/cron/cron-types';
 
 /**
  * GET /api/cron/jobs
@@ -126,11 +127,6 @@ export async function POST(req: NextRequest) {
       condition,
       userId
     } = body;
-      maxRetries = 0,
-      retryBackoffMs = 60000,
-      timeoutSeconds = 300,
-      userId
-    } = body;
 
     // Validate required fields
     if (!name || !prompt || !userId) {
@@ -156,6 +152,9 @@ export async function POST(req: NextRequest) {
         );
       }
 
+      const parsedSchedule = { ...parse(schedule), ...(jitter ? { jitter } : {}) };
+      const nextRun = calculateNextRun(parsedSchedule);
+
       // Extract dependencies from condition if provided
       let dependencies: string[] | undefined;
       if (condition) {
@@ -179,14 +178,7 @@ export async function POST(req: NextRequest) {
         tags,
         group,
         condition,
-        dependenciess: 'active',
-        nextRun: nextRun.toISOString(),
-        userId,
-        maxRetries,
-        retryBackoffMs,
-        timeoutSeconds,
-        tags,
-        group
+        dependencies
       });
 
       return NextResponse.json({
@@ -236,7 +228,6 @@ export async function POST(req: NextRequest) {
       }, { status: 201 });
 
     } else if (triggerType === 'webhook') {
-      const { WebhookTriggerManager } = require('@/../../src/services/cron/triggers/webhook-trigger-manager');
       const webhookManager = WebhookTriggerManager.getInstance();
 
       const webhookId = webhookManager.generateWebhookId();

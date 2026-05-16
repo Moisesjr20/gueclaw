@@ -6,7 +6,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { use, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
@@ -63,7 +63,8 @@ interface JobOutput {
   originalScheduledTime?: string;
 }
 
-export default function JobDetails({ params }: { params: { id: string } }) {
+export default function JobDetails({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
   const router = useRouter();
   const [job, setJob] = useState<CronJob | null>(null);
   const [outputs, setOutputs] = useState<JobOutput[]>([]);
@@ -74,11 +75,11 @@ export default function JobDetails({ params }: { params: { id: string } }) {
   useEffect(() => {
     fetchJob();
     fetchOutputs();
-  }, [params.id]);
+  }, [id]);
 
   const fetchJob = async () => {
     try {
-      const res = await fetch(`/api/cron/jobs/${params.id}`);
+      const res = await fetch(`/api/cron/jobs/${id}`);
       const data = await res.json();
 
       if (data.success) {
@@ -96,7 +97,7 @@ export default function JobDetails({ params }: { params: { id: string } }) {
 
   const fetchOutputs = async () => {
     try {
-      const res = await fetch(`/api/cron/jobs/${params.id}/outputs?limit=50`);
+      const res = await fetch(`/api/cron/jobs/${id}/outputs?limit=50`);
       const data = await res.json();
 
       if (data.success) {
@@ -109,7 +110,7 @@ export default function JobDetails({ params }: { params: { id: string } }) {
 
   const handlePause = async () => {
     try {
-      const res = await fetch(`/api/cron/jobs/${params.id}`, {
+      const res = await fetch(`/api/cron/jobs/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'pause' })
@@ -126,7 +127,7 @@ export default function JobDetails({ params }: { params: { id: string } }) {
 
   const handleResume = async () => {
     try {
-      const res = await fetch(`/api/cron/jobs/${params.id}`, {
+      const res = await fetch(`/api/cron/jobs/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'resume' })
@@ -145,7 +146,7 @@ export default function JobDetails({ params }: { params: { id: string } }) {
     if (!confirm(`Trigger job "${job?.name}" now?`)) return;
 
     try {
-      const res = await fetch(`/api/cron/jobs/${params.id}/trigger`, {
+      const res = await fetch(`/api/cron/jobs/${id}/trigger`, {
         method: 'POST'
       });
 
@@ -165,7 +166,7 @@ export default function JobDetails({ params }: { params: { id: string } }) {
     if (!confirm(`Delete job "${job?.name}"? This cannot be undone.`)) return;
 
     try {
-      const res = await fetch(`/api/cron/jobs/${params.id}`, {
+      const res = await fetch(`/api/cron/jobs/${id}`, {
         method: 'DELETE'
       });
 

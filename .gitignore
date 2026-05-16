@@ -24,6 +24,9 @@ logs/*
 # Context files — contain personal information
 .gueclaw/
 
+# SSH config do VPS — contém dados de acesso sensíveis
+.ssh-config
+
 # MCP memory — pode conter dados sensíveis de sessões anteriores
 data/memory/mcp-memory.jsonl
 

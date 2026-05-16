@@ -14,7 +14,7 @@ function heuristicCategory(message: string): RouterCategory {
   const m = message.toLowerCase();
   if (m.length < 80 && /^(oi|olá|ola|bom dia|boa tarde|boa noite|hi|hello|hey|ok|obrigad)/i.test(m)) return 'fast';
   if (/\b(código|code|função|function|bug|debug|erro|error|refator|typescript|python|javascript|sql|api endpoint)\b/i.test(m)) return 'code';
-  if (/\b(execut|roda|docker|shell|ssh|comando|arquivo|pasta|diretório|vps|server|deploy|container)\b/i.test(m)) return 'agentic';
+  if (/\b(execut\w*|rod[ae]\w*|docker|shell|ssh|comando\w*|arquivo\w*|pasta|diretório|vps|server\w*|servidor\w*|deploy\w*|container\w*|atualiz\w*|instal\w*|reinici\w*|verific\w*|monit\w*)/i.test(m)) return 'agentic';
   if (/\b(escreve|redija|traduza|resumo|resumir|relatório|escreva|artigo|texto)\b/i.test(m)) return 'text';
   if (m.length > 600 || /\b(completo|detalhado|lista completa|tudo sobre|explique tudo)\b/i.test(m)) return 'longoutput';
   if (/\b(analise|calcule|compare|explique|deduza|raciocine|prove|argumento)\b/i.test(m)) return 'reasoning';

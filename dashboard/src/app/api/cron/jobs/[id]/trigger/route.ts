@@ -13,13 +13,14 @@ import { CronStorage } from '@/../../src/services/cron/cron-storage';
  */
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const storage = CronStorage.getInstance();
     const scheduler = CronScheduler.getInstance();
 
-    const job = storage.getJob(params.id);
+    const job = storage.getJob(id);
     if (!job) {
       return NextResponse.json(
         { error: 'Job not found' },
@@ -35,7 +36,7 @@ export async function POST(
     }
 
     // Trigger job (runs in background)
-    await scheduler.triggerJob(params.id);
+    await scheduler.triggerJob(id);
 
     return NextResponse.json({
       success: true,
@@ -43,7 +44,7 @@ export async function POST(
     });
 
   } catch (error: any) {
-    console.error(`[CronAPI] POST /jobs/${params.id}/trigger error:`, error);
+    console.error(`[CronAPI] POST /jobs/${id}/trigger error:`, error);
     return NextResponse.json(
       { error: 'Failed to trigger job', message: error.message },
       { status: 500 }
