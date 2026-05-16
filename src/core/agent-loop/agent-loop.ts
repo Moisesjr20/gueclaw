@@ -401,6 +401,44 @@ export class AgentLoop {
           finalResponse = 'Desculpe, não consegui processar a resposta. Por favor, tente novamente.';
           break;
         }
+
+        // 🛡️ GUARDRAIL A (fallback path): finishReason unknown/undefined — still enforce tool use on iter 1
+        if (iteration === 1 && this.state.totalToolExecutions === 0 && iteration < this.maxIterations) {
+          console.warn('⚠️  [fallback] No tools on first iteration — forcing retry');
+          this.conversationHistory.push({
+            conversationId: 'temp',
+            role: 'user',
+            content:
+              '[SISTEMA CRÍTICO]: Você descreveu o que faria, mas NÃO chamou nenhuma ferramenta. ' +
+              'Use as ferramentas disponíveis (vps_execute_command, docker_manage, etc.) para executar ' +
+              'a tarefa AGORA. Execute as ferramentas e então reporte os resultados reais.',
+          });
+          this.state = updateState(this.state, StateTransition.RECOVERY_ATTEMPT);
+          continue;
+        }
+
+        // 🛡️ GUARDRAIL B (fallback path): detect fabricated execution on ANY iteration
+        // Covers models that return finishReason=undefined (e.g. kimi-k2 via OpenRouter)
+        if (
+          this.state.totalToolExecutions === 0 &&
+          this.detectsFakeExecution(response.content) &&
+          iteration < this.maxIterations
+        ) {
+          console.warn('🚨 [fallback] HALLUCINATION DETECTED: fake execution claims, no tools called');
+          this.conversationHistory.push({
+            conversationId: 'temp',
+            role: 'user',
+            content:
+              '[SISTEMA - ALUCINAÇÃO DETECTADA]: Sua resposta afirma ter executado comandos ou ' +
+              'mostra resultados de execução (✅, versões, timing), mas NENHUMA ferramenta foi chamada. ' +
+              'Isso é uma alucinação. NUNCA invente saídas de comandos, versões de pacotes ou status de execução. ' +
+              'Use as ferramentas (vps_execute_command, etc.) para executar de verdade e reporte ' +
+              'APENAS o que as ferramentas retornaram.',
+          });
+          this.state = updateState(this.state, StateTransition.RECOVERY_ATTEMPT);
+          continue;
+        }
+
         finalResponse = response.content;
         break;
 
